@@ -1,0 +1,8 @@
+rootProject.name = 'beadv5-404-not-found'
+
+include 'eureka-server'
+include 'gateway-service'
+include 'member-service'
+include 'product-service'
+include 'order-service'
+include 'payment-service'
