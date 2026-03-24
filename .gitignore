@@ -3,7 +3,7 @@
 *.iml
 *.iws
 *.ipr
-out/
+/out/
 
 # Gradle
 .gradle/
@@ -25,9 +25,6 @@ Thumbs.db
 # Environment
 .env
 *.env.local
-
-# Docs
-docs/
 
 # Spring Boot
 spring-shell.log
