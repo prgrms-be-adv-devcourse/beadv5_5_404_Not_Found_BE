@@ -11,6 +11,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class ProductTest {
 
@@ -25,7 +26,7 @@ class ProductTest {
                 "출판사",
                 15000,
                 quantity,
-                BookType.PAPER,
+                BookType.NEW,
                 status,
                 BigDecimal.ZERO,
                 0,
@@ -40,23 +41,23 @@ class ProductTest {
         @Test
         @DisplayName("재고가 충분하면 예외가 발생하지 않는다")
         void success_whenStockIsSufficient() {
-            Product product = createProduct(10, ProductStatus.AVAILABLE);
+            Product product = createProduct(10, ProductStatus.ACTIVE);
 
-            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> product.validateStock(5));
+            assertDoesNotThrow(() -> product.validateStock(5));
         }
 
         @Test
         @DisplayName("요청 수량과 재고가 같으면 예외가 발생하지 않는다")
         void success_whenStockEqualsRequested() {
-            Product product = createProduct(5, ProductStatus.AVAILABLE);
+            Product product = createProduct(5, ProductStatus.ACTIVE);
 
-            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> product.validateStock(5));
+            assertDoesNotThrow(() -> product.validateStock(5));
         }
 
         @Test
         @DisplayName("재고가 부족하면 InsufficientStockException이 발생한다")
         void fail_whenStockIsInsufficient() {
-            Product product = createProduct(3, ProductStatus.AVAILABLE);
+            Product product = createProduct(3, ProductStatus.ACTIVE);
 
             assertThatThrownBy(() -> product.validateStock(5))
                     .isInstanceOf(InsufficientStockException.class);
@@ -70,7 +71,7 @@ class ProductTest {
         @Test
         @DisplayName("정상 차감 시 재고가 줄어든다")
         void success_quantityDecreased() {
-            Product product = createProduct(10, ProductStatus.AVAILABLE);
+            Product product = createProduct(10, ProductStatus.ACTIVE);
 
             product.deductStock(3);
 
@@ -78,22 +79,33 @@ class ProductTest {
         }
 
         @Test
-        @DisplayName("재고 전량 차감이 가능하다")
-        void success_deductAllStock() {
-            Product product = createProduct(5, ProductStatus.AVAILABLE);
+        @DisplayName("재고 전량 차감 시 상태가 SOLD_OUT으로 변경된다")
+        void success_statusChangesToSoldOut_whenQuantityBecomesZero() {
+            Product product = createProduct(5, ProductStatus.ACTIVE);
 
             product.deductStock(5);
 
             assertThat(product.getQuantity()).isZero();
+            assertThat(product.getStatus()).isEqualTo(ProductStatus.SOLD_OUT);
         }
 
         @Test
         @DisplayName("재고보다 많은 수량 차감 시 InsufficientStockException이 발생한다")
         void fail_whenDeductMoreThanStock() {
-            Product product = createProduct(3, ProductStatus.AVAILABLE);
+            Product product = createProduct(3, ProductStatus.ACTIVE);
 
             assertThatThrownBy(() -> product.deductStock(5))
                     .isInstanceOf(InsufficientStockException.class);
+        }
+
+        @Test
+        @DisplayName("INACTIVE 상태에서는 차감해도 상태가 변경되지 않는다")
+        void statusNotChanged_whenInactive() {
+            Product product = createProduct(5, ProductStatus.INACTIVE);
+
+            product.deductStock(5);
+
+            assertThat(product.getStatus()).isEqualTo(ProductStatus.INACTIVE);
         }
     }
 
@@ -104,7 +116,7 @@ class ProductTest {
         @Test
         @DisplayName("재고 복구 시 수량이 증가한다")
         void success_quantityIncreased() {
-            Product product = createProduct(5, ProductStatus.AVAILABLE);
+            Product product = createProduct(5, ProductStatus.ACTIVE);
 
             product.restoreStock(3);
 
@@ -112,13 +124,24 @@ class ProductTest {
         }
 
         @Test
-        @DisplayName("재고가 0일 때도 복구가 가능하다")
-        void success_restoreFromZero() {
-            Product product = createProduct(0, ProductStatus.AVAILABLE);
+        @DisplayName("SOLD_OUT 상태에서 복구 시 상태가 ACTIVE로 변경된다")
+        void success_statusChangesToActive_whenRestoredFromSoldOut() {
+            Product product = createProduct(0, ProductStatus.SOLD_OUT);
 
             product.restoreStock(5);
 
             assertThat(product.getQuantity()).isEqualTo(5);
+            assertThat(product.getStatus()).isEqualTo(ProductStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("INACTIVE 상태에서는 복구해도 상태가 변경되지 않는다")
+        void statusNotChanged_whenInactive() {
+            Product product = createProduct(0, ProductStatus.INACTIVE);
+
+            product.restoreStock(5);
+
+            assertThat(product.getStatus()).isEqualTo(ProductStatus.INACTIVE);
         }
     }
 
@@ -127,25 +150,41 @@ class ProductTest {
     class IsAvailable {
 
         @Test
-        @DisplayName("AVAILABLE 상태이고 재고가 있으면 구매 가능하다")
-        void available_whenStatusAvailableAndStockExists() {
-            Product product = createProduct(1, ProductStatus.AVAILABLE);
+        @DisplayName("ACTIVE 상태이고 재고가 있으면 구매 가능하다")
+        void available_whenStatusActiveAndStockExists() {
+            Product product = createProduct(1, ProductStatus.ACTIVE);
 
             assertThat(product.isAvailable()).isTrue();
         }
 
         @Test
-        @DisplayName("AVAILABLE 상태여도 재고가 0이면 구매 불가능하다")
+        @DisplayName("ACTIVE 상태여도 재고가 0이면 구매 불가능하다")
         void notAvailable_whenStockIsZero() {
-            Product product = createProduct(0, ProductStatus.AVAILABLE);
+            Product product = createProduct(0, ProductStatus.ACTIVE);
 
             assertThat(product.isAvailable()).isFalse();
         }
 
         @Test
-        @DisplayName("DISCONTINUED 상태이면 재고가 있어도 구매 불가능하다")
-        void notAvailable_whenDiscontinued() {
-            Product product = createProduct(10, ProductStatus.DISCONTINUED);
+        @DisplayName("SOLD_OUT 상태이면 구매 불가능하다")
+        void notAvailable_whenSoldOut() {
+            Product product = createProduct(0, ProductStatus.SOLD_OUT);
+
+            assertThat(product.isAvailable()).isFalse();
+        }
+
+        @Test
+        @DisplayName("INACTIVE 상태이면 재고가 있어도 구매 불가능하다")
+        void notAvailable_whenInactive() {
+            Product product = createProduct(10, ProductStatus.INACTIVE);
+
+            assertThat(product.isAvailable()).isFalse();
+        }
+
+        @Test
+        @DisplayName("PENDING_REVIEW 상태이면 재고가 있어도 구매 불가능하다")
+        void notAvailable_whenPendingReview() {
+            Product product = createProduct(10, ProductStatus.PENDING_REVIEW);
 
             assertThat(product.isAvailable()).isFalse();
         }

@@ -18,7 +18,7 @@ public class Product {
     private final int price;
     private int quantity;
     private final BookType bookType;
-    private final ProductStatus status;
+    private ProductStatus status;
     private final BigDecimal avgRating;
     private final int reviewCount;
     private final LocalDateTime createdAt;
@@ -60,14 +60,20 @@ public class Product {
     public void deductStock(int quantity) {
         validateStock(quantity);
         this.quantity -= quantity;
+        if (this.quantity == 0 && this.status == ProductStatus.ACTIVE) {
+            this.status = ProductStatus.SOLD_OUT;
+        }
     }
 
     public void restoreStock(int quantity) {
         this.quantity += quantity;
+        if (this.status == ProductStatus.SOLD_OUT) {
+            this.status = ProductStatus.ACTIVE;
+        }
     }
 
     public boolean isAvailable() {
-        return this.status == ProductStatus.AVAILABLE && this.quantity > 0;
+        return this.status == ProductStatus.ACTIVE && this.quantity > 0;
     }
 
     public UUID getId() { return id; }
