@@ -1,39 +1,131 @@
 package com.notfound.gateway.filter;
 
+import com.notfound.gateway.client.MemberInternalClient;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * JWT 인증 GlobalFilter
+ * Gateway JWT 인증 GlobalFilter
  *
- * TODO: JWT 담당자가 아래 항목을 구현합니다.
- *  1. Authorization 헤더에서 Bearer 토큰 추출
- *  2. JJWT로 서명 검증 (jwt.secret-key)
- *  3. Redis 블랙리스트 조회 (blacklist:{jti})
- *  4. claims에서 sub(userId), role, email_verified 추출
- *  5. 검증 실패 시 401 반환
- *  6. 검증 성공 시 X-User-Id, X-Role 헤더 추가 후 downstream 전달
+ * 1. 공개 API는 인증 없이 통과
+ * 2. Authorization 헤더에서 Bearer 토큰 추출
+ * 3. JJWT로 서명 검증 + 만료 확인
+ * 4. Member Service internal API로 블랙리스트 조회
+ * 5. claims에서 sub(userId), role 추출
+ * 6. 검증 실패 시 401 반환
+ * 7. 검증 성공 시 X-User-Id, X-Role 헤더 추가 후 downstream 전달
  */
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String HEADER_USER_ID = "X-User-Id";
+    private static final String HEADER_ROLE = "X-Role";
+
     private static final List<String> PUBLIC_PATHS = List.of(
-            "/api/members/register",
-            "/api/members/login",
-            "/api/members/reissue",
-            "/api/products"
+            "/api/members/auth/register",
+            "/api/members/auth/login",
+            "/api/members/auth/refresh"
     );
+
+    private final SecretKey secretKey;
+    private final MemberInternalClient memberInternalClient;
+
+    public JwtAuthenticationFilter(@Value("${jwt.secret}") String secret,
+                                   MemberInternalClient memberInternalClient) {
+        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.memberInternalClient = memberInternalClient;
+    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        // TODO: JWT 검증 로직 구현 전까지 모든 요청 통과
-        return chain.filter(exchange);
+        ServerHttpRequest request = exchange.getRequest();
+        String path = request.getURI().getPath();
+        HttpMethod method = request.getMethod();
+
+        // 공개 API 바이패스
+        if (isPublicPath(path, method)) {
+            return chain.filter(stripUserHeaders(exchange));
+        }
+
+        // Authorization 헤더 확인
+        String authHeader = request.getHeaders().getFirst("Authorization");
+        if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+            return unauthorized(exchange);
+        }
+
+        // JWT 검증
+        String token = authHeader.substring(BEARER_PREFIX.length());
+        Claims claims;
+        try {
+            claims = Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (Exception e) {
+            return unauthorized(exchange);
+        }
+
+        String jti = claims.getId();
+        String userId = claims.getSubject();
+        String role = claims.get("role", String.class);
+
+        // 블랙리스트 조회 후 헤더 주입
+        return memberInternalClient.isBlacklisted(jti)
+                .flatMap(blacklisted -> {
+                    if (Boolean.TRUE.equals(blacklisted)) {
+                        return unauthorized(exchange);
+                    }
+
+                    ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                            .headers(headers -> {
+                                headers.remove(HEADER_USER_ID);
+                                headers.remove(HEADER_ROLE);
+                            })
+                            .header(HEADER_USER_ID, userId)
+                            .header(HEADER_ROLE, role)
+                            .build();
+
+                    return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                });
+    }
+
+    private boolean isPublicPath(String path, HttpMethod method) {
+        if (HttpMethod.GET.equals(method) && path.startsWith("/api/products")) {
+            return true;
+        }
+        return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
+    }
+
+    private ServerWebExchange stripUserHeaders(ServerWebExchange exchange) {
+        ServerHttpRequest request = exchange.getRequest().mutate()
+                .headers(headers -> {
+                    headers.remove(HEADER_USER_ID);
+                    headers.remove(HEADER_ROLE);
+                })
+                .build();
+        return exchange.mutate().request(request).build();
+    }
+
+    private Mono<Void> unauthorized(ServerWebExchange exchange) {
+        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        return exchange.getResponse().setComplete();
     }
 
     @Override

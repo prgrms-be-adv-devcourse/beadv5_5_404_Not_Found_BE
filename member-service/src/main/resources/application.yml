@@ -2,6 +2,8 @@ server:
   port: 8081
 
 spring:
+  config:
+    import: optional:file:../.env[.properties]
   application:
     name: member-service
   datasource:
@@ -26,3 +28,9 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+jwt:
+  secret: ${JWT_SECRET:default-jwt-secret-key-for-local-development-only-change-in-production}
+
+internal:
+  secret: ${INTERNAL_SECRET:default-internal-secret}
