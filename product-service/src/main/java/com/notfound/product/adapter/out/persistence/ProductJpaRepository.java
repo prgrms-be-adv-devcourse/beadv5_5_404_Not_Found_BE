@@ -8,4 +8,6 @@ import java.util.UUID;
 public interface ProductJpaRepository extends JpaRepository<ProductJpaEntity, UUID> {
 
     List<ProductJpaEntity> findAllByIdIn(List<UUID> ids);
+
+    boolean existsByIsbn(String isbn);
 }

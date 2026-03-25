@@ -15,4 +15,6 @@ public interface ProductRepository {
     List<Product> findAll();
 
     List<Product> findAllByIds(List<UUID> ids);
+
+    boolean existsByIsbn(String isbn);
 }

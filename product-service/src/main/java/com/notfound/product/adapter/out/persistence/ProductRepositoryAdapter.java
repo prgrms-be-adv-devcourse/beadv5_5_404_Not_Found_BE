@@ -42,4 +42,9 @@ public class ProductRepositoryAdapter implements ProductRepository {
                 .map(ProductJpaEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public boolean existsByIsbn(String isbn) {
+        return productJpaRepository.existsByIsbn(isbn);
+    }
 }

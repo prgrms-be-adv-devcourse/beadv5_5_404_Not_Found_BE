@@ -4,6 +4,7 @@ import com.notfound.product.application.port.in.*;
 import com.notfound.product.application.port.out.CategoryRepository;
 import com.notfound.product.application.port.out.ProductRepository;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
+import com.notfound.product.domain.exception.IsbnDuplicateException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import com.notfound.product.domain.model.Product;
 import com.notfound.product.domain.model.ProductStatus;
@@ -36,6 +37,10 @@ public class ProductService implements
     public Product registerProduct(RegisterProductCommand command) {
         categoryRepository.findById(command.categoryId())
                 .orElseThrow(() -> new CategoryNotFoundException(command.categoryId()));
+
+        if (productRepository.existsByIsbn(command.isbn())) {
+            throw new IsbnDuplicateException(command.isbn());
+        }
 
         Product product = Product.of(
                 UUID.randomUUID(),
