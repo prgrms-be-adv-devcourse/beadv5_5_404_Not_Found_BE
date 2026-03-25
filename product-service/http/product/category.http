@@ -1,0 +1,56 @@
+### Base URL
+@baseUrl = http://localhost:8082
+
+###
+# 카테고리 목록 조회 (트리 형태)
+GET {{baseUrl}}/products/categories
+
+###
+# 루트 카테고리 등록
+POST {{baseUrl}}/products/categories
+Content-Type: application/json
+
+{
+  "parentId": null,
+  "name": "국내도서",
+  "slug": "domestic",
+  "sortOrder": 1
+}
+
+###
+# 자식 카테고리 등록 (parentId는 위 등록 응답의 data.id로 교체)
+@rootCategoryId = 00000000-0000-0000-0000-000000000000
+
+POST {{baseUrl}}/products/categories
+Content-Type: application/json
+
+{
+  "parentId": "{{rootCategoryId}}",
+  "name": "소설",
+  "slug": "novel",
+  "sortOrder": 1
+}
+
+###
+# [실패] name 누락 - 400 INVALID_INPUT_VALUE
+POST {{baseUrl}}/products/categories
+Content-Type: application/json
+
+{
+  "parentId": null,
+  "name": "",
+  "slug": "domestic",
+  "sortOrder": 1
+}
+
+###
+# [실패] slug 중복 - 409 CATEGORY_SLUG_DUPLICATE
+POST {{baseUrl}}/products/categories
+Content-Type: application/json
+
+{
+  "parentId": null,
+  "name": "국내도서2",
+  "slug": "domestic",
+  "sortOrder": 2
+}

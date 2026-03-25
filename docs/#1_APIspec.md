@@ -44,14 +44,13 @@
 | 상품 목록 조회 | GET | /products | 상품 리스트 조회, `?ids=` 파라미터로 배치 조회 가능 (비회원 접근 가능) | ✅ |
 | 상품 상세 조회 | GET | /products/{productId} | 상품 상세 (비회원 접근 가능) | ✅ |
 | 상품 등록 | POST | /products | 상품 등록 | ✅ |
-| 상품 수정 | PATCH | /products/{productId} | 상품 정보 수정 | ❌ |
-| 상품 상태 변경 | PATCH | /products/{productId}/status | 판매 상태 변경 | ❌ |
+| 상품 수정 | PATCH | /products/{productId} | 상품 정보 + 재고 수량 수정 (판매자) | ❌ |
+| 상품 상태 변경 | PATCH | /products/{productId}/status | 판매 상태 변경 (판매자 + 관리자) | ❌ |
 | 재고 조회 | GET | /products/{productId}/stock | 재고 확인 | ✅ |
-| 재고 수정 | PATCH | /products/{productId}/stock | 재고 변경 (판매자) | ❌ |
 | 재고 차감 | POST | /products/{productId}/stock/deduct | 재고 차감 (내부 서비스 호출) | ✅ |
 | 재고 복구 | POST | /products/{productId}/stock/restore | 재고 복구 (내부 서비스 호출) | ✅ |
-| 카테고리 조회 | GET | /products/categories | 카테고리 조회 | ❌ |
-| 카테고리 추가 | POST | /products/categories | 카테고리 등록 | ❌ |
+| 카테고리 조회 | GET | /products/categories | 카테고리 조회 | ✅ |
+| 카테고리 추가 | POST | /products/categories | 카테고리 등록 | ✅ |
 
 ---
 
