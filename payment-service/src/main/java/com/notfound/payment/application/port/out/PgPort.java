@@ -1,7 +1,5 @@
 package com.notfound.payment.application.port.out;
 
-import com.notfound.payment.domain.model.PgProvider;
-
 import java.time.LocalDateTime;
 
 public interface PgPort {
@@ -11,7 +9,6 @@ public interface PgPort {
     PgCancelResult cancel(PgCancelCommand command);
 
     record PgConfirmCommand(
-            PgProvider pgProvider,
             String paymentKey,
             String orderId,
             int amount
@@ -24,7 +21,6 @@ public interface PgPort {
     ) {}
 
     record PgCancelCommand(
-            PgProvider pgProvider,
             String paymentKey,
             String cancelReason,
             int cancelAmount
