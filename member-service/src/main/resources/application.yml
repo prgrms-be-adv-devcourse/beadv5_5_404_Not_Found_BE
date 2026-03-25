@@ -17,7 +17,15 @@ spring:
       hibernate:
         format_sql: true
 
+jwt:
+  secret-key: ${JWT_SECRET_KEY}
+  access-expiration: 1800000
+  refresh-expiration: 1209600000
+
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+internal:
+  secret-key: ${INTERNAL_SECRET_KEY}

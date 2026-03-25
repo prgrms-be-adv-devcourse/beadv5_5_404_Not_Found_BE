@@ -31,3 +31,6 @@ eureka:
 
 jwt:
   secret-key: ${JWT_SECRET_KEY}
+
+internal:
+  secret-key: ${INTERNAL_SECRET_KEY}
