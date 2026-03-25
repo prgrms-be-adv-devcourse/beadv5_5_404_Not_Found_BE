@@ -1,0 +1,27 @@
+### Base URL
+@baseUrl = http://localhost:8082
+
+### productId 설정 (상품 등록 후 응답에서 복사)
+@productId = 8b31b750-3d9d-4c6b-ae7f-6607c3850ff5
+
+###
+# 재고 조회
+GET {{baseUrl}}/products/{{productId}}/stock
+
+###
+# 재고 차감
+POST {{baseUrl}}/products/{{productId}}/stock/deduct
+Content-Type: application/json
+
+{
+  "quantity": 3
+}
+
+###
+# 재고 복구
+POST {{baseUrl}}/products/{{productId}}/stock/restore
+Content-Type: application/json
+
+{
+  "quantity": 3
+}

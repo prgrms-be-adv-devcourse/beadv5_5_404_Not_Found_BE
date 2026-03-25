@@ -20,7 +20,6 @@ public class ProductService implements
         RegisterProductUseCase,
         GetProductUseCase,
         GetProductListUseCase,
-        ValidateStockUseCase,
         DeductStockUseCase,
         RestoreStockUseCase {
 
@@ -72,15 +71,6 @@ public class ProductService implements
             return productRepository.findAll();
         }
         return productRepository.findAllByIds(ids);
-    }
-
-    @Transactional(readOnly = true)
-    @Override
-    public void validateStock(ValidateStockCommand command) {
-        Product product = productRepository.findById(command.productId())
-                .orElseThrow(() -> new ProductNotFoundException(command.productId()));
-
-        product.validateStock(command.quantity());
     }
 
     @Transactional

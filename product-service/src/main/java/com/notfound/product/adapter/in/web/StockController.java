@@ -14,16 +14,13 @@ import java.util.UUID;
 public class StockController {
 
     private final GetProductUseCase getProductUseCase;
-    private final ValidateStockUseCase validateStockUseCase;
     private final DeductStockUseCase deductStockUseCase;
     private final RestoreStockUseCase restoreStockUseCase;
 
     public StockController(GetProductUseCase getProductUseCase,
-                           ValidateStockUseCase validateStockUseCase,
                            DeductStockUseCase deductStockUseCase,
                            RestoreStockUseCase restoreStockUseCase) {
         this.getProductUseCase = getProductUseCase;
-        this.validateStockUseCase = validateStockUseCase;
         this.deductStockUseCase = deductStockUseCase;
         this.restoreStockUseCase = restoreStockUseCase;
     }
@@ -34,15 +31,6 @@ public class StockController {
         ProductErrorCode code = ProductErrorCode.STOCK_GET_SUCCESS;
         return ResponseEntity.ok(ApiResponse.success(code.getStatus(), code.getCode(), code.getMessage(),
                 StockResponse.from(product)));
-    }
-
-    @PostMapping("/validate")
-    public ResponseEntity<ApiResponse<Void>> validateStock(
-            @PathVariable UUID productId,
-            @RequestBody @Valid StockRequest request) {
-        validateStockUseCase.validateStock(new ValidateStockCommand(productId, request.quantity()));
-        ProductErrorCode code = ProductErrorCode.STOCK_VALIDATE_SUCCESS;
-        return ResponseEntity.ok(ApiResponse.success(code.getStatus(), code.getCode(), code.getMessage(), null));
     }
 
     @PostMapping("/deduct")
