@@ -8,7 +8,6 @@ public enum ProductErrorCode {
     PRODUCT_LIST_GET_SUCCESS(HttpStatus.OK, "PRODUCT_LIST_GET_SUCCESS", "상품 목록 조회에 성공했습니다."),
     PRODUCT_GET_SUCCESS(HttpStatus.OK, "PRODUCT_GET_SUCCESS", "상품 조회에 성공했습니다."),
     STOCK_GET_SUCCESS(HttpStatus.OK, "STOCK_GET_SUCCESS", "재고 조회에 성공했습니다."),
-    STOCK_VALIDATE_SUCCESS(HttpStatus.OK, "STOCK_VALIDATE_SUCCESS", "재고가 충분합니다."),
     STOCK_DEDUCT_SUCCESS(HttpStatus.OK, "STOCK_DEDUCT_SUCCESS", "재고가 차감되었습니다."),
     STOCK_RESTORE_SUCCESS(HttpStatus.OK, "STOCK_RESTORE_SUCCESS", "재고가 복구되었습니다."),
 

@@ -4,7 +4,6 @@ import com.notfound.product.application.port.in.*;
 import com.notfound.product.application.port.out.CategoryRepository;
 import com.notfound.product.application.port.out.ProductRepository;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
-import com.notfound.product.domain.exception.InsufficientStockException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import com.notfound.product.domain.model.BookType;
 import com.notfound.product.domain.model.Category;
@@ -176,32 +175,6 @@ class ProductServiceTest {
 
             assertThat(result).hasSize(2);
             verify(productRepository).findAllByIds(ids);
-        }
-    }
-
-    @Nested
-    @DisplayName("재고 검증")
-    class ValidateStock {
-
-        @Test
-        @DisplayName("재고가 충분하면 예외가 발생하지 않는다")
-        void success_validateStock() {
-            Product product = createProduct(productId, 10, ProductStatus.ACTIVE);
-            given(productRepository.findById(productId)).willReturn(Optional.of(product));
-
-            org.junit.jupiter.api.Assertions.assertDoesNotThrow(
-                    () -> productService.validateStock(new ValidateStockCommand(productId, 5))
-            );
-        }
-
-        @Test
-        @DisplayName("재고가 부족하면 InsufficientStockException이 발생한다")
-        void fail_whenStockInsufficient() {
-            Product product = createProduct(productId, 3, ProductStatus.ACTIVE);
-            given(productRepository.findById(productId)).willReturn(Optional.of(product));
-
-            assertThatThrownBy(() -> productService.validateStock(new ValidateStockCommand(productId, 5)))
-                    .isInstanceOf(InsufficientStockException.class);
         }
     }
 

@@ -48,7 +48,6 @@
 | 상품 상태 변경 | PATCH | /products/{productId}/status | 판매 상태 변경 | ❌ |
 | 재고 조회 | GET | /products/{productId}/stock | 재고 확인 | ✅ |
 | 재고 수정 | PATCH | /products/{productId}/stock | 재고 변경 (판매자) | ❌ |
-| 재고 검증 | POST | /products/{productId}/stock/validate | 재고 검증 (내부 서비스 호출) | ✅ |
 | 재고 차감 | POST | /products/{productId}/stock/deduct | 재고 차감 (내부 서비스 호출) | ✅ |
 | 재고 복구 | POST | /products/{productId}/stock/restore | 재고 복구 (내부 서비스 호출) | ✅ |
 | 카테고리 조회 | GET | /products/categories | 카테고리 조회 | ❌ |
