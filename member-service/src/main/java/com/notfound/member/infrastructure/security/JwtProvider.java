@@ -1,5 +1,6 @@
 package com.notfound.member.infrastructure.security;
 
+import com.notfound.member.application.port.out.TokenProvider;
 import com.notfound.member.domain.model.MemberRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -14,18 +15,19 @@ import java.util.Date;
 import java.util.UUID;
 
 @Component
-public class JwtProvider {
+public class JwtProvider implements TokenProvider {
 
     private final SecretKey secretKey;
     private final long accessExpiration;
     private final long refreshExpiration;
 
     public JwtProvider(JwtProperties properties) {
-        this.secretKey = Keys.hmacShaKeyFor(properties.secret().getBytes(StandardCharsets.UTF_8));
+        this.secretKey = Keys.hmacShaKeyFor(properties.secretKey().getBytes(StandardCharsets.UTF_8));
         this.accessExpiration = properties.accessExpiration();
         this.refreshExpiration = properties.refreshExpiration();
     }
 
+    @Override
     public String createAccessToken(UUID memberId, MemberRole role, boolean emailVerified) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessExpiration);
@@ -41,6 +43,7 @@ public class JwtProvider {
                 .compact();
     }
 
+    @Override
     public String createRefreshToken() {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + refreshExpiration);
@@ -65,6 +68,7 @@ public class JwtProvider {
         }
     }
 
+    @Override
     public boolean validateToken(String token) {
         try {
             parseClaims(token);
@@ -90,6 +94,7 @@ public class JwtProvider {
         return UUID.fromString(claims.getSubject());
     }
 
+    @Override
     public String getJti(String token) {
         Claims claims = parseClaims(token);
         return claims.getId();
@@ -105,11 +110,13 @@ public class JwtProvider {
         return claims.get("email_verified", Boolean.class);
     }
 
+    @Override
     public Date getExpiration(String token) {
         Claims claims = parseClaims(token);
         return claims.getExpiration();
     }
 
+    @Override
     public long getRefreshExpiration() {
         return refreshExpiration;
     }

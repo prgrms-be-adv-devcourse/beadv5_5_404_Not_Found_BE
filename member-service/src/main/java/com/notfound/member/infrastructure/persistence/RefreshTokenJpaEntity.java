@@ -31,7 +31,7 @@ public class RefreshTokenJpaEntity {
     @JoinColumn(name = "member_id", nullable = false)
     private MemberJpaEntity member;
 
-    @Column(name = "token_hash", nullable = false, length = 512)
+    @Column(name = "token_hash", nullable = false, length = 512, unique = true)
     private String tokenHash;
 
     @Column(name = "user_agent")
@@ -54,7 +54,9 @@ public class RefreshTokenJpaEntity {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
     }
 
     public static RefreshTokenJpaEntity from(RefreshToken token, MemberJpaEntity memberEntity) {

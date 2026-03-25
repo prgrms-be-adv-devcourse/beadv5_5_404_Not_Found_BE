@@ -12,21 +12,21 @@ spring:
         - id: member-service
           uri: lb://member-service
           predicates:
-            - Path=/api/members/**
+            - Path=/api/member/**
           filters:
             - StripPrefix=2
         - id: product-service
           uri: lb://product-service
           predicates:
-            - Path=/api/products/**
+            - Path=/api/product/**
         - id: order-service
           uri: lb://order-service
           predicates:
-            - Path=/api/orders/**
+            - Path=/api/order/**
         - id: payment-service
           uri: lb://payment-service
           predicates:
-            - Path=/api/payments/**
+            - Path=/api/payment/**
 
 eureka:
   client:

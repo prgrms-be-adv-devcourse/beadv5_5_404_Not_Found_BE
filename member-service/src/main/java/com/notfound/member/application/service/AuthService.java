@@ -16,7 +16,7 @@ import com.notfound.member.domain.model.MemberRole;
 import com.notfound.member.domain.model.MemberStatus;
 import com.notfound.member.domain.model.RefreshToken;
 import com.notfound.member.domain.model.TokenBlacklist;
-import com.notfound.member.infrastructure.security.JwtProvider;
+import com.notfound.member.application.port.out.TokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,13 +35,13 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
     private final MemberRepository memberRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final TokenBlacklistRepository tokenBlacklistRepository;
-    private final JwtProvider jwtProvider;
+    private final TokenProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
 
     public AuthService(MemberRepository memberRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        TokenBlacklistRepository tokenBlacklistRepository,
-                       JwtProvider jwtProvider,
+                       TokenProvider jwtProvider,
                        PasswordEncoder passwordEncoder) {
         this.memberRepository = memberRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -78,14 +78,14 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
     @Transactional
     public AuthResult login(LoginCommand command, String userAgent, String ipAddress) {
         Member member = memberRepository.findByEmail(command.email())
-                .orElseThrow(MemberException::notFound);
+                .orElseThrow(MemberException::invalidCredentials);
 
         if (member.getStatus() != MemberStatus.ACTIVE) {
             throw MemberException.inactiveAccount();
         }
 
         if (!passwordEncoder.matches(command.password(), member.getPasswordHash())) {
-            throw MemberException.invalidPassword();
+            throw MemberException.invalidCredentials();
         }
 
         return issueTokens(member, userAgent, ipAddress);
@@ -161,7 +161,7 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
                 .userAgent(userAgent)
                 .ipAddress(ipAddress)
                 .revoked(false)
-                .expiresAt(LocalDateTime.now().plusDays(30))
+                .expiresAt(LocalDateTime.now().plusDays(14))
                 .lastUsedAt(LocalDateTime.now())
                 .build();
 

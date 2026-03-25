@@ -2,8 +2,10 @@ package com.notfound.member.presentation.controller;
 
 import com.notfound.member.domain.exception.MemberException;
 import com.notfound.member.presentation.dto.ApiResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -21,6 +23,23 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(status, e.getCode(), e.getMessage()));
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+        String message = e.getMostSpecificCause().getMessage();
+        if (message != null && message.contains("email")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.error(409, "MEMBER_DUPLICATE_EMAIL", "이미 사용 중인 이메일입니다."));
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(409, "DATA_INTEGRITY_VIOLATION", "데이터 무결성 제약조건 위반입니다."));
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingHeader(MissingRequestHeaderException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(401, "MEMBER_MISSING_TOKEN", "인증 토큰이 필요합니다."));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(
             MethodArgumentNotValidException e) {
@@ -34,11 +53,12 @@ public class GlobalExceptionHandler {
 
     private int resolveStatus(String code) {
         if (code.contains("NOT_FOUND")) return HttpStatus.NOT_FOUND.value();
-        if (code.contains("DUPLICATE")) return HttpStatus.CONFLICT.value();
-        if (code.contains("EMAIL_NOT_VERIFIED") || code.contains("ACCESS_DENIED") || code.contains("NOT_APPROVED")) {
+        if (code.contains("DUPLICATE") || code.contains("ALREADY_WITHDRAWN")) return HttpStatus.CONFLICT.value();
+        if (code.contains("EMAIL_NOT_VERIFIED") || code.contains("ACCESS_DENIED") || code.contains("NOT_APPROVED")
+                || code.contains("INACTIVE")) {
             return HttpStatus.FORBIDDEN.value();
         }
-        if (code.contains("INVALID") || code.contains("HIJACKED") || code.contains("INACTIVE")) {
+        if (code.contains("INVALID") || code.contains("HIJACKED")) {
             return HttpStatus.UNAUTHORIZED.value();
         }
         return HttpStatus.BAD_REQUEST.value();

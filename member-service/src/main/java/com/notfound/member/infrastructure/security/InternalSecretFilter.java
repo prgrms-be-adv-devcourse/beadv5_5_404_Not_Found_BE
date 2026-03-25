@@ -25,7 +25,7 @@ public class InternalSecretFilter extends OncePerRequestFilter {
 
     private final String internalSecret;
 
-    public InternalSecretFilter(@Value("${internal.secret}") String internalSecret) {
+    public InternalSecretFilter(@Value("${internal.secret-key}") String internalSecret) {
         this.internalSecret = internalSecret;
     }
 
@@ -33,7 +33,7 @@ public class InternalSecretFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String path = request.getRequestURI();
+        String path = request.getServletPath();
 
         if (!path.startsWith(INTERNAL_PATH_PREFIX)) {
             filterChain.doFilter(request, response);

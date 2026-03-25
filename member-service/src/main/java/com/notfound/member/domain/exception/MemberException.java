@@ -25,6 +25,10 @@ public class MemberException extends RuntimeException {
         return new MemberException("MEMBER_INVALID_PASSWORD", "비밀번호가 일치하지 않습니다.");
     }
 
+    public static MemberException invalidCredentials() {
+        return new MemberException("MEMBER_INVALID_CREDENTIALS", "이메일 또는 비밀번호가 일치하지 않습니다.");
+    }
+
     public static MemberException inactiveAccount() {
         return new MemberException("MEMBER_INACTIVE_ACCOUNT", "비활성화된 계정입니다.");
     }
@@ -47,5 +51,17 @@ public class MemberException extends RuntimeException {
 
     public static MemberException sellerNotApproved() {
         return new MemberException("MEMBER_SELLER_NOT_APPROVED", "승인된 판매자만 접근할 수 있습니다.");
+    }
+
+    public static MemberException alreadyWithdrawn() {
+        return new MemberException("MEMBER_ALREADY_WITHDRAWN", "이미 탈퇴한 회원입니다.");
+    }
+
+    public static MemberException invalidAccessToken() {
+        return new MemberException("MEMBER_INVALID_ACCESS_TOKEN", "유효하지 않은 액세스 토큰입니다.");
+    }
+
+    public static MemberException sellerNotFound() {
+        return new MemberException("SELLER_NOT_FOUND", "판매자 정보를 찾을 수 없습니다.");
     }
 }
