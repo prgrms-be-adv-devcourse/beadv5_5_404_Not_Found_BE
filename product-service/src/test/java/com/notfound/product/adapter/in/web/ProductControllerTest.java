@@ -2,6 +2,7 @@ package com.notfound.product.adapter.in.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notfound.product.adapter.in.web.dto.ProductRegisterRequest;
+import com.notfound.product.application.port.in.GetProductListUseCase;
 import com.notfound.product.application.port.in.GetProductUseCase;
 import com.notfound.product.application.port.in.RegisterProductUseCase;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
@@ -23,6 +24,7 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -42,13 +44,16 @@ class ProductControllerTest {
     @Mock
     private GetProductUseCase getProductUseCase;
 
+    @Mock
+    private GetProductListUseCase getProductListUseCase;
+
     @BeforeEach
     void setUp() {
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
 
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new ProductController(registerProductUseCase, getProductUseCase))
+                .standaloneSetup(new ProductController(registerProductUseCase, getProductUseCase, getProductListUseCase))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setValidator(validator)
                 .build();
@@ -61,6 +66,38 @@ class ProductControllerTest {
                 15000, 100, BookType.NEW,
                 ProductStatus.PENDING_REVIEW, BigDecimal.ZERO, 0, LocalDateTime.now()
         );
+    }
+
+    @Nested
+    @DisplayName("GET /products - 상품 목록 조회")
+    class GetProductList {
+
+        @Test
+        @DisplayName("ids 없이 요청하면 200과 전체 상품 목록을 반환한다")
+        void success_allProducts() throws Exception {
+            List<Product> products = List.of(createProduct(UUID.randomUUID()), createProduct(UUID.randomUUID()));
+            given(getProductListUseCase.getProducts(null)).willReturn(products);
+
+            mockMvc.perform(get("/products"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value("PRODUCT_LIST_GET_SUCCESS"))
+                    .andExpect(jsonPath("$.data.length()").value(2));
+        }
+
+        @Test
+        @DisplayName("ids 파라미터로 요청하면 200과 해당 상품 목록을 반환한다")
+        void success_byIds() throws Exception {
+            UUID id1 = UUID.randomUUID();
+            UUID id2 = UUID.randomUUID();
+            List<Product> products = List.of(createProduct(id1), createProduct(id2));
+            given(getProductListUseCase.getProducts(List.of(id1, id2))).willReturn(products);
+
+            mockMvc.perform(get("/products")
+                            .param("ids", id1.toString(), id2.toString()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value("PRODUCT_LIST_GET_SUCCESS"))
+                    .andExpect(jsonPath("$.data.length()").value(2));
+        }
     }
 
     @Nested

@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -125,6 +126,56 @@ class ProductServiceTest {
 
             assertThatThrownBy(() -> productService.getProduct(productId))
                     .isInstanceOf(ProductNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("상품 목록 조회")
+    class GetProductList {
+
+        @Test
+        @DisplayName("ids가 null이면 전체 상품을 반환한다")
+        void success_getAllProducts() {
+            List<Product> products = List.of(
+                    createProduct(UUID.randomUUID(), 10, ProductStatus.ACTIVE),
+                    createProduct(UUID.randomUUID(), 5, ProductStatus.ACTIVE)
+            );
+            given(productRepository.findAll()).willReturn(products);
+
+            List<Product> result = productService.getProducts(null);
+
+            assertThat(result).hasSize(2);
+            verify(productRepository).findAll();
+        }
+
+        @Test
+        @DisplayName("ids가 비어 있으면 전체 상품을 반환한다")
+        void success_getAllProducts_whenIdsEmpty() {
+            List<Product> products = List.of(createProduct(UUID.randomUUID(), 10, ProductStatus.ACTIVE));
+            given(productRepository.findAll()).willReturn(products);
+
+            List<Product> result = productService.getProducts(List.of());
+
+            assertThat(result).hasSize(1);
+            verify(productRepository).findAll();
+        }
+
+        @Test
+        @DisplayName("ids가 있으면 해당 상품만 반환한다")
+        void success_getProductsByIds() {
+            UUID id1 = UUID.randomUUID();
+            UUID id2 = UUID.randomUUID();
+            List<UUID> ids = List.of(id1, id2);
+            List<Product> products = List.of(
+                    createProduct(id1, 10, ProductStatus.ACTIVE),
+                    createProduct(id2, 3, ProductStatus.ACTIVE)
+            );
+            given(productRepository.findAllByIds(ids)).willReturn(products);
+
+            List<Product> result = productService.getProducts(ids);
+
+            assertThat(result).hasSize(2);
+            verify(productRepository).findAllByIds(ids);
         }
     }
 
