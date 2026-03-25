@@ -3,7 +3,9 @@ package com.notfound.product.adapter.in.web;
 import com.notfound.product.adapter.in.web.dto.ApiResponse;
 import com.notfound.product.adapter.in.web.dto.ProductErrorCode;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
+import com.notfound.product.domain.exception.CategorySlugDuplicateException;
 import com.notfound.product.domain.exception.InsufficientStockException;
+import com.notfound.product.domain.exception.IsbnDuplicateException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleCategoryNotFound(CategoryNotFoundException e) {
         ProductErrorCode code = ProductErrorCode.CATEGORY_NOT_FOUND;
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(code.getStatus(), code.getCode(), e.getMessage()));
+    }
+
+    @ExceptionHandler(CategorySlugDuplicateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCategorySlugDuplicate(CategorySlugDuplicateException e) {
+        ProductErrorCode code = ProductErrorCode.CATEGORY_SLUG_DUPLICATE;
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(code.getStatus(), code.getCode(), e.getMessage()));
+    }
+
+    @ExceptionHandler(IsbnDuplicateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIsbnDuplicate(IsbnDuplicateException e) {
+        ProductErrorCode code = ProductErrorCode.PRODUCT_ISBN_DUPLICATE;
+        return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(code.getStatus(), code.getCode(), e.getMessage()));
     }
 
