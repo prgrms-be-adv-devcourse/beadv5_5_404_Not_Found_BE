@@ -4,6 +4,7 @@ import com.notfound.product.application.port.out.ProductRepository;
 import com.notfound.product.domain.model.Product;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,5 +27,19 @@ public class ProductRepositoryAdapter implements ProductRepository {
     public Optional<Product> findById(UUID productId) {
         return productJpaRepository.findById(productId)
                 .map(ProductJpaEntity::toDomain);
+    }
+
+    @Override
+    public List<Product> findAll() {
+        return productJpaRepository.findAll().stream()
+                .map(ProductJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Product> findAllByIds(List<UUID> ids) {
+        return productJpaRepository.findAllByIdIn(ids).stream()
+                .map(ProductJpaEntity::toDomain)
+                .toList();
     }
 }

@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 public enum ProductErrorCode {
 
     PRODUCT_REGISTER_SUCCESS(HttpStatus.CREATED, "PRODUCT_REGISTER_SUCCESS", "상품이 등록되었습니다."),
+    PRODUCT_LIST_GET_SUCCESS(HttpStatus.OK, "PRODUCT_LIST_GET_SUCCESS", "상품 목록 조회에 성공했습니다."),
     PRODUCT_GET_SUCCESS(HttpStatus.OK, "PRODUCT_GET_SUCCESS", "상품 조회에 성공했습니다."),
     STOCK_GET_SUCCESS(HttpStatus.OK, "STOCK_GET_SUCCESS", "재고 조회에 성공했습니다."),
     STOCK_VALIDATE_SUCCESS(HttpStatus.OK, "STOCK_VALIDATE_SUCCESS", "재고가 충분합니다."),

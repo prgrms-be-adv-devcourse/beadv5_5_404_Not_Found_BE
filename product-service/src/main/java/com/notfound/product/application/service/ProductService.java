@@ -12,12 +12,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
 public class ProductService implements
         RegisterProductUseCase,
         GetProductUseCase,
+        GetProductListUseCase,
         ValidateStockUseCase,
         DeductStockUseCase,
         RestoreStockUseCase {
@@ -61,6 +63,15 @@ public class ProductService implements
     public Product getProduct(UUID productId) {
         return productRepository.findById(productId)
                 .orElseThrow(() -> new ProductNotFoundException(productId));
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<Product> getProducts(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return productRepository.findAll();
+        }
+        return productRepository.findAllByIds(ids);
     }
 
     @Transactional(readOnly = true)
