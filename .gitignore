@@ -3,7 +3,7 @@
 *.iml
 *.iws
 *.ipr
-out/
+/out/
 
 # Gradle
 .gradle/

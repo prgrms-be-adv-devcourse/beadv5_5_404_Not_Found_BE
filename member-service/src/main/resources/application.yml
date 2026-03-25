@@ -20,17 +20,14 @@ spring:
         format_sql: true
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret-key: ${JWT_SECRET_KEY}
   access-expiration: 1800000
-  refresh-expiration: 2592000000
+  refresh-expiration: 1209600000
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
 
-jwt:
-  secret: ${JWT_SECRET:default-jwt-secret-key-for-local-development-only-change-in-production}
-
 internal:
-  secret: ${INTERNAL_SECRET:default-internal-secret}
+  secret-key: ${INTERNAL_SECRET_KEY}

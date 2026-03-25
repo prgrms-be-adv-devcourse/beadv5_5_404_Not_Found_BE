@@ -34,7 +34,7 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
 
 jwt:
-  secret: ${JWT_SECRET:default-jwt-secret-key-for-local-development-only-change-in-production}
+  secret-key: ${JWT_SECRET_KEY}
 
 internal:
-  secret: ${INTERNAL_SECRET:default-internal-secret}
+  secret-key: ${INTERNAL_SECRET_KEY}
