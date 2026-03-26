@@ -1,7 +1,11 @@
 package com.notfound.product.adapter.in.web.dto;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
+@Getter
+@RequiredArgsConstructor
 public enum ProductErrorCode {
 
     PRODUCT_REGISTER_SUCCESS(HttpStatus.CREATED, "PRODUCT_REGISTER_SUCCESS", "상품이 등록되었습니다."),
@@ -31,13 +35,5 @@ public enum ProductErrorCode {
     private final String code;
     private final String message;
 
-    ProductErrorCode(HttpStatus httpStatus, String code, String message) {
-        this.httpStatus = httpStatus;
-        this.code = code;
-        this.message = message;
-    }
-
     public int getStatus() { return httpStatus.value(); }
-    public String getCode() { return code; }
-    public String getMessage() { return message; }
 }

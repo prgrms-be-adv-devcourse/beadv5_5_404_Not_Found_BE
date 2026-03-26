@@ -4,24 +4,18 @@ import com.notfound.product.adapter.in.kafka.dto.PaymentApprovedEvent;
 import com.notfound.product.application.port.in.DeductStockCommand;
 import com.notfound.product.application.port.in.DeductStockUseCase;
 import com.notfound.product.application.port.out.ProcessedEventRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class PaymentApprovedEventConsumer {
-
-    private static final Logger log = LoggerFactory.getLogger(PaymentApprovedEventConsumer.class);
 
     private final DeductStockUseCase deductStockUseCase;
     private final ProcessedEventRepository processedEventRepository;
-
-    public PaymentApprovedEventConsumer(DeductStockUseCase deductStockUseCase,
-                                        ProcessedEventRepository processedEventRepository) {
-        this.deductStockUseCase = deductStockUseCase;
-        this.processedEventRepository = processedEventRepository;
-    }
 
     @KafkaListener(topics = "payment.approved", groupId = "product-service")
     public void consume(PaymentApprovedEvent event) {

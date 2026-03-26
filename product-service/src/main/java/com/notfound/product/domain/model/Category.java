@@ -1,7 +1,10 @@
 package com.notfound.product.domain.model;
 
+import lombok.Getter;
+
 import java.util.UUID;
 
+@Getter
 public class Category {
 
     private final UUID id;
@@ -30,11 +33,4 @@ public class Category {
         return parentId == null;
     }
 
-    public UUID getId() { return id; }
-    public UUID getParentId() { return parentId; }
-    public String getName() { return name; }
-    public String getSlug() { return slug; }
-    public int getDepth() { return depth; }
-    public int getSortOrder() { return sortOrder; }
-    public boolean isActive() { return isActive; }
 }

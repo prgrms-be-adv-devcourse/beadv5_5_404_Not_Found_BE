@@ -1,11 +1,13 @@
 package com.notfound.product.domain.model;
 
 import com.notfound.product.domain.exception.InsufficientStockException;
+import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Getter
 public class Product {
 
     private final UUID id;
@@ -97,18 +99,4 @@ public class Product {
         return this.status == ProductStatus.ACTIVE && this.quantity > 0;
     }
 
-    public UUID getId() { return id; }
-    public UUID getSellerId() { return sellerId; }
-    public UUID getCategoryId() { return categoryId; }
-    public String getIsbn() { return isbn; }
-    public String getTitle() { return title; }
-    public String getAuthor() { return author; }
-    public String getPublisher() { return publisher; }
-    public int getPrice() { return price; }
-    public int getQuantity() { return quantity; }
-    public BookType getBookType() { return bookType; }
-    public ProductStatus getStatus() { return status; }
-    public BigDecimal getAvgRating() { return avgRating; }
-    public int getReviewCount() { return reviewCount; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
 }

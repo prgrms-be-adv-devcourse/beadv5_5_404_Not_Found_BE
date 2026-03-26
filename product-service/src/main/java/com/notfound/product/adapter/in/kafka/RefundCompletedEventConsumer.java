@@ -4,24 +4,18 @@ import com.notfound.product.adapter.in.kafka.dto.RefundCompletedEvent;
 import com.notfound.product.application.port.in.RestoreStockCommand;
 import com.notfound.product.application.port.in.RestoreStockUseCase;
 import com.notfound.product.application.port.out.ProcessedEventRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class RefundCompletedEventConsumer {
-
-    private static final Logger log = LoggerFactory.getLogger(RefundCompletedEventConsumer.class);
 
     private final RestoreStockUseCase restoreStockUseCase;
     private final ProcessedEventRepository processedEventRepository;
-
-    public RefundCompletedEventConsumer(RestoreStockUseCase restoreStockUseCase,
-                                        ProcessedEventRepository processedEventRepository) {
-        this.restoreStockUseCase = restoreStockUseCase;
-        this.processedEventRepository = processedEventRepository;
-    }
 
     @KafkaListener(topics = "refund.completed", groupId = "product-service")
     public void consume(RefundCompletedEvent event) {

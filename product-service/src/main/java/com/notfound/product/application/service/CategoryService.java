@@ -7,6 +7,7 @@ import com.notfound.product.application.port.out.CategoryRepository;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
 import com.notfound.product.domain.exception.CategorySlugDuplicateException;
 import com.notfound.product.domain.model.Category;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,13 +15,10 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class CategoryService implements GetCategoryListUseCase, CreateCategoryUseCase {
 
     private final CategoryRepository categoryRepository;
-
-    public CategoryService(CategoryRepository categoryRepository) {
-        this.categoryRepository = categoryRepository;
-    }
 
     @Transactional(readOnly = true)
     @Override

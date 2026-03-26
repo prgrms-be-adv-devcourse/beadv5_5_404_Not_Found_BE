@@ -6,6 +6,7 @@ import com.notfound.product.application.port.in.GetCategoryListUseCase;
 import com.notfound.product.domain.exception.ForbiddenException;
 import com.notfound.product.domain.model.Category;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,16 +18,11 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/products/categories")
+@RequiredArgsConstructor
 public class CategoryController {
 
     private final GetCategoryListUseCase getCategoryListUseCase;
     private final CreateCategoryUseCase createCategoryUseCase;
-
-    public CategoryController(GetCategoryListUseCase getCategoryListUseCase,
-                              CreateCategoryUseCase createCategoryUseCase) {
-        this.getCategoryListUseCase = getCategoryListUseCase;
-        this.createCategoryUseCase = createCategoryUseCase;
-    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<CategoryTreeResponse>>> getCategoryList() {

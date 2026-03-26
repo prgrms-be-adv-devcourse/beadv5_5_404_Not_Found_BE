@@ -2,6 +2,7 @@ package com.notfound.product.adapter.out.persistence;
 
 import com.notfound.product.application.port.out.ProductRepository;
 import com.notfound.product.domain.model.Product;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -9,13 +10,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Component
+@RequiredArgsConstructor
 public class ProductRepositoryAdapter implements ProductRepository {
 
     private final ProductJpaRepository productJpaRepository;
-
-    public ProductRepositoryAdapter(ProductJpaRepository productJpaRepository) {
-        this.productJpaRepository = productJpaRepository;
-    }
 
     @Override
     public Product save(Product product) {

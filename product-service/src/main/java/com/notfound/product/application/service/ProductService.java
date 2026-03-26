@@ -10,6 +10,7 @@ import com.notfound.product.domain.exception.IsbnDuplicateException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import com.notfound.product.domain.model.Product;
 import com.notfound.product.domain.model.ProductStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class ProductService implements
         RegisterProductUseCase,
         GetProductUseCase,
@@ -31,14 +33,6 @@ public class ProductService implements
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final SellerStatusVerifier sellerStatusVerifier;
-
-    public ProductService(ProductRepository productRepository,
-                          CategoryRepository categoryRepository,
-                          SellerStatusVerifier sellerStatusVerifier) {
-        this.productRepository = productRepository;
-        this.categoryRepository = categoryRepository;
-        this.sellerStatusVerifier = sellerStatusVerifier;
-    }
 
     @Transactional
     @Override

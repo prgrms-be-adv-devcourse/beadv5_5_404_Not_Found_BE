@@ -5,6 +5,7 @@ import com.notfound.product.application.port.in.*;
 import com.notfound.product.domain.exception.ForbiddenException;
 import com.notfound.product.domain.model.Product;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/products")
+@RequiredArgsConstructor
 public class ProductController {
 
     private final RegisterProductUseCase registerProductUseCase;
@@ -21,18 +23,6 @@ public class ProductController {
     private final GetProductListUseCase getProductListUseCase;
     private final UpdateProductUseCase updateProductUseCase;
     private final ChangeProductStatusUseCase changeProductStatusUseCase;
-
-    public ProductController(RegisterProductUseCase registerProductUseCase,
-                             GetProductUseCase getProductUseCase,
-                             GetProductListUseCase getProductListUseCase,
-                             UpdateProductUseCase updateProductUseCase,
-                             ChangeProductStatusUseCase changeProductStatusUseCase) {
-        this.registerProductUseCase = registerProductUseCase;
-        this.getProductUseCase = getProductUseCase;
-        this.getProductListUseCase = getProductListUseCase;
-        this.updateProductUseCase = updateProductUseCase;
-        this.changeProductStatusUseCase = changeProductStatusUseCase;
-    }
 
     @PostMapping
     public ResponseEntity<ApiResponse<ProductRegisterResponse>> registerProduct(
