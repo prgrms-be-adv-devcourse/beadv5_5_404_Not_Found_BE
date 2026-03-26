@@ -2,6 +2,8 @@ server:
   port: 8081
 
 spring:
+  config:
+    import: optional:file:../.env[.properties]
   application:
     name: member-service
   datasource:
@@ -18,7 +20,7 @@ spring:
         format_sql: true
 
 jwt:
-  secret-key: ${JWT_SECRET_KEY}
+  secret: ${JWT_SECRET_KEY}
   access-expiration: 1800000
   refresh-expiration: 1209600000
 
@@ -28,4 +30,4 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
 
 internal:
-  secret-key: ${INTERNAL_SECRET_KEY}
+  secret: ${INTERNAL_SECRET_KEY}
