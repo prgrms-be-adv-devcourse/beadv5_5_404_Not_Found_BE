@@ -53,7 +53,7 @@ public class AuthController {
         AuthResult result = registerMemberUseCase.register(
                 request.toCommand(),
                 httpRequest.getHeader("User-Agent"),
-                httpRequest.getRemoteAddr());
+                resolveClientIp(httpRequest));
 
         addRefreshTokenCookie(httpResponse, result.refreshToken());
 
@@ -71,7 +71,7 @@ public class AuthController {
         AuthResult result = loginUseCase.login(
                 request.toCommand(),
                 httpRequest.getHeader("User-Agent"),
-                httpRequest.getRemoteAddr());
+                resolveClientIp(httpRequest));
 
         addRefreshTokenCookie(httpResponse, result.refreshToken());
 
@@ -89,7 +89,7 @@ public class AuthController {
         AuthResult result = refreshTokenUseCase.refresh(
                 refreshToken,
                 httpRequest.getHeader("User-Agent"),
-                httpRequest.getRemoteAddr());
+                resolveClientIp(httpRequest));
 
         addRefreshTokenCookie(httpResponse, result.refreshToken());
 
@@ -130,6 +130,14 @@ public class AuthController {
         cookie.setPath("/");
         cookie.setMaxAge(0);
         response.addCookie(cookie);
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     private String extractAccessToken(String authHeader) {

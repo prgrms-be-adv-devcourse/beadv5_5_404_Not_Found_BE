@@ -1,5 +1,7 @@
 package com.notfound.member.domain.model;
 
+import com.notfound.member.domain.exception.MemberException;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -71,6 +73,13 @@ public class Member {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public void withdraw() {
+        if (this.status == MemberStatus.WITHDRAWN) {
+            throw MemberException.alreadyWithdrawn();
+        }
+        this.status = MemberStatus.WITHDRAWN;
     }
 
     public static class Builder {

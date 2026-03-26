@@ -2,7 +2,6 @@ package com.notfound.member.infrastructure.security;
 
 import com.notfound.member.domain.model.MemberRole;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -53,18 +52,6 @@ public class JwtProvider {
                 .compact();
     }
 
-    public Claims parseAccessToken(String token) {
-        return parseClaims(token);
-    }
-
-    public Claims parseOrNull(String token) {
-        try {
-            return parseClaims(token);
-        } catch (JwtException | IllegalArgumentException e) {
-            return null;
-        }
-    }
-
     public boolean validateToken(String token) {
         try {
             parseClaims(token);
@@ -74,44 +61,27 @@ public class JwtProvider {
         }
     }
 
-    public boolean isExpired(String token) {
-        try {
-            parseClaims(token);
-            return false;
-        } catch (ExpiredJwtException e) {
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
-        }
-    }
-
-    public UUID getMemberId(String token) {
-        Claims claims = parseClaims(token);
-        return UUID.fromString(claims.getSubject());
-    }
-
-    public String getJti(String token) {
-        Claims claims = parseClaims(token);
-        return claims.getId();
-    }
-
-    public MemberRole getRole(String token) {
-        Claims claims = parseClaims(token);
-        return MemberRole.valueOf(claims.get("role", String.class));
-    }
-
-    public boolean getEmailVerified(String token) {
-        Claims claims = parseClaims(token);
-        return claims.get("email_verified", Boolean.class);
-    }
-
-    public Date getExpiration(String token) {
-        Claims claims = parseClaims(token);
-        return claims.getExpiration();
-    }
-
     public long getRefreshExpiration() {
         return refreshExpiration;
+    }
+
+    public record BlacklistClaims(String jti, java.time.LocalDateTime expiresAt) {}
+
+    /**
+     * 토큰을 1회 파싱하여 jti와 만료시각(UTC)을 함께 반환한다.
+     * 유효하지 않은 토큰이면 null을 반환한다.
+     */
+    public BlacklistClaims parseForBlacklist(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            String jti = claims.getId();
+            java.time.LocalDateTime expiresAt = claims.getExpiration().toInstant()
+                    .atZone(java.time.ZoneOffset.UTC)
+                    .toLocalDateTime();
+            return new BlacklistClaims(jti, expiresAt);
+        } catch (JwtException | IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private Claims parseClaims(String token) {

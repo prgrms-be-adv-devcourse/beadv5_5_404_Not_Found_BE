@@ -24,9 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.Date;
 import java.util.UUID;
 
 @Service
@@ -35,17 +35,20 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
     private final MemberRepository memberRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final TokenBlacklistRepository tokenBlacklistRepository;
+    private final TokenRevokeService tokenRevokeService;
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
 
     public AuthService(MemberRepository memberRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        TokenBlacklistRepository tokenBlacklistRepository,
+                       TokenRevokeService tokenRevokeService,
                        JwtProvider jwtProvider,
                        PasswordEncoder passwordEncoder) {
         this.memberRepository = memberRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.tokenBlacklistRepository = tokenBlacklistRepository;
+        this.tokenRevokeService = tokenRevokeService;
         this.jwtProvider = jwtProvider;
         this.passwordEncoder = passwordEncoder;
     }
@@ -110,7 +113,8 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
                     .orElseThrow(MemberException::invalidRefreshToken);
 
             // 존재하지만 revoked → 탈취 감지 → 해당 회원 전체 토큰 무효화
-            refreshTokenRepository.revokeAllByMemberId(storedToken.getMemberId());
+            // 별도 트랜잭션(REQUIRES_NEW)으로 실행하여 예외 롤백과 무관하게 무효화 보장
+            tokenRevokeService.revokeAllByMemberId(storedToken.getMemberId());
             throw MemberException.tokenHijacked();
         }
 
@@ -131,16 +135,16 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
     @Override
     @Transactional
     public void logout(String accessToken, String rawRefreshToken) {
-        // Access Token → 블랙리스트 등록 (중복 호출 안전)
-        if (accessToken != null && jwtProvider.validateToken(accessToken)) {
-            String jti = jwtProvider.getJti(accessToken);
-            Date expiration = jwtProvider.getExpiration(accessToken);
-
-            TokenBlacklist blacklist = TokenBlacklist.builder()
-                    .jti(jti)
-                    .expiresAt(toLocalDateTime(expiration))
-                    .build();
-            tokenBlacklistRepository.saveIfAbsent(blacklist);
+        // Access Token → 블랙리스트 등록 (1회 파싱, UTC 고정)
+        if (accessToken != null) {
+            JwtProvider.BlacklistClaims claims = jwtProvider.parseForBlacklist(accessToken);
+            if (claims != null) {
+                TokenBlacklist blacklist = TokenBlacklist.builder()
+                        .jti(claims.jti())
+                        .expiresAt(claims.expiresAt())
+                        .build();
+                tokenBlacklistRepository.saveIfAbsent(blacklist);
+            }
         }
 
         // Refresh Token → 해당 토큰 1건만 폐기 (다른 기기 세션 유지)
@@ -161,7 +165,7 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
                 .userAgent(userAgent)
                 .ipAddress(ipAddress)
                 .revoked(false)
-                .expiresAt(LocalDateTime.now().plusDays(30))
+                .expiresAt(LocalDateTime.now().plus(Duration.ofMillis(jwtProvider.getRefreshExpiration())))
                 .lastUsedAt(LocalDateTime.now())
                 .build();
 
@@ -180,7 +184,4 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
         }
     }
 
-    private LocalDateTime toLocalDateTime(Date date) {
-        return date.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
-    }
 }

@@ -41,7 +41,6 @@ public class TokenBlacklistJpaEntity {
         entity.id = blacklist.getId();
         entity.jti = blacklist.getJti();
         entity.expiresAt = blacklist.getExpiresAt();
-        entity.createdAt = blacklist.getCreatedAt();
         return entity;
     }
 
