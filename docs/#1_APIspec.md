@@ -1227,23 +1227,20 @@ Status Code: `500 Internal Server Error`
 
 ## 📌 Product API
 
-| 기능 | Method | Endpoint | 설명 | 개발 여부 |
-|------|--------|----------|------|-----------|
-| 상품 목록 조회 | GET | /products | 상품 리스트 조회, `?ids=` 파라미터로 배치 조회 가능 (비회원 접근 가능) | ✅ |
-| 상품 상세 조회 | GET | /products/{productId} | 상품 상세 (비회원 접근 가능) | ✅ |
-| 상품 등록 | POST | /products | 상품 등록 | ✅ |
-| 상품 수정 | PATCH | /products/{productId} | 상품 정보 + 재고 수량 수정 (판매자) | ✅ |
-| 상품 상태 변경 | PATCH | /products/{productId}/status | 판매 상태 변경 (판매자 + 관리자) | ✅ |
-| 재고 조회 | GET | /products/{productId}/stock | 재고 확인 | ✅ |
-| 재고 차감 | POST | /products/{productId}/stock/deduct | 재고 차감 (내부 서비스 호출) | ✅ |
-| 재고 복구 | POST | /products/{productId}/stock/restore | 재고 복구 (내부 서비스 호출) | ✅ |
-| 카테고리 조회 | GET | /products/categories | 카테고리 조회 | ✅ |
-| 카테고리 추가 | POST | /products/categories | 카테고리 등록 | ✅ |
+| 기능 | Method | Endpoint | 설명 |
+|------|--------|----------|------|
+| 상품 목록 조회 | GET | /products | 상품 리스트 조회, `?ids=` 파라미터로 배치 조회 가능 |
+| 상품 상세 조회 | GET | /products/{productId} | 상품 상세 조회 |
+| 상품 등록 | POST | /products | 상품 등록 |
+| 상품 수정 | PATCH | /products/{productId} | 상품 정보 수정 (판매자) |
+| 상품 상태 변경 | PATCH | /products/{productId}/status | 판매 상태 변경 |
+| 카테고리 목록 조회 | GET | /products/categories | 카테고리 트리 조회 |
+| 카테고리 추가 | POST | /products/categories | 카테고리 등록 |
 
 
-### `GET /product` — 상품 목록 조회
+### `GET /products` — 상품 목록 조회
 
-상품 목록을 조회합니다. 페이지네이션과 필터링을 지원합니다.
+상품 목록을 조회합니다. `ids` 파라미터로 특정 상품들을 배치 조회할 수 있습니다.
 
 #### Request
 
@@ -1251,12 +1248,7 @@ Query String:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `page` | number | X | 페이지 번호 (기본값: 1) |
-| `limit` | number | X | 페이지당 항목 수 (기본값: 20, 최대: 100) |
-| `categoryId` | number | X | 카테고리 ID로 필터링 |
-| `keyword` | string | X | 상품명 검색 키워드 |
-| `status` | string | X | 상품 상태 필터 (`ACTIVE`, `SOLD_OUT`, `INACTIVE`, `PENDING_REVIEW`) |
-| `sort` | string | X | 정렬 기준 (`latest`, `price_asc`, `price_desc`, `name`) (기본값: `latest`) |
+| `ids` | UUID[] | X | 조회할 상품 ID 목록 (미입력 시 전체 조회) |
 
 #### Response
 
@@ -1267,60 +1259,32 @@ Status Code: `200 OK`
 ```json
 {
   "status": 200,
-  "code": "SUCCESS",
+  "code": "PRODUCT_LIST_GET_SUCCESS",
   "message": "상품 목록 조회에 성공했습니다.",
-  "data": {
-    "products": [
-      {
-        "productId": 1,
-        "name": "오가닉 코튼 티셔츠",
-        "price": 29000,
-        "thumbnailUrl": "https://example.com/images/product1_thumb.jpg",
-        "status": "ACTIVE",
-        "categoryId": 3,
-        "categoryName": "상의",
-        "createdAt": "2026-03-01T09:00:00Z"
-      }
-    ],
-    "pagination": {
-      "currentPage": 1,
-      "totalPages": 5,
-      "totalItems": 98,
-      "limit": 20
+  "data": [
+    {
+      "productId": "550e8400-e29b-41d4-a716-446655440000",
+      "sellerId": "550e8400-e29b-41d4-a716-446655440001",
+      "categoryId": "550e8400-e29b-41d4-a716-446655440002",
+      "isbn": "9788966261840",
+      "title": "클린 코드",
+      "author": "로버트 C. 마틴",
+      "publisher": "인사이트",
+      "price": 33000,
+      "quantity": 50,
+      "bookType": "NEW",
+      "status": "ACTIVE",
+      "avgRating": 4.5,
+      "reviewCount": 128,
+      "createdAt": "2026-03-01T09:00:00"
     }
-  }
-}
-```
-
-**2. 클라이언트 오류 — 잘못된 파라미터**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "INVALID_PARAMETER",
-  "message": "잘못된 요청 파라미터입니다.",
-  "data": null
-}
-```
-
-**3. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
+  ]
 }
 ```
 
 ---
 
-### `GET /product/{productId}` — 상품 상세 조회
+### `GET /products/{productId}` — 상품 상세 조회
 
 특정 상품의 상세 정보를 조회합니다.
 
@@ -1330,7 +1294,7 @@ Path Parameter:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `productId` | number | O | 조회할 상품 ID |
+| `productId` | UUID | O | 조회할 상품 ID |
 
 #### Response
 
@@ -1341,37 +1305,23 @@ Status Code: `200 OK`
 ```json
 {
   "status": 200,
-  "code": "SUCCESS",
-  "message": "상품 상세 조회에 성공했습니다.",
+  "code": "PRODUCT_GET_SUCCESS",
+  "message": "상품 조회에 성공했습니다.",
   "data": {
-    "productId": 1,
-    "name": "오가닉 코튼 티셔츠",
-    "description": "100% 유기농 면으로 제작된 프리미엄 티셔츠입니다.",
-    "price": 29000,
-    "discountPrice": 25000,
+    "productId": "550e8400-e29b-41d4-a716-446655440000",
+    "sellerId": "550e8400-e29b-41d4-a716-446655440001",
+    "categoryId": "550e8400-e29b-41d4-a716-446655440002",
+    "isbn": "9788966261840",
+    "title": "클린 코드",
+    "author": "로버트 C. 마틴",
+    "publisher": "인사이트",
+    "price": 33000,
+    "quantity": 50,
+    "bookType": "NEW",
     "status": "ACTIVE",
-    "categoryId": 3,
-    "categoryName": "상의",
-    "imageUrls": [
-      "https://example.com/images/product1_1.jpg",
-      "https://example.com/images/product1_2.jpg"
-    ],
-    "thumbnailUrl": "https://example.com/images/product1_thumb.jpg",
-    "stock": 150,
-    "options": [
-      {
-        "optionId": 1,
-        "name": "사이즈",
-        "values": ["S", "M", "L", "XL"]
-      },
-      {
-        "optionId": 2,
-        "name": "색상",
-        "values": ["화이트", "블랙", "네이비"]
-      }
-    ],
-    "createdAt": "2026-03-01T09:00:00Z",
-    "updatedAt": "2026-03-15T14:30:00Z"
+    "avgRating": 4.5,
+    "reviewCount": 128,
+    "createdAt": "2026-03-01T09:00:00"
   }
 }
 ```
@@ -1389,35 +1339,9 @@ Status Code: `404 Not Found`
 }
 ```
 
-**3. 클라이언트 오류 — 잘못된 파라미터**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "INVALID_PRODUCT_ID",
-  "message": "유효하지 않은 상품 ID입니다.",
-  "data": null
-}
-```
-
-**4. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
-}
-```
-
 ---
 
-### `POST /product` — 상품 등록
+### `POST /products` — 상품 등록
 
 새로운 상품을 등록합니다.
 
@@ -1434,43 +1358,29 @@ Request Body:
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `name` | string | O | 상품명 (최대 100자) |
-| `description` | string | O | 상품 설명 |
-| `price` | number | O | 상품 가격 (0 이상) |
-| `discountPrice` | number | X | 할인 가격 (`price`보다 작아야 함) |
-| `categoryId` | number | O | 카테고리 ID |
-| `imageUrls` | string[] | O | 상품 이미지 URL 배열 (최소 1개) |
-| `thumbnailUrl` | string | O | 썸네일 이미지 URL |
-| `stock` | number | O | 초기 재고 수량 (0 이상) |
-| `options` | object[] | X | 상품 옵션 배열 |
-| `options[].name` | string | O | 옵션명 (예: "사이즈") |
-| `options[].values` | string[] | O | 옵션값 배열 (예: ["S", "M", "L"]) |
+| `sellerId` | UUID | O | 판매자 ID |
+| `categoryId` | UUID | O | 카테고리 ID |
+| `isbn` | string | O | ISBN (최대 20자) |
+| `title` | string | O | 도서 제목 (최대 300자) |
+| `author` | string | O | 저자 (최대 200자) |
+| `publisher` | string | O | 출판사 (최대 100자) |
+| `price` | integer | O | 가격 (0 이상) |
+| `quantity` | integer | O | 초기 재고 수량 (0 이상) |
+| `bookType` | string | O | 도서 유형 (`NEW`, `USED`) |
 
 Request Body Example:
 
 ```json
 {
-  "name": "오가닉 코튼 티셔츠",
-  "description": "100% 유기농 면으로 제작된 프리미엄 티셔츠입니다.",
-  "price": 29000,
-  "discountPrice": 25000,
-  "categoryId": 3,
-  "imageUrls": [
-    "https://example.com/images/product1_1.jpg",
-    "https://example.com/images/product1_2.jpg"
-  ],
-  "thumbnailUrl": "https://example.com/images/product1_thumb.jpg",
-  "stock": 150,
-  "options": [
-    {
-      "name": "사이즈",
-      "values": ["S", "M", "L", "XL"]
-    },
-    {
-      "name": "색상",
-      "values": ["화이트", "블랙", "네이비"]
-    }
-  ]
+  "sellerId": "550e8400-e29b-41d4-a716-446655440001",
+  "categoryId": "550e8400-e29b-41d4-a716-446655440002",
+  "isbn": "9788966261840",
+  "title": "클린 코드",
+  "author": "로버트 C. 마틴",
+  "publisher": "인사이트",
+  "price": 33000,
+  "quantity": 50,
+  "bookType": "NEW"
 }
 ```
 
@@ -1483,46 +1393,51 @@ Status Code: `201 Created`
 ```json
 {
   "status": 201,
-  "code": "PRODUCT_CREATED",
-  "message": "상품이 성공적으로 등록되었습니다.",
+  "code": "PRODUCT_REGISTER_SUCCESS",
+  "message": "상품이 등록되었습니다.",
   "data": {
-    "productId": 1
+    "productId": "550e8400-e29b-41d4-a716-446655440000",
+    "sellerId": "550e8400-e29b-41d4-a716-446655440001",
+    "categoryId": "550e8400-e29b-41d4-a716-446655440002",
+    "isbn": "9788966261840",
+    "title": "클린 코드",
+    "author": "로버트 C. 마틴",
+    "publisher": "인사이트",
+    "price": 33000,
+    "quantity": 50,
+    "bookType": "NEW",
+    "status": "PENDING_REVIEW",
+    "createdAt": "2026-03-01T09:00:00"
   }
 }
 ```
 
-**2. 클라이언트 오류 — 필수 필드 누락**
+**2. 클라이언트 오류 — 유효하지 않은 입력값**
 
 Status Code: `400 Bad Request`
 
 ```json
 {
   "status": 400,
-  "code": "MISSING_REQUIRED_FIELD",
-  "message": "필수 입력 항목이 누락되었습니다.",
+  "code": "INVALID_INPUT_VALUE",
+  "message": "입력값이 올바르지 않습니다.",
   "data": {
-    "missingFields": ["name", "price"]
+    "price": "가격은 0 이상이어야 합니다.",
+    "isbn": "ISBN은 필수입니다."
   }
 }
 ```
 
-**3. 클라이언트 오류 — 유효하지 않은 데이터**
+**3. 클라이언트 오류 — ISBN 중복**
 
-Status Code: `400 Bad Request`
+Status Code: `409 Conflict`
 
 ```json
 {
-  "status": 400,
-  "code": "INVALID_FIELD_VALUE",
-  "message": "유효하지 않은 입력값입니다.",
-  "data": {
-    "errors": [
-      {
-        "field": "discountPrice",
-        "message": "할인 가격은 정가보다 작아야 합니다."
-      }
-    ]
-  }
+  "status": 409,
+  "code": "PRODUCT_ISBN_DUPLICATE",
+  "message": "이미 등록된 ISBN입니다.",
+  "data": null
 }
 ```
 
@@ -1539,48 +1454,9 @@ Status Code: `404 Not Found`
 }
 ```
 
-**5. 인증 오류**
-
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
-  "data": null
-}
-```
-
-**6. 권한 오류**
-
-Status Code: `403 Forbidden`
-
-```json
-{
-  "status": 403,
-  "code": "FORBIDDEN",
-  "message": "해당 작업에 대한 권한이 없습니다.",
-  "data": null
-}
-```
-
-**7. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
-}
-```
-
 ---
 
-### `PATCH /product/{productId}` — 상품 수정
+### `PATCH /products/{productId}` — 상품 수정
 
 기존 상품 정보를 수정합니다. 변경하고자 하는 필드만 전달합니다.
 
@@ -1590,7 +1466,7 @@ Path Parameter:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `productId` | number | O | 수정할 상품 ID |
+| `productId` | UUID | O | 수정할 상품 ID |
 
 Request Header:
 
@@ -1603,22 +1479,20 @@ Request Body:
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `name` | string | X | 상품명 (최대 100자) |
-| `description` | string | X | 상품 설명 |
-| `price` | number | X | 상품 가격 (0 이상) |
-| `discountPrice` | number | X | 할인 가격 (`price`보다 작아야 함) |
-| `categoryId` | number | X | 카테고리 ID |
-| `imageUrls` | string[] | X | 상품 이미지 URL 배열 |
-| `thumbnailUrl` | string | X | 썸네일 이미지 URL |
-| `options` | object[] | X | 상품 옵션 배열 |
+| `categoryId` | UUID | X | 카테고리 ID |
+| `title` | string | X | 도서 제목 (최대 300자) |
+| `author` | string | X | 저자 (최대 200자) |
+| `publisher` | string | X | 출판사 (최대 100자) |
+| `price` | integer | X | 가격 (0 이상) |
+| `quantity` | integer | X | 재고 수량 (0 이상) |
 
 Request Body Example:
 
 ```json
 {
-  "name": "프리미엄 오가닉 코튼 티셔츠",
-  "price": 32000,
-  "discountPrice": 28000
+  "title": "클린 코드 (개정판)",
+  "price": 35000,
+  "quantity": 100
 }
 ```
 
@@ -1631,11 +1505,23 @@ Status Code: `200 OK`
 ```json
 {
   "status": 200,
-  "code": "PRODUCT_UPDATED",
-  "message": "상품 정보가 성공적으로 수정되었습니다.",
+  "code": "PRODUCT_UPDATE_SUCCESS",
+  "message": "상품이 수정되었습니다.",
   "data": {
-    "productId": 1,
-    "updatedFields": ["name", "price", "discountPrice"]
+    "productId": "550e8400-e29b-41d4-a716-446655440000",
+    "sellerId": "550e8400-e29b-41d4-a716-446655440001",
+    "categoryId": "550e8400-e29b-41d4-a716-446655440002",
+    "isbn": "9788966261840",
+    "title": "클린 코드 (개정판)",
+    "author": "로버트 C. 마틴",
+    "publisher": "인사이트",
+    "price": 35000,
+    "quantity": 100,
+    "bookType": "NEW",
+    "status": "ACTIVE",
+    "avgRating": 4.5,
+    "reviewCount": 128,
+    "createdAt": "2026-03-01T09:00:00"
   }
 }
 ```
@@ -1653,81 +1539,24 @@ Status Code: `404 Not Found`
 }
 ```
 
-**3. 클라이언트 오류 — 유효하지 않은 데이터**
+**3. 클라이언트 오류 — 유효하지 않은 입력값**
 
 Status Code: `400 Bad Request`
 
 ```json
 {
   "status": 400,
-  "code": "INVALID_FIELD_VALUE",
-  "message": "유효하지 않은 입력값입니다.",
+  "code": "INVALID_INPUT_VALUE",
+  "message": "입력값이 올바르지 않습니다.",
   "data": {
-    "errors": [
-      {
-        "field": "price",
-        "message": "가격은 0 이상이어야 합니다."
-      }
-    ]
+    "price": "가격은 0 이상이어야 합니다."
   }
-}
-```
-
-**4. 클라이언트 오류 — 수정할 필드 없음**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "NO_FIELDS_TO_UPDATE",
-  "message": "수정할 항목이 없습니다.",
-  "data": null
-}
-```
-
-**5. 인증 오류**
-
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
-  "data": null
-}
-```
-
-**6. 권한 오류**
-
-Status Code: `403 Forbidden`
-
-```json
-{
-  "status": 403,
-  "code": "FORBIDDEN",
-  "message": "해당 작업에 대한 권한이 없습니다.",
-  "data": null
-}
-```
-
-**7. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
 }
 ```
 
 ---
 
-### `PATCH /product/{productId}/status` — 상품 상태 변경
+### `PATCH /products/{productId}/status` — 상품 상태 변경
 
 상품의 판매 상태를 변경합니다.
 
@@ -1737,7 +1566,7 @@ Path Parameter:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `productId` | number | O | 상태를 변경할 상품 ID |
+| `productId` | UUID | O | 상태를 변경할 상품 ID |
 
 Request Header:
 
@@ -1750,13 +1579,13 @@ Request Body:
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `status` | string | O | 변경할 상태 (`ACTIVE`, `SOLD_OUT`, `INACTIVE`, `PENDING_REVIEW`) |
+| `status` | string | O | 변경할 상태 (`PENDING_REVIEW`, `ACTIVE`, `INACTIVE`, `SOLD_OUT`) |
 
 Request Body Example:
 
 ```json
 {
-  "status": "SOLD_OUT"
+  "status": "ACTIVE"
 }
 ```
 
@@ -1769,12 +1598,23 @@ Status Code: `200 OK`
 ```json
 {
   "status": 200,
-  "code": "STATUS_UPDATED",
-  "message": "상품 상태가 성공적으로 변경되었습니다.",
+  "code": "PRODUCT_STATUS_CHANGE_SUCCESS",
+  "message": "상품 상태가 변경되었습니다.",
   "data": {
-    "productId": 1,
-    "previousStatus": "ACTIVE",
-    "currentStatus": "SOLD_OUT"
+    "productId": "550e8400-e29b-41d4-a716-446655440000",
+    "sellerId": "550e8400-e29b-41d4-a716-446655440001",
+    "categoryId": "550e8400-e29b-41d4-a716-446655440002",
+    "isbn": "9788966261840",
+    "title": "클린 코드",
+    "author": "로버트 C. 마틴",
+    "publisher": "인사이트",
+    "price": 33000,
+    "quantity": 50,
+    "bookType": "NEW",
+    "status": "ACTIVE",
+    "avgRating": 4.5,
+    "reviewCount": 128,
+    "createdAt": "2026-03-01T09:00:00"
   }
 }
 ```
@@ -1792,84 +1632,30 @@ Status Code: `404 Not Found`
 }
 ```
 
-**3. 클라이언트 오류 — 유효하지 않은 상태값**
+**3. 클라이언트 오류 — 유효하지 않은 입력값**
 
 Status Code: `400 Bad Request`
 
 ```json
 {
   "status": 400,
-  "code": "INVALID_STATUS",
-  "message": "유효하지 않은 상태값입니다. (허용값: PENDING_REVIEW, ACTIVE, INACTIVE, SOLD_OUT)",
-  "data": null
-}
-```
-
-**4. 클라이언트 오류 — 동일한 상태로 변경 시도**
-
-Status Code: `409 Conflict`
-
-```json
-{
-  "status": 409,
-  "code": "SAME_STATUS",
-  "message": "현재 상태와 동일한 상태로는 변경할 수 없습니다.",
-  "data": null
-}
-```
-
-**5. 인증 오류**
-
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
-  "data": null
-}
-```
-
-**6. 권한 오류**
-
-Status Code: `403 Forbidden`
-
-```json
-{
-  "status": 403,
-  "code": "FORBIDDEN",
-  "message": "해당 작업에 대한 권한이 없습니다.",
-  "data": null
-}
-```
-
-**7. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
+  "code": "INVALID_INPUT_VALUE",
+  "message": "입력값이 올바르지 않습니다.",
+  "data": {
+    "status": "유효하지 않은 상태값입니다."
+  }
 }
 ```
 
 ---
 
-### `GET /product/{productId}/inventory` — 재고 조회
+### `GET /products/categories` — 카테고리 목록 조회
 
-특정 상품의 재고 정보를 조회합니다.
+카테고리 목록을 계층형 트리 구조로 조회합니다.
 
 #### Request
 
-Path Parameter:
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `productId` | number | O | 조회할 상품 ID |
+없음
 
 #### Response
 
@@ -1880,292 +1666,51 @@ Status Code: `200 OK`
 ```json
 {
   "status": 200,
-  "code": "SUCCESS",
-  "message": "재고 조회에 성공했습니다.",
-  "data": {
-    "productId": 1,
-    "productName": "오가닉 코튼 티셔츠",
-    "totalStock": 150,
-    "optionStocks": [
-      {
-        "optionId": 1,
-        "optionName": "S / 화이트",
-        "stock": 30
-      },
-      {
-        "optionId": 2,
-        "optionName": "M / 화이트",
-        "stock": 50
-      },
-      {
-        "optionId": 3,
-        "optionName": "L / 블랙",
-        "stock": 70
-      }
-    ],
-    "updatedAt": "2026-03-18T10:00:00Z"
-  }
-}
-```
-
-**2. 클라이언트 오류 — 존재하지 않는 상품**
-
-Status Code: `404 Not Found`
-
-```json
-{
-  "status": 404,
-  "code": "PRODUCT_NOT_FOUND",
-  "message": "해당 상품을 찾을 수 없습니다.",
-  "data": null
-}
-```
-
-**3. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
-}
-```
-
----
-
-### `PATCH /product/{productId}/inventory` — 재고 수정
-
-특정 상품의 재고를 수정합니다.
-
-#### Request
-
-Path Parameter:
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `productId` | number | O | 수정할 상품 ID |
-
-Request Header:
-
-| 헤더 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `Content-Type` | string | O | `application/json` |
-| `Authorization` | string | O | Bearer access token |
-
-Request Body:
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `stocks` | object[] | O | 재고 수정 배열 |
-| `stocks[].optionId` | number | O | 옵션 ID |
-| `stocks[].stock` | number | O | 변경할 재고 수량 (0 이상) |
-
-Request Body Example:
-
-```json
-{
-  "stocks": [
+  "code": "CATEGORY_LIST_GET_SUCCESS",
+  "message": "카테고리 목록 조회에 성공했습니다.",
+  "data": [
     {
-      "optionId": 1,
-      "stock": 50
+      "id": "550e8400-e29b-41d4-a716-446655440010",
+      "name": "국내도서",
+      "slug": "domestic",
+      "depth": 0,
+      "sortOrder": 1,
+      "children": [
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440011",
+          "name": "소설",
+          "slug": "domestic-novel",
+          "depth": 1,
+          "sortOrder": 1,
+          "children": []
+        },
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440012",
+          "name": "자기계발",
+          "slug": "domestic-self-help",
+          "depth": 1,
+          "sortOrder": 2,
+          "children": []
+        }
+      ]
     },
     {
-      "optionId": 2,
-      "stock": 100
+      "id": "550e8400-e29b-41d4-a716-446655440013",
+      "name": "외국도서",
+      "slug": "foreign",
+      "depth": 0,
+      "sortOrder": 2,
+      "children": []
     }
   ]
 }
 ```
 
-#### Response
-
-**1. 요청 성공**
-
-Status Code: `200 OK`
-
-```json
-{
-  "status": 200,
-  "code": "INVENTORY_UPDATED",
-  "message": "재고가 성공적으로 수정되었습니다.",
-  "data": {
-    "productId": 1,
-    "updatedStocks": [
-      {
-        "optionId": 1,
-        "stock": 50
-      },
-      {
-        "optionId": 2,
-        "stock": 100
-      }
-    ]
-  }
-}
-```
-
-**2. 클라이언트 오류 — 존재하지 않는 상품**
-
-Status Code: `404 Not Found`
-
-```json
-{
-  "status": 404,
-  "code": "PRODUCT_NOT_FOUND",
-  "message": "해당 상품을 찾을 수 없습니다.",
-  "data": null
-}
-```
-
-**3. 클라이언트 오류 — 존재하지 않는 옵션**
-
-Status Code: `404 Not Found`
-
-```json
-{
-  "status": 404,
-  "code": "OPTION_NOT_FOUND",
-  "message": "해당 옵션을 찾을 수 없습니다.",
-  "data": {
-    "invalidOptionIds": [99]
-  }
-}
-```
-
-**4. 클라이언트 오류 — 유효하지 않은 재고 수량**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "INVALID_STOCK_VALUE",
-  "message": "재고 수량은 0 이상이어야 합니다.",
-  "data": null
-}
-```
-
-**5. 인증 오류**
-
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
-  "data": null
-}
-```
-
-**6. 권한 오류**
-
-Status Code: `403 Forbidden`
-
-```json
-{
-  "status": 403,
-  "code": "FORBIDDEN",
-  "message": "해당 작업에 대한 권한이 없습니다.",
-  "data": null
-}
-```
-
-**7. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
-}
-```
-
 ---
 
-### `GET /product/category` — 카테고리 조회
+### `POST /products/categories` — 카테고리 추가
 
-상품 카테고리 목록을 조회합니다.
-
-#### Request
-
-Query String:
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `parentId` | number | X | 부모 카테고리 ID (미입력 시 최상위 카테고리 조회) |
-
-#### Response
-
-**1. 요청 성공**
-
-Status Code: `200 OK`
-
-```json
-{
-  "status": 200,
-  "code": "SUCCESS",
-  "message": "카테고리 조회에 성공했습니다.",
-  "data": {
-    "categories": [
-      {
-        "categoryId": 1,
-        "name": "의류",
-        "parentId": null,
-        "depth": 0,
-        "children": [
-          {
-            "categoryId": 2,
-            "name": "상의",
-            "parentId": 1,
-            "depth": 1,
-            "children": []
-          },
-          {
-            "categoryId": 3,
-            "name": "하의",
-            "parentId": 1,
-            "depth": 1,
-            "children": []
-          }
-        ]
-      },
-      {
-        "categoryId": 4,
-        "name": "액세서리",
-        "parentId": null,
-        "depth": 0,
-        "children": []
-      }
-    ]
-  }
-}
-```
-
-**2. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
-}
-```
-
----
-
-### `POST /product/category` — 카테고리 추가
-
-새로운 상품 카테고리를 추가합니다.
+새로운 카테고리를 추가합니다.
 
 #### Request
 
@@ -2180,15 +1725,19 @@ Request Body:
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `name` | string | O | 카테고리명 (최대 50자) |
-| `parentId` | number | X | 부모 카테고리 ID (미입력 시 최상위 카테고리로 생성) |
+| `parentId` | UUID | X | 부모 카테고리 ID (미입력 시 최상위 카테고리로 생성) |
+| `name` | string | O | 카테고리명 (최대 100자) |
+| `slug` | string | O | 슬러그 (최대 100자, URL 식별자) |
+| `sortOrder` | integer | O | 정렬 순서 (0 이상) |
 
 Request Body Example:
 
 ```json
 {
-  "name": "반팔 티셔츠",
-  "parentId": 2
+  "parentId": "550e8400-e29b-41d4-a716-446655440010",
+  "name": "판타지",
+  "slug": "domestic-fantasy",
+  "sortOrder": 3
 }
 ```
 
@@ -2201,26 +1750,28 @@ Status Code: `201 Created`
 ```json
 {
   "status": 201,
-  "code": "CATEGORY_CREATED",
-  "message": "카테고리가 성공적으로 추가되었습니다.",
+  "code": "CATEGORY_CREATE_SUCCESS",
+  "message": "카테고리가 등록되었습니다.",
   "data": {
-    "categoryId": 5,
-    "name": "반팔 티셔츠",
-    "parentId": 2,
-    "depth": 2
+    "id": "550e8400-e29b-41d4-a716-446655440020",
+    "parentId": "550e8400-e29b-41d4-a716-446655440010",
+    "name": "판타지",
+    "slug": "domestic-fantasy",
+    "depth": 1,
+    "sortOrder": 3
   }
 }
 ```
 
-**2. 클라이언트 오류 — 중복 카테고리명**
+**2. 클라이언트 오류 — slug 중복**
 
 Status Code: `409 Conflict`
 
 ```json
 {
   "status": 409,
-  "code": "DUPLICATE_CATEGORY_NAME",
-  "message": "동일한 이름의 카테고리가 이미 존재합니다.",
+  "code": "CATEGORY_SLUG_DUPLICATE",
+  "message": "이미 사용 중인 슬러그입니다.",
   "data": null
 }
 ```
@@ -2232,63 +1783,25 @@ Status Code: `404 Not Found`
 ```json
 {
   "status": 404,
-  "code": "PARENT_CATEGORY_NOT_FOUND",
-  "message": "부모 카테고리를 찾을 수 없습니다.",
+  "code": "CATEGORY_NOT_FOUND",
+  "message": "해당 카테고리를 찾을 수 없습니다.",
   "data": null
 }
 ```
 
-**4. 클라이언트 오류 — 필수 필드 누락**
+**4. 클라이언트 오류 — 유효하지 않은 입력값**
 
 Status Code: `400 Bad Request`
 
 ```json
 {
   "status": 400,
-  "code": "MISSING_REQUIRED_FIELD",
-  "message": "필수 입력 항목이 누락되었습니다.",
+  "code": "INVALID_INPUT_VALUE",
+  "message": "입력값이 올바르지 않습니다.",
   "data": {
-    "missingFields": ["name"]
+    "name": "카테고리명은 필수입니다.",
+    "slug": "슬러그는 필수입니다."
   }
-}
-```
-
-**5. 인증 오류**
-
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
-  "data": null
-}
-```
-
-**6. 권한 오류**
-
-Status Code: `403 Forbidden`
-
-```json
-{
-  "status": 403,
-  "code": "FORBIDDEN",
-  "message": "해당 작업에 대한 권한이 없습니다.",
-  "data": null
-}
-```
-
-**7. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
 }
 ```
 
