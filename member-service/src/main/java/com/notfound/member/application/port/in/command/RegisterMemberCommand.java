@@ -6,4 +6,10 @@ public record RegisterMemberCommand(
         String name,
         String phone
 ) {
+    @Override
+    public String toString() {
+        return "RegisterMemberCommand[email=" + email
+                + ", password=<redacted>, name=" + name
+                + ", phone=" + phone + "]";
+    }
 }

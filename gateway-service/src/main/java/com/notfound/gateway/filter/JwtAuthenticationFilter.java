@@ -13,10 +13,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -33,15 +36,16 @@ import java.util.List;
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String HEADER_USER_ID = "X-User-Id";
     private static final String HEADER_ROLE = "X-Role";
     private static final String HEADER_EMAIL_VERIFIED = "X-Email-Verified";
 
     private static final List<String> PUBLIC_PATHS = List.of(
-            "/api/members/auth/register",
-            "/api/members/auth/login",
-            "/api/members/auth/refresh"
+            "/api/member/auth/register",
+            "/api/member/auth/login",
+            "/api/member/auth/refresh"
     );
 
     private final SecretKey secretKey;
@@ -94,6 +98,11 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
         // 블랙리스트 조회 후 헤더 주입 (조회 실패 시 fail-closed → 401)
         return memberInternalClient.isBlacklisted(jti)
+                .timeout(Duration.ofMillis(300))
+                .onErrorResume(e -> {
+                    log.error("Blacklist lookup failed for jti={}", jti, e);
+                    return Mono.just(Boolean.TRUE);
+                })
                 .flatMap(blacklisted -> {
                     if (Boolean.TRUE.equals(blacklisted)) {
                         return unauthorized(exchange);
@@ -116,7 +125,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isPublicPath(String path, HttpMethod method) {
-        if (HttpMethod.GET.equals(method) && path.startsWith("/api/products")) {
+        if (HttpMethod.GET.equals(method) && path.startsWith("/api/product")) {
             return true;
         }
         return PUBLIC_PATHS.stream().anyMatch(path::startsWith);

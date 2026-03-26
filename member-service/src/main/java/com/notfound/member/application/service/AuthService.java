@@ -81,14 +81,14 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
     @Transactional
     public AuthResult login(LoginCommand command, String userAgent, String ipAddress) {
         Member member = memberRepository.findByEmail(command.email())
-                .orElseThrow(MemberException::notFound);
+                .orElseThrow(MemberException::invalidCredentials);
 
         if (member.getStatus() != MemberStatus.ACTIVE) {
             throw MemberException.inactiveAccount();
         }
 
         if (!passwordEncoder.matches(command.password(), member.getPasswordHash())) {
-            throw MemberException.invalidPassword();
+            throw MemberException.invalidCredentials();
         }
 
         return issueTokens(member, userAgent, ipAddress);

@@ -6,10 +6,11 @@ import java.util.UUID;
 
 public record AuthResponse(
         UUID memberId,
-        String accessToken
+        String accessToken,
+        String refreshToken
 ) {
 
     public static AuthResponse from(AuthResult result) {
-        return new AuthResponse(result.memberId(), result.accessToken());
+        return new AuthResponse(result.memberId(), result.accessToken(), result.refreshToken());
     }
 }
