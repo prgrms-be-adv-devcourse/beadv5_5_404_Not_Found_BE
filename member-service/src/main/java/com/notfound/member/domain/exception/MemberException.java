@@ -64,4 +64,24 @@ public class MemberException extends RuntimeException {
     public static MemberException sellerNotFound() {
         return new MemberException("SELLER_NOT_FOUND", "판매자 정보를 찾을 수 없습니다.");
     }
+
+    public static MemberException insufficientDeposit() {
+        return new MemberException("MEMBER_INSUFFICIENT_DEPOSIT", "예치금 잔액이 부족합니다.");
+    }
+
+    public static MemberException invalidDepositAmount() {
+        return new MemberException("MEMBER_INVALID_DEPOSIT_AMOUNT", "유효하지 않은 금액입니다.");
+    }
+
+    public static MemberException addressNotFound() {
+        return new MemberException("ADDRESS_NOT_FOUND", "배송지를 찾을 수 없습니다.");
+    }
+
+    public static MemberException sellerAlreadyRegistered() {
+        return new MemberException("SELLER_ALREADY_REGISTERED", "이미 판매자로 등록된 회원입니다.");
+    }
+
+    public static MemberException sellerNotPending() {
+        return new MemberException("SELLER_NOT_PENDING", "대기 상태의 판매자만 승인할 수 있습니다.");
+    }
 }

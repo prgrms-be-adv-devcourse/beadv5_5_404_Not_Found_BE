@@ -53,13 +53,16 @@ public class GlobalExceptionHandler {
 
     private int resolveStatus(String code) {
         if (code.contains("NOT_FOUND")) return HttpStatus.NOT_FOUND.value();
-        if (code.contains("DUPLICATE") || code.contains("ALREADY_WITHDRAWN")) return HttpStatus.CONFLICT.value();
-        if (code.contains("EMAIL_NOT_VERIFIED") || code.contains("ACCESS_DENIED") || code.contains("NOT_APPROVED")
-                || code.contains("INACTIVE")) {
+        if (code.contains("DUPLICATE") || code.contains("ALREADY_WITHDRAWN") || code.contains("ALREADY_REGISTERED")) return HttpStatus.CONFLICT.value();
+        if (code.contains("FORBIDDEN") || code.contains("EMAIL_NOT_VERIFIED") || code.contains("ACCESS_DENIED")
+                || code.contains("NOT_APPROVED") || code.contains("INACTIVE")) {
             return HttpStatus.FORBIDDEN.value();
         }
         if (code.contains("INVALID") || code.contains("HIJACKED")) {
             return HttpStatus.UNAUTHORIZED.value();
+        }
+        if (code.contains("INSUFFICIENT") || code.contains("NOT_PENDING")) {
+            return HttpStatus.BAD_REQUEST.value();
         }
         return HttpStatus.BAD_REQUEST.value();
     }

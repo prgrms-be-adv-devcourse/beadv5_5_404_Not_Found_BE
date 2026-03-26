@@ -11,13 +11,34 @@ import java.util.UUID;
 public class SellerRepositoryAdapter implements SellerRepository {
 
     private final SellerJpaRepository sellerJpaRepository;
+    private final MemberJpaRepository memberJpaRepository;
 
-    public SellerRepositoryAdapter(SellerJpaRepository sellerJpaRepository) {
+    public SellerRepositoryAdapter(SellerJpaRepository sellerJpaRepository,
+                                   MemberJpaRepository memberJpaRepository) {
         this.sellerJpaRepository = sellerJpaRepository;
+        this.memberJpaRepository = memberJpaRepository;
+    }
+
+    @Override
+    public Optional<Seller> findById(UUID sellerId) {
+        return sellerJpaRepository.findById(sellerId).map(SellerJpaEntity::toDomain);
     }
 
     @Override
     public Optional<Seller> findByMemberId(UUID memberId) {
         return sellerJpaRepository.findByMemberId(memberId).map(SellerJpaEntity::toDomain);
+    }
+
+    @Override
+    public boolean existsByMemberId(UUID memberId) {
+        return sellerJpaRepository.existsByMemberId(memberId);
+    }
+
+    @Override
+    public Seller save(Seller seller) {
+        MemberJpaEntity memberEntity = memberJpaRepository.getReferenceById(seller.getMemberId());
+        SellerJpaEntity entity = SellerJpaEntity.from(seller, memberEntity);
+        SellerJpaEntity saved = sellerJpaRepository.save(entity);
+        return saved.toDomain();
     }
 }
