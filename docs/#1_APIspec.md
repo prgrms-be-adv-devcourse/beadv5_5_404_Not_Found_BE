@@ -1240,6 +1240,7 @@ Status Code: `500 Internal Server Error`
 | 카테고리 조회 | GET | /products/categories | 카테고리 조회 | ✅ |
 | 카테고리 추가 | POST | /products/categories | 카테고리 등록 | ✅ |
 
+
 ### `GET /product` — 상품 목록 조회
 
 상품 목록을 조회합니다. 페이지네이션과 필터링을 지원합니다.
