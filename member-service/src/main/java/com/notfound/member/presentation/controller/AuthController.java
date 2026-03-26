@@ -53,7 +53,7 @@ public class AuthController {
         AuthResult result = registerMemberUseCase.register(
                 request.toCommand(),
                 httpRequest.getHeader("User-Agent"),
-                httpRequest.getRemoteAddr());
+                resolveClientIp(httpRequest));
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(201, "MEMBER_REGISTER_SUCCESS",
@@ -69,7 +69,7 @@ public class AuthController {
         AuthResult result = loginUseCase.login(
                 request.toCommand(),
                 httpRequest.getHeader("User-Agent"),
-                httpRequest.getRemoteAddr());
+                resolveClientIp(httpRequest));
 
         return ResponseEntity.ok(
                 ApiResponse.success(200, "MEMBER_LOGIN_SUCCESS",
@@ -85,7 +85,7 @@ public class AuthController {
         AuthResult result = refreshTokenUseCase.refresh(
                 request.refreshToken(),
                 httpRequest.getHeader("User-Agent"),
-                httpRequest.getRemoteAddr());
+                resolveClientIp(httpRequest));
 
         return ResponseEntity.ok(
                 ApiResponse.success(200, "MEMBER_TOKEN_REFRESH_SUCCESS",
@@ -104,6 +104,32 @@ public class AuthController {
         return ResponseEntity.ok(
                 ApiResponse.success(200, "MEMBER_LOGOUT_SUCCESS",
                         "로그아웃이 완료되었습니다.", null));
+    }
+
+    private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE, refreshToken);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(REFRESH_TOKEN_MAX_AGE);
+        response.addCookie(cookie);
+    }
+
+    private void clearRefreshTokenCookie(HttpServletResponse response) {
+        Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE, null);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     private String extractAccessToken(String authHeader) {

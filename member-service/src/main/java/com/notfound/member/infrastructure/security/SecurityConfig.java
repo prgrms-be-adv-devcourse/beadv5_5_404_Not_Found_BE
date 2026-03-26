@@ -14,7 +14,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * Member Service Security 설정
  *
  * JWT 검증은 Gateway에서 전담한다.
- * member-service는 Gateway가 전달한 X-User-Id, X-Role 헤더를 신뢰하며,
+ * member-service는 Gateway가 전달한 X-User-Id, X-Role, X-Email-Verified 헤더를 신뢰하며,
  * 자체적으로 JWT 필터를 등록하지 않는다.
  *
  * /internal/** 경로는 InternalSecretFilter가 X-Internal-Secret 헤더를 검증하여 보호한다.

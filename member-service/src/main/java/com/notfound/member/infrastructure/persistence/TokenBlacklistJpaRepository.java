@@ -19,6 +19,6 @@ public interface TokenBlacklistJpaRepository extends JpaRepository<TokenBlacklis
                         @Param("createdAt") LocalDateTime createdAt);
 
     @Modifying
-    @Query("DELETE FROM TokenBlacklistJpaEntity t WHERE t.expiresAt < :now")
+    @Query("DELETE FROM TokenBlacklistJpaEntity t WHERE t.expiresAt <= :now")
     int deleteExpiredTokens(@Param("now") LocalDateTime now);
 }

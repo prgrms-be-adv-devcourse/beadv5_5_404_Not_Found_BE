@@ -16,4 +16,9 @@ public record LoginRequest(
     public LoginCommand toCommand() {
         return new LoginCommand(email, password);
     }
+
+    @Override
+    public String toString() {
+        return "LoginRequest[email=" + email + "]";
+    }
 }
