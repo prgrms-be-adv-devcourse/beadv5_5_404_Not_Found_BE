@@ -30,13 +30,13 @@
 
 ### 상품 도메인 (Product)
 
-| 이벤트명 | Producer | Consumer | Topic | 목적 |
-|---------|----------|----------|-------|------|
-| `ProductCreatedEvent` | Product | (운영/알림) | `product.created` | 상품 등록 완료 상태 반영 |
-| `ProductApprovedEvent` | Product | (노출 처리) | `product.approved` | 상품 검수 승인 후 판매 가능 반영 |
-| `ProductSoldOutEvent` | Product | Order | `product.sold-out` | 품절 상태 반영, 주문 제한 |
-| `StockDeductedEvent` | Product | (운영 추적) | `product.stock-deducted` | 재고 차감 완료 사실 추적 |
-| `StockRestoredEvent` | Product | (운영 추적) | `product.stock-restored` | 재고 복구 완료 사실 추적 |
+| 이벤트명 | Producer | Consumer | Topic | 목적 | 비고 |
+|---------|----------|----------|-------|------|------|
+| `ProductCreatedEvent` | Product | (운영/알림) | `product.created` | 상품 등록 완료 상태 반영 | 미구현 — 소비하는 서비스 없음 (외부 알림 서비스 미정) |
+| `ProductApprovedEvent` | Product | (노출 처리) | `product.approved` | 상품 검수 승인 후 판매 가능 반영 | 미구현 — 소비하는 서비스 없음 (별도 노출 처리 서비스 미정) |
+| `ProductSoldOutEvent` | Product | Order | `product.sold-out` | 품절 상태 반영, 주문 제한 | 미구현 — Order가 주문 생성 시 REST로 재고 검증하므로 당장 불필요, Order 서비스 개발 시 추가 |
+| `StockDeductedEvent` | Product | (운영 추적) | `product.stock-deducted` | 재고 차감 완료 사실 추적 | 미구현 — 운영 모니터링 목적, 소비 서비스 없음 |
+| `StockRestoredEvent` | Product | (운영 추적) | `product.stock-restored` | 재고 복구 완료 사실 추적 | 미구현 — 운영 모니터링 목적, 소비 서비스 없음 |
 
 ### 리뷰 도메인 (Review)
 
@@ -93,4 +93,56 @@
 adapter/
 ├── in/kafka/    ← Consumer (이벤트 수신)
 └── out/kafka/   ← Producer (이벤트 발행)
+```
+
+---
+
+## 5. 이벤트별 Payload 상세
+
+### PaymentApprovedEvent
+- **Topic**: `payment.approved`
+- **Producer**: Payment
+- **Consumer**: Order (주문 확정), Product (재고 차감)
+
+```json
+{
+  "eventId": "550e8400-e29b-41d4-a716-446655440000",
+  "eventType": "PaymentApprovedEvent",
+  "timestamp": "2026-03-23T12:00:00",
+  "payload": {
+    "orderId": "550e8400-e29b-41d4-a716-446655440001",
+    "memberId": "550e8400-e29b-41d4-a716-446655440002",
+    "orderItems": [
+      {
+        "productId": "550e8400-e29b-41d4-a716-446655440003",
+        "quantity": 2
+      }
+    ]
+  }
+}
+```
+
+---
+
+### RefundCompletedEvent
+- **Topic**: `refund.completed`
+- **Producer**: Payment
+- **Consumer**: Order (주문 취소 확정), Product (재고 복원)
+
+```json
+{
+  "eventId": "550e8400-e29b-41d4-a716-446655440000",
+  "eventType": "RefundCompletedEvent",
+  "timestamp": "2026-03-23T12:00:00",
+  "payload": {
+    "orderId": "550e8400-e29b-41d4-a716-446655440001",
+    "memberId": "550e8400-e29b-41d4-a716-446655440002",
+    "orderItems": [
+      {
+        "productId": "550e8400-e29b-41d4-a716-446655440003",
+        "quantity": 2
+      }
+    ]
+  }
+}
 ```
