@@ -2,9 +2,10 @@ package com.notfound.product.adapter.in.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notfound.product.adapter.in.web.dto.ProductRegisterRequest;
-import com.notfound.product.application.port.in.GetProductListUseCase;
-import com.notfound.product.application.port.in.GetProductUseCase;
-import com.notfound.product.application.port.in.RegisterProductUseCase;
+import com.notfound.product.adapter.in.web.dto.ProductStatusChangeRequest;
+import com.notfound.product.adapter.in.web.dto.ProductUpdateRequest;
+import com.notfound.product.application.port.in.*;
+
 import com.notfound.product.domain.exception.CategoryNotFoundException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import com.notfound.product.domain.model.BookType;
@@ -47,13 +48,20 @@ class ProductControllerTest {
     @Mock
     private GetProductListUseCase getProductListUseCase;
 
+    @Mock
+    private UpdateProductUseCase updateProductUseCase;
+
+    @Mock
+    private ChangeProductStatusUseCase changeProductStatusUseCase;
+
     @BeforeEach
     void setUp() {
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
 
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new ProductController(registerProductUseCase, getProductUseCase, getProductListUseCase))
+                .standaloneSetup(new ProductController(registerProductUseCase, getProductUseCase, getProductListUseCase,
+                        updateProductUseCase, changeProductStatusUseCase))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setValidator(validator)
                 .build();
@@ -185,6 +193,84 @@ class ProductControllerTest {
                     .willThrow(new ProductNotFoundException(productId));
 
             mockMvc.perform(get("/products/{productId}", productId))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
+        }
+    }
+
+    @Nested
+    @DisplayName("PATCH /products/{productId} - 상품 수정")
+    class UpdateProduct {
+
+        @Test
+        @DisplayName("유효한 요청이면 200과 수정된 상품을 반환한다")
+        void success() throws Exception {
+            UUID productId = UUID.randomUUID();
+            ProductUpdateRequest request = new ProductUpdateRequest(null, "수정된 제목", null, null, 20000, null);
+            given(updateProductUseCase.updateProduct(any())).willReturn(createProduct(productId));
+
+            mockMvc.perform(patch("/products/{productId}", productId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value("PRODUCT_UPDATE_SUCCESS"))
+                    .andExpect(jsonPath("$.data.productId").value(productId.toString()));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 상품이면 404와 PRODUCT_NOT_FOUND를 반환한다")
+        void fail_whenProductNotFound() throws Exception {
+            UUID productId = UUID.randomUUID();
+            given(updateProductUseCase.updateProduct(any()))
+                    .willThrow(new ProductNotFoundException(productId));
+
+            mockMvc.perform(patch("/products/{productId}", productId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(new ProductUpdateRequest(null, "제목", null, null, null, null))))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
+        }
+    }
+
+    @Nested
+    @DisplayName("PATCH /products/{productId}/status - 상품 상태 변경")
+    class ChangeProductStatus {
+
+        @Test
+        @DisplayName("유효한 요청이면 200과 상태가 변경된 상품을 반환한다")
+        void success() throws Exception {
+            UUID productId = UUID.randomUUID();
+            given(changeProductStatusUseCase.changeProductStatus(any())).willReturn(createProduct(productId));
+
+            mockMvc.perform(patch("/products/{productId}/status", productId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(new ProductStatusChangeRequest(ProductStatus.INACTIVE))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value("PRODUCT_STATUS_CHANGE_SUCCESS"));
+        }
+
+        @Test
+        @DisplayName("status가 null이면 400과 INVALID_INPUT_VALUE를 반환한다")
+        void fail_whenStatusIsNull() throws Exception {
+            UUID productId = UUID.randomUUID();
+
+            mockMvc.perform(patch("/products/{productId}/status", productId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\": null}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 상품이면 404와 PRODUCT_NOT_FOUND를 반환한다")
+        void fail_whenProductNotFound() throws Exception {
+            UUID productId = UUID.randomUUID();
+            given(changeProductStatusUseCase.changeProductStatus(any()))
+                    .willThrow(new ProductNotFoundException(productId));
+
+            mockMvc.perform(patch("/products/{productId}/status", productId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(new ProductStatusChangeRequest(ProductStatus.INACTIVE))))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
         }

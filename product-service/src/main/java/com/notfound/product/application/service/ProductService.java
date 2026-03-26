@@ -21,6 +21,8 @@ public class ProductService implements
         RegisterProductUseCase,
         GetProductUseCase,
         GetProductListUseCase,
+        UpdateProductUseCase,
+        ChangeProductStatusUseCase,
         DeductStockUseCase,
         RestoreStockUseCase {
 
@@ -76,6 +78,32 @@ public class ProductService implements
             return productRepository.findAll();
         }
         return productRepository.findAllByIds(ids);
+    }
+
+    @Transactional
+    @Override
+    public Product updateProduct(UpdateProductCommand command) {
+        Product product = productRepository.findById(command.productId())
+                .orElseThrow(() -> new ProductNotFoundException(command.productId()));
+
+        if (command.categoryId() != null) {
+            categoryRepository.findById(command.categoryId())
+                    .orElseThrow(() -> new CategoryNotFoundException(command.categoryId()));
+        }
+
+        product.update(command.categoryId(), command.title(), command.author(),
+                command.publisher(), command.price(), command.quantity());
+        return productRepository.save(product);
+    }
+
+    @Transactional
+    @Override
+    public Product changeProductStatus(ChangeProductStatusCommand command) {
+        Product product = productRepository.findById(command.productId())
+                .orElseThrow(() -> new ProductNotFoundException(command.productId()));
+
+        product.changeStatus(command.status());
+        return productRepository.save(product);
     }
 
     @Transactional

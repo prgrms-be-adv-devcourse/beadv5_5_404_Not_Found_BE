@@ -10,12 +10,12 @@ public class Product {
 
     private final UUID id;
     private final UUID sellerId;
-    private final UUID categoryId;
+    private UUID categoryId;
     private final String isbn;
-    private final String title;
-    private final String author;
-    private final String publisher;
-    private final int price;
+    private String title;
+    private String author;
+    private String publisher;
+    private int price;
     private int quantity;
     private final BookType bookType;
     private ProductStatus status;
@@ -70,6 +70,27 @@ public class Product {
         if (this.status == ProductStatus.SOLD_OUT) {
             this.status = ProductStatus.ACTIVE;
         }
+    }
+
+    public void update(UUID categoryId, String title, String author, String publisher,
+                       Integer price, Integer quantity) {
+        if (categoryId != null) this.categoryId = categoryId;
+        if (title != null) this.title = title;
+        if (author != null) this.author = author;
+        if (publisher != null) this.publisher = publisher;
+        if (price != null) this.price = price;
+        if (quantity != null) {
+            this.quantity = quantity;
+            if (this.quantity == 0 && this.status == ProductStatus.ACTIVE) {
+                this.status = ProductStatus.SOLD_OUT;
+            } else if (this.quantity > 0 && this.status == ProductStatus.SOLD_OUT) {
+                this.status = ProductStatus.ACTIVE;
+            }
+        }
+    }
+
+    public void changeStatus(ProductStatus newStatus) {
+        this.status = newStatus;
     }
 
     public boolean isAvailable() {

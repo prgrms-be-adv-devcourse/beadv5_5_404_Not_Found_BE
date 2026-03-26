@@ -234,4 +234,95 @@ class ProductServiceTest {
                     .isInstanceOf(ProductNotFoundException.class);
         }
     }
+
+    @Nested
+    @DisplayName("상품 수정")
+    class UpdateProduct {
+
+        @Test
+        @DisplayName("null이 아닌 필드만 수정된다")
+        void success_updateProduct() {
+            Product product = createProduct(productId, 10, ProductStatus.ACTIVE);
+            given(productRepository.findById(productId)).willReturn(Optional.of(product));
+            given(productRepository.save(any(Product.class)))
+                    .willAnswer(invocation -> invocation.getArgument(0));
+
+            productService.updateProduct(new UpdateProductCommand(
+                    productId, null, "수정된 제목", null, null, 20000, null));
+
+            assertThat(product.getTitle()).isEqualTo("수정된 제목");
+            assertThat(product.getPrice()).isEqualTo(20000);
+            assertThat(product.getAuthor()).isEqualTo("저자");
+            verify(productRepository).save(product);
+        }
+
+        @Test
+        @DisplayName("categoryId 수정 시 카테고리 존재를 확인한다")
+        void success_updateCategoryId() {
+            UUID newCategoryId = UUID.randomUUID();
+            Product product = createProduct(productId, 10, ProductStatus.ACTIVE);
+            given(productRepository.findById(productId)).willReturn(Optional.of(product));
+            given(categoryRepository.findById(newCategoryId))
+                    .willReturn(Optional.of(createCategory(newCategoryId)));
+            given(productRepository.save(any(Product.class)))
+                    .willAnswer(invocation -> invocation.getArgument(0));
+
+            productService.updateProduct(new UpdateProductCommand(
+                    productId, newCategoryId, null, null, null, null, null));
+
+            assertThat(product.getCategoryId()).isEqualTo(newCategoryId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 상품 수정 시 ProductNotFoundException이 발생한다")
+        void fail_whenProductNotFound() {
+            given(productRepository.findById(productId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> productService.updateProduct(
+                    new UpdateProductCommand(productId, null, "제목", null, null, null, null)))
+                    .isInstanceOf(ProductNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 카테고리로 수정 시 CategoryNotFoundException이 발생한다")
+        void fail_whenCategoryNotFound() {
+            UUID newCategoryId = UUID.randomUUID();
+            Product product = createProduct(productId, 10, ProductStatus.ACTIVE);
+            given(productRepository.findById(productId)).willReturn(Optional.of(product));
+            given(categoryRepository.findById(newCategoryId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> productService.updateProduct(
+                    new UpdateProductCommand(productId, newCategoryId, null, null, null, null, null)))
+                    .isInstanceOf(CategoryNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("상품 상태 변경")
+    class ChangeProductStatus {
+
+        @Test
+        @DisplayName("상태가 변경되고 저장된다")
+        void success_changeStatus() {
+            Product product = createProduct(productId, 10, ProductStatus.ACTIVE);
+            given(productRepository.findById(productId)).willReturn(Optional.of(product));
+            given(productRepository.save(any(Product.class)))
+                    .willAnswer(invocation -> invocation.getArgument(0));
+
+            productService.changeProductStatus(new ChangeProductStatusCommand(productId, ProductStatus.INACTIVE));
+
+            assertThat(product.getStatus()).isEqualTo(ProductStatus.INACTIVE);
+            verify(productRepository).save(product);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 상품 상태 변경 시 ProductNotFoundException이 발생한다")
+        void fail_whenProductNotFound() {
+            given(productRepository.findById(productId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> productService.changeProductStatus(
+                    new ChangeProductStatusCommand(productId, ProductStatus.INACTIVE)))
+                    .isInstanceOf(ProductNotFoundException.class);
+        }
+    }
 }
