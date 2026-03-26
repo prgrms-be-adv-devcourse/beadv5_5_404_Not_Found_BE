@@ -23,14 +23,7 @@ logs/
 Thumbs.db
 
 # Environment
-.env
 *.env.local
-
-# Docs
-docs/
-
-# Test
-**/src/test/
 
 # Spring Boot
 spring-shell.log
