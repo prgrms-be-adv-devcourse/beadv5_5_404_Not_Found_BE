@@ -1,9 +1,7 @@
 package com.notfound.product.adapter.in.web;
 
 import com.notfound.product.adapter.in.web.dto.*;
-import com.notfound.product.application.port.in.GetProductListUseCase;
-import com.notfound.product.application.port.in.GetProductUseCase;
-import com.notfound.product.application.port.in.RegisterProductUseCase;
+import com.notfound.product.application.port.in.*;
 import com.notfound.product.domain.model.Product;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -20,13 +18,19 @@ public class ProductController {
     private final RegisterProductUseCase registerProductUseCase;
     private final GetProductUseCase getProductUseCase;
     private final GetProductListUseCase getProductListUseCase;
+    private final UpdateProductUseCase updateProductUseCase;
+    private final ChangeProductStatusUseCase changeProductStatusUseCase;
 
     public ProductController(RegisterProductUseCase registerProductUseCase,
                              GetProductUseCase getProductUseCase,
-                             GetProductListUseCase getProductListUseCase) {
+                             GetProductListUseCase getProductListUseCase,
+                             UpdateProductUseCase updateProductUseCase,
+                             ChangeProductStatusUseCase changeProductStatusUseCase) {
         this.registerProductUseCase = registerProductUseCase;
         this.getProductUseCase = getProductUseCase;
         this.getProductListUseCase = getProductListUseCase;
+        this.updateProductUseCase = updateProductUseCase;
+        this.changeProductStatusUseCase = changeProductStatusUseCase;
     }
 
     @PostMapping
@@ -55,6 +59,26 @@ public class ProductController {
             @PathVariable UUID productId) {
         Product product = getProductUseCase.getProduct(productId);
         ProductErrorCode code = ProductErrorCode.PRODUCT_GET_SUCCESS;
+        return ResponseEntity.ok(ApiResponse.success(code.getStatus(), code.getCode(), code.getMessage(),
+                ProductDetailResponse.from(product)));
+    }
+
+    @PatchMapping("/{productId}")
+    public ResponseEntity<ApiResponse<ProductDetailResponse>> updateProduct(
+            @PathVariable UUID productId,
+            @RequestBody @Valid ProductUpdateRequest request) {
+        Product product = updateProductUseCase.updateProduct(request.toCommand(productId));
+        ProductErrorCode code = ProductErrorCode.PRODUCT_UPDATE_SUCCESS;
+        return ResponseEntity.ok(ApiResponse.success(code.getStatus(), code.getCode(), code.getMessage(),
+                ProductDetailResponse.from(product)));
+    }
+
+    @PatchMapping("/{productId}/status")
+    public ResponseEntity<ApiResponse<ProductDetailResponse>> changeProductStatus(
+            @PathVariable UUID productId,
+            @RequestBody @Valid ProductStatusChangeRequest request) {
+        Product product = changeProductStatusUseCase.changeProductStatus(request.toCommand(productId));
+        ProductErrorCode code = ProductErrorCode.PRODUCT_STATUS_CHANGE_SUCCESS;
         return ResponseEntity.ok(ApiResponse.success(code.getStatus(), code.getCode(), code.getMessage(),
                 ProductDetailResponse.from(product)));
     }
