@@ -1,6 +1,8 @@
 package com.notfound.member.application.service;
 
+import com.notfound.member.application.port.in.ChargeDepositUseCase;
 import com.notfound.member.application.port.in.CheckMemberActiveUseCase;
+import com.notfound.member.application.port.in.DeductDepositUseCase;
 import com.notfound.member.application.port.in.GetDepositBalanceUseCase;
 import com.notfound.member.application.port.out.MemberRepository;
 import com.notfound.member.domain.exception.MemberException;
@@ -12,7 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
 @Service
-public class MemberService implements CheckMemberActiveUseCase, GetDepositBalanceUseCase {
+public class MemberService implements CheckMemberActiveUseCase, GetDepositBalanceUseCase,
+        DeductDepositUseCase, ChargeDepositUseCase {
 
     private final MemberRepository memberRepository;
 
@@ -33,6 +36,26 @@ public class MemberService implements CheckMemberActiveUseCase, GetDepositBalanc
     public int getDepositBalance(UUID memberId) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(MemberException::notFound);
+        return member.getDepositBalance();
+    }
+
+    @Override
+    @Transactional
+    public int deductDeposit(UUID memberId, int amount) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(MemberException::notFound);
+        member.deductDeposit(amount);
+        memberRepository.save(member);
+        return member.getDepositBalance();
+    }
+
+    @Override
+    @Transactional
+    public int chargeDeposit(UUID memberId, int amount) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(MemberException::notFound);
+        member.chargeDeposit(amount);
+        memberRepository.save(member);
         return member.getDepositBalance();
     }
 }

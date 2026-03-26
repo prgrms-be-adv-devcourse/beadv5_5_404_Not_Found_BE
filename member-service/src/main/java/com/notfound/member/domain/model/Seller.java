@@ -64,6 +64,11 @@ public class Seller {
         return approvedAt;
     }
 
+    public void approve() {
+        this.status = SellerStatus.APPROVED;
+        this.approvedAt = LocalDateTime.now();
+    }
+
     public static class Builder {
         private final Seller seller = new Seller();
 

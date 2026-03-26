@@ -8,4 +8,6 @@ import java.util.UUID;
 public interface SellerJpaRepository extends JpaRepository<SellerJpaEntity, UUID> {
 
     Optional<SellerJpaEntity> findByMemberId(UUID memberId);
+
+    boolean existsByMemberId(UUID memberId);
 }

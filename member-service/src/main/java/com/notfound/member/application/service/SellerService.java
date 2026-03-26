@@ -1,23 +1,32 @@
 package com.notfound.member.application.service;
 
+import com.notfound.member.application.port.in.ApproveSellerUseCase;
 import com.notfound.member.application.port.in.CheckSellerStatusUseCase;
 import com.notfound.member.application.port.in.GetSellerAccountUseCase;
+import com.notfound.member.application.port.in.RegisterSellerUseCase;
+import com.notfound.member.application.port.in.command.RegisterSellerCommand;
+import com.notfound.member.application.port.out.MemberRepository;
 import com.notfound.member.application.port.out.SellerRepository;
 import com.notfound.member.domain.exception.MemberException;
+import com.notfound.member.domain.model.MemberStatus;
 import com.notfound.member.domain.model.Seller;
 import com.notfound.member.domain.model.SellerStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Service
-public class SellerService implements CheckSellerStatusUseCase, GetSellerAccountUseCase {
+public class SellerService implements CheckSellerStatusUseCase, GetSellerAccountUseCase, RegisterSellerUseCase, ApproveSellerUseCase {
 
     private final SellerRepository sellerRepository;
+    private final MemberRepository memberRepository;
 
-    public SellerService(SellerRepository sellerRepository) {
+    public SellerService(SellerRepository sellerRepository,
+                         MemberRepository memberRepository) {
         this.sellerRepository = sellerRepository;
+        this.memberRepository = memberRepository;
     }
 
     @Override
@@ -33,5 +42,44 @@ public class SellerService implements CheckSellerStatusUseCase, GetSellerAccount
     public Seller getSellerAccount(UUID memberId) {
         return sellerRepository.findByMemberId(memberId)
                 .orElseThrow(MemberException::sellerNotFound);
+    }
+
+    @Override
+    @Transactional
+    public Seller registerSeller(UUID memberId, RegisterSellerCommand command) {
+        memberRepository.findById(memberId)
+                .filter(m -> m.getStatus() == MemberStatus.ACTIVE)
+                .orElseThrow(MemberException::inactiveAccount);
+
+        if (sellerRepository.existsByMemberId(memberId)) {
+            throw MemberException.sellerAlreadyRegistered();
+        }
+
+        Seller seller = Seller.builder()
+                .memberId(memberId)
+                .businessNumber(command.businessNumber())
+                .shopName(command.shopName())
+                .bankCode(command.bankCode())
+                .bankAccount(command.bankAccount())
+                .accountHolder(command.accountHolder())
+                .commissionRate(BigDecimal.ZERO)
+                .status(SellerStatus.PENDING)
+                .build();
+
+        return sellerRepository.save(seller);
+    }
+
+    @Override
+    @Transactional
+    public Seller approveSeller(UUID sellerId) {
+        Seller seller = sellerRepository.findById(sellerId)
+                .orElseThrow(MemberException::sellerNotFound);
+
+        if (seller.getStatus() != SellerStatus.PENDING) {
+            throw MemberException.sellerNotPending();
+        }
+
+        seller.approve();
+        return sellerRepository.save(seller);
     }
 }
