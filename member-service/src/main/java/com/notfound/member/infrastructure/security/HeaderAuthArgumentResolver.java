@@ -8,7 +8,7 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 /**
- * Gateway가 전달한 X-User-Id, X-Role 헤더로 AuthenticatedUser를 주입한다.
+ * Gateway가 전달한 X-User-Id, X-Role, X-Email-Verified 헤더로 AuthenticatedUser를 주입한다.
  *
  * 사용 예:
  *   @GetMapping("/me")
@@ -19,6 +19,7 @@ public class HeaderAuthArgumentResolver implements HandlerMethodArgumentResolver
 
     private static final String HEADER_USER_ID = "X-User-Id";
     private static final String HEADER_ROLE = "X-Role";
+    private static final String HEADER_EMAIL_VERIFIED = "X-Email-Verified";
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
@@ -33,11 +34,13 @@ public class HeaderAuthArgumentResolver implements HandlerMethodArgumentResolver
                                   WebDataBinderFactory binderFactory) {
         String userId = webRequest.getHeader(HEADER_USER_ID);
         String role = webRequest.getHeader(HEADER_ROLE);
+        String emailVerifiedHeader = webRequest.getHeader(HEADER_EMAIL_VERIFIED);
 
         if (userId == null) {
             return null;
         }
 
-        return new AuthenticatedUser(userId, role);
+        boolean emailVerified = Boolean.parseBoolean(emailVerifiedHeader);
+        return new AuthenticatedUser(userId, role, emailVerified);
     }
 }

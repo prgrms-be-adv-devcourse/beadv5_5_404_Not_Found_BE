@@ -26,9 +26,9 @@ import java.util.List;
  * 2. Authorization 헤더에서 Bearer 토큰 추출
  * 3. JJWT로 서명 검증 + 만료 확인
  * 4. Member Service internal API로 블랙리스트 조회
- * 5. claims에서 sub(userId), role 추출
+ * 5. claims에서 sub(userId), role, email_verified 추출
  * 6. 검증 실패 시 401 반환
- * 7. 검증 성공 시 X-User-Id, X-Role 헤더 추가 후 downstream 전달
+ * 7. 검증 성공 시 X-User-Id, X-Role, X-Email-Verified 헤더 추가 후 downstream 전달
  */
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
@@ -36,6 +36,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String HEADER_USER_ID = "X-User-Id";
     private static final String HEADER_ROLE = "X-Role";
+    private static final String HEADER_EMAIL_VERIFIED = "X-Email-Verified";
 
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/members/auth/register",
@@ -85,8 +86,13 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         String jti = claims.getId();
         String userId = claims.getSubject();
         String role = claims.get("role", String.class);
+        Boolean emailVerified = claims.get("email_verified", Boolean.class);
 
-        // 블랙리스트 조회 후 헤더 주입
+        if (jti == null || userId == null || role == null || emailVerified == null) {
+            return unauthorized(exchange);
+        }
+
+        // 블랙리스트 조회 후 헤더 주입 (조회 실패 시 fail-closed → 401)
         return memberInternalClient.isBlacklisted(jti)
                 .flatMap(blacklisted -> {
                     if (Boolean.TRUE.equals(blacklisted)) {
@@ -97,13 +103,16 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                             .headers(headers -> {
                                 headers.remove(HEADER_USER_ID);
                                 headers.remove(HEADER_ROLE);
+                                headers.remove(HEADER_EMAIL_VERIFIED);
                             })
                             .header(HEADER_USER_ID, userId)
                             .header(HEADER_ROLE, role)
+                            .header(HEADER_EMAIL_VERIFIED, emailVerified.toString())
                             .build();
 
                     return chain.filter(exchange.mutate().request(mutatedRequest).build());
-                });
+                })
+                .onErrorResume(e -> unauthorized(exchange));
     }
 
     private boolean isPublicPath(String path, HttpMethod method) {
@@ -118,6 +127,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                 .headers(headers -> {
                     headers.remove(HEADER_USER_ID);
                     headers.remove(HEADER_ROLE);
+                    headers.remove(HEADER_EMAIL_VERIFIED);
                 })
                 .build();
         return exchange.mutate().request(request).build();

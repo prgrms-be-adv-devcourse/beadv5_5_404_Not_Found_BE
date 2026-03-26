@@ -31,7 +31,7 @@ public class RefreshTokenJpaEntity {
     @JoinColumn(name = "member_id", nullable = false)
     private MemberJpaEntity member;
 
-    @Column(name = "token_hash", nullable = false, length = 512)
+    @Column(name = "token_hash", nullable = false, unique = true, length = 512)
     private String tokenHash;
 
     @Column(name = "user_agent")

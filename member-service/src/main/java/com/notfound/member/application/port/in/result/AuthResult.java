@@ -7,4 +7,8 @@ public record AuthResult(
         String accessToken,
         String refreshToken
 ) {
+    @Override
+    public String toString() {
+        return "AuthResult[memberId=" + memberId + "]";
+    }
 }
