@@ -3,7 +3,9 @@ package com.notfound.product.application.service;
 import com.notfound.product.application.port.in.*;
 import com.notfound.product.application.port.out.CategoryRepository;
 import com.notfound.product.application.port.out.ProductRepository;
+import com.notfound.product.application.port.out.SellerStatusVerifier;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
+import com.notfound.product.domain.exception.ForbiddenException;
 import com.notfound.product.domain.exception.IsbnDuplicateException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import com.notfound.product.domain.model.Product;
@@ -28,15 +30,23 @@ public class ProductService implements
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final SellerStatusVerifier sellerStatusVerifier;
 
-    public ProductService(ProductRepository productRepository, CategoryRepository categoryRepository) {
+    public ProductService(ProductRepository productRepository,
+                          CategoryRepository categoryRepository,
+                          SellerStatusVerifier sellerStatusVerifier) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
+        this.sellerStatusVerifier = sellerStatusVerifier;
     }
 
     @Transactional
     @Override
     public Product registerProduct(RegisterProductCommand command) {
+        if (!sellerStatusVerifier.isApprovedSeller(command.sellerId())) {
+            throw new ForbiddenException("승인된 판매자가 아닙니다.");
+        }
+
         categoryRepository.findById(command.categoryId())
                 .orElseThrow(() -> new CategoryNotFoundException(command.categoryId()));
 
@@ -83,6 +93,10 @@ public class ProductService implements
     @Transactional
     @Override
     public Product updateProduct(UpdateProductCommand command) {
+        if (!sellerStatusVerifier.isApprovedSeller(command.sellerId())) {
+            throw new ForbiddenException("승인된 판매자가 아닙니다.");
+        }
+
         Product product = productRepository.findById(command.productId())
                 .orElseThrow(() -> new ProductNotFoundException(command.productId()));
 

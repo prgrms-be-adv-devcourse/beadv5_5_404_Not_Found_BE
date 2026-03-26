@@ -1,10 +1,9 @@
 package com.notfound.product.adapter.in.kafka;
 
 import com.notfound.product.adapter.in.kafka.dto.RefundCompletedEvent;
-import com.notfound.product.adapter.out.persistence.ProcessedEventJpaEntity;
-import com.notfound.product.adapter.out.persistence.ProcessedEventJpaRepository;
 import com.notfound.product.application.port.in.RestoreStockCommand;
 import com.notfound.product.application.port.in.RestoreStockUseCase;
+import com.notfound.product.application.port.out.ProcessedEventRepository;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,7 +32,7 @@ class RefundCompletedEventConsumerTest {
     private RestoreStockUseCase restoreStockUseCase;
 
     @Mock
-    private ProcessedEventJpaRepository processedEventRepository;
+    private ProcessedEventRepository processedEventRepository;
 
     @InjectMocks
     private RefundCompletedEventConsumer consumer;
@@ -107,8 +106,7 @@ class RefundCompletedEventConsumerTest {
 
             consumer.consume(event);
 
-            ArgumentCaptor<ProcessedEventJpaEntity> captor = ArgumentCaptor.forClass(ProcessedEventJpaEntity.class);
-            verify(processedEventRepository).save(captor.capture());
+            verify(processedEventRepository).save(eventId);
         }
     }
 

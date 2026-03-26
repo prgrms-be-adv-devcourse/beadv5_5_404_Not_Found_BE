@@ -5,8 +5,8 @@ import com.notfound.product.adapter.in.web.dto.ProductRegisterRequest;
 import com.notfound.product.adapter.in.web.dto.ProductStatusChangeRequest;
 import com.notfound.product.adapter.in.web.dto.ProductUpdateRequest;
 import com.notfound.product.application.port.in.*;
-import com.notfound.product.application.port.out.SellerStatusVerifier;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
+import com.notfound.product.domain.exception.ForbiddenException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import com.notfound.product.domain.model.BookType;
 import com.notfound.product.domain.model.Product;
@@ -44,7 +44,6 @@ class ProductControllerTest {
     @Mock private GetProductListUseCase getProductListUseCase;
     @Mock private UpdateProductUseCase updateProductUseCase;
     @Mock private ChangeProductStatusUseCase changeProductStatusUseCase;
-    @Mock private SellerStatusVerifier sellerStatusVerifier;
 
     @BeforeEach
     void setUp() {
@@ -54,7 +53,7 @@ class ProductControllerTest {
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new ProductController(
                         registerProductUseCase, getProductUseCase, getProductListUseCase,
-                        updateProductUseCase, changeProductStatusUseCase, sellerStatusVerifier))
+                        updateProductUseCase, changeProductStatusUseCase))
                 .setCustomArgumentResolvers(new HeaderAuthArgumentResolver())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setValidator(validator)
@@ -144,10 +143,9 @@ class ProductControllerTest {
         }
 
         @Test
-        @DisplayName("승인된 판매자가 요청하면 201과 등록된 상품을 반환한다")
+        @DisplayName("판매자가 요청하면 201과 등록된 상품을 반환한다")
         void success() throws Exception {
             UUID productId = UUID.randomUUID();
-            given(sellerStatusVerifier.isApprovedSeller(any())).willReturn(true);
             given(registerProductUseCase.registerProduct(any())).willReturn(createProduct(productId));
 
             mockMvc.perform(post("/products")
@@ -200,7 +198,8 @@ class ProductControllerTest {
         @Test
         @DisplayName("미승인 판매자면 403과 SELLER_NOT_APPROVED를 반환한다")
         void fail_whenSellerNotApproved() throws Exception {
-            given(sellerStatusVerifier.isApprovedSeller(any())).willReturn(false);
+            given(registerProductUseCase.registerProduct(any()))
+                    .willThrow(new ForbiddenException("승인된 판매자가 아닙니다."));
 
             mockMvc.perform(post("/products")
                             .header("X-User-Id", UUID.randomUUID().toString())
@@ -235,7 +234,6 @@ class ProductControllerTest {
         @Test
         @DisplayName("카테고리가 존재하지 않으면 404와 CATEGORY_NOT_FOUND를 반환한다")
         void fail_whenCategoryNotFound() throws Exception {
-            given(sellerStatusVerifier.isApprovedSeller(any())).willReturn(true);
             given(registerProductUseCase.registerProduct(any()))
                     .willThrow(new CategoryNotFoundException(UUID.randomUUID()));
 
@@ -255,10 +253,9 @@ class ProductControllerTest {
     class UpdateProduct {
 
         @Test
-        @DisplayName("승인된 판매자가 요청하면 200과 수정된 상품을 반환한다")
+        @DisplayName("판매자가 요청하면 200과 수정된 상품을 반환한다")
         void success() throws Exception {
             UUID productId = UUID.randomUUID();
-            given(sellerStatusVerifier.isApprovedSeller(any())).willReturn(true);
             given(updateProductUseCase.updateProduct(any())).willReturn(createProduct(productId));
 
             mockMvc.perform(patch("/products/{productId}", productId)
@@ -289,7 +286,6 @@ class ProductControllerTest {
         @Test
         @DisplayName("존재하지 않는 상품이면 404와 PRODUCT_NOT_FOUND를 반환한다")
         void fail_whenProductNotFound() throws Exception {
-            given(sellerStatusVerifier.isApprovedSeller(any())).willReturn(true);
             given(updateProductUseCase.updateProduct(any()))
                     .willThrow(new ProductNotFoundException(UUID.randomUUID()));
 

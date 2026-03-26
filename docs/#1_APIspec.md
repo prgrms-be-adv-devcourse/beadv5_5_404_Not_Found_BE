@@ -1233,7 +1233,7 @@ Status Code: `500 Internal Server Error`
 | 상품 상세 조회 | GET | /products/{productId} | 상품 상세 조회 |
 | 상품 등록 | POST | /products | 상품 등록 |
 | 상품 수정 | PATCH | /products/{productId} | 상품 정보 수정 (판매자) |
-| 상품 상태 변경 | PATCH | /products/{productId}/status | 판매 상태 변경 |
+| 상품 상태 변경 | PATCH | /products/{productId}/status | 판매 상태 변경 (관리자) |
 | 카테고리 목록 조회 | GET | /products/categories | 카테고리 트리 조회 |
 | 카테고리 추가 | POST | /products/categories | 카테고리 등록 |
 

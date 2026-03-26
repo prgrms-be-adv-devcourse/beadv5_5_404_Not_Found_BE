@@ -3,7 +3,9 @@ package com.notfound.product.application.service;
 import com.notfound.product.application.port.in.*;
 import com.notfound.product.application.port.out.CategoryRepository;
 import com.notfound.product.application.port.out.ProductRepository;
+import com.notfound.product.application.port.out.SellerStatusVerifier;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
+import com.notfound.product.domain.exception.ForbiddenException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import com.notfound.product.domain.model.BookType;
 import com.notfound.product.domain.model.Category;
@@ -38,6 +40,9 @@ class ProductServiceTest {
 
     @Mock
     private CategoryRepository categoryRepository;
+
+    @Mock
+    private SellerStatusVerifier sellerStatusVerifier;
 
     @InjectMocks
     private ProductService productService;
@@ -77,6 +82,7 @@ class ProductServiceTest {
                     sellerId, categoryId, "9791234567890",
                     "테스트 도서", "저자", "출판사", 15000, 100, BookType.NEW
             );
+            given(sellerStatusVerifier.isApprovedSeller(sellerId)).willReturn(true);
             given(categoryRepository.findById(categoryId))
                     .willReturn(Optional.of(createCategory(categoryId)));
             given(productRepository.save(any(Product.class)))
@@ -90,12 +96,26 @@ class ProductServiceTest {
         }
 
         @Test
+        @DisplayName("미승인 판매자면 ForbiddenException이 발생한다")
+        void fail_whenSellerNotApproved() {
+            RegisterProductCommand command = new RegisterProductCommand(
+                    sellerId, categoryId, "9791234567890",
+                    "테스트 도서", "저자", "출판사", 15000, 100, BookType.NEW
+            );
+            given(sellerStatusVerifier.isApprovedSeller(sellerId)).willReturn(false);
+
+            assertThatThrownBy(() -> productService.registerProduct(command))
+                    .isInstanceOf(ForbiddenException.class);
+        }
+
+        @Test
         @DisplayName("존재하지 않는 카테고리면 CategoryNotFoundException이 발생한다")
         void fail_whenCategoryNotFound() {
             RegisterProductCommand command = new RegisterProductCommand(
                     sellerId, categoryId, "9791234567890",
                     "테스트 도서", "저자", "출판사", 15000, 100, BookType.NEW
             );
+            given(sellerStatusVerifier.isApprovedSeller(sellerId)).willReturn(true);
             given(categoryRepository.findById(categoryId)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> productService.registerProduct(command))
@@ -243,12 +263,13 @@ class ProductServiceTest {
         @DisplayName("null이 아닌 필드만 수정된다")
         void success_updateProduct() {
             Product product = createProduct(productId, 10, ProductStatus.ACTIVE);
+            given(sellerStatusVerifier.isApprovedSeller(sellerId)).willReturn(true);
             given(productRepository.findById(productId)).willReturn(Optional.of(product));
             given(productRepository.save(any(Product.class)))
                     .willAnswer(invocation -> invocation.getArgument(0));
 
             productService.updateProduct(new UpdateProductCommand(
-                    productId, null, "수정된 제목", null, null, 20000, null));
+                    sellerId, productId, null, "수정된 제목", null, null, 20000, null));
 
             assertThat(product.getTitle()).isEqualTo("수정된 제목");
             assertThat(product.getPrice()).isEqualTo(20000);
@@ -257,10 +278,21 @@ class ProductServiceTest {
         }
 
         @Test
+        @DisplayName("미승인 판매자면 ForbiddenException이 발생한다")
+        void fail_whenSellerNotApproved() {
+            given(sellerStatusVerifier.isApprovedSeller(sellerId)).willReturn(false);
+
+            assertThatThrownBy(() -> productService.updateProduct(
+                    new UpdateProductCommand(sellerId, productId, null, "제목", null, null, null, null)))
+                    .isInstanceOf(ForbiddenException.class);
+        }
+
+        @Test
         @DisplayName("categoryId 수정 시 카테고리 존재를 확인한다")
         void success_updateCategoryId() {
             UUID newCategoryId = UUID.randomUUID();
             Product product = createProduct(productId, 10, ProductStatus.ACTIVE);
+            given(sellerStatusVerifier.isApprovedSeller(sellerId)).willReturn(true);
             given(productRepository.findById(productId)).willReturn(Optional.of(product));
             given(categoryRepository.findById(newCategoryId))
                     .willReturn(Optional.of(createCategory(newCategoryId)));
@@ -268,7 +300,7 @@ class ProductServiceTest {
                     .willAnswer(invocation -> invocation.getArgument(0));
 
             productService.updateProduct(new UpdateProductCommand(
-                    productId, newCategoryId, null, null, null, null, null));
+                    sellerId, productId, newCategoryId, null, null, null, null, null));
 
             assertThat(product.getCategoryId()).isEqualTo(newCategoryId);
         }
@@ -276,10 +308,11 @@ class ProductServiceTest {
         @Test
         @DisplayName("존재하지 않는 상품 수정 시 ProductNotFoundException이 발생한다")
         void fail_whenProductNotFound() {
+            given(sellerStatusVerifier.isApprovedSeller(sellerId)).willReturn(true);
             given(productRepository.findById(productId)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> productService.updateProduct(
-                    new UpdateProductCommand(productId, null, "제목", null, null, null, null)))
+                    new UpdateProductCommand(sellerId, productId, null, "제목", null, null, null, null)))
                     .isInstanceOf(ProductNotFoundException.class);
         }
 
@@ -288,11 +321,12 @@ class ProductServiceTest {
         void fail_whenCategoryNotFound() {
             UUID newCategoryId = UUID.randomUUID();
             Product product = createProduct(productId, 10, ProductStatus.ACTIVE);
+            given(sellerStatusVerifier.isApprovedSeller(sellerId)).willReturn(true);
             given(productRepository.findById(productId)).willReturn(Optional.of(product));
             given(categoryRepository.findById(newCategoryId)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> productService.updateProduct(
-                    new UpdateProductCommand(productId, newCategoryId, null, null, null, null, null)))
+                    new UpdateProductCommand(sellerId, productId, newCategoryId, null, null, null, null, null)))
                     .isInstanceOf(CategoryNotFoundException.class);
         }
     }

@@ -2,7 +2,6 @@ package com.notfound.product.adapter.in.web;
 
 import com.notfound.product.adapter.in.web.dto.*;
 import com.notfound.product.application.port.in.*;
-import com.notfound.product.application.port.out.SellerStatusVerifier;
 import com.notfound.product.domain.exception.ForbiddenException;
 import com.notfound.product.domain.model.Product;
 import jakarta.validation.Valid;
@@ -22,27 +21,24 @@ public class ProductController {
     private final GetProductListUseCase getProductListUseCase;
     private final UpdateProductUseCase updateProductUseCase;
     private final ChangeProductStatusUseCase changeProductStatusUseCase;
-    private final SellerStatusVerifier sellerStatusVerifier;
 
     public ProductController(RegisterProductUseCase registerProductUseCase,
                              GetProductUseCase getProductUseCase,
                              GetProductListUseCase getProductListUseCase,
                              UpdateProductUseCase updateProductUseCase,
-                             ChangeProductStatusUseCase changeProductStatusUseCase,
-                             SellerStatusVerifier sellerStatusVerifier) {
+                             ChangeProductStatusUseCase changeProductStatusUseCase) {
         this.registerProductUseCase = registerProductUseCase;
         this.getProductUseCase = getProductUseCase;
         this.getProductListUseCase = getProductListUseCase;
         this.updateProductUseCase = updateProductUseCase;
         this.changeProductStatusUseCase = changeProductStatusUseCase;
-        this.sellerStatusVerifier = sellerStatusVerifier;
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<ProductRegisterResponse>> registerProduct(
             @AuthUser AuthenticatedUser user,
             @RequestBody @Valid ProductRegisterRequest request) {
-        requireApprovedSeller(user);
+        requireSeller(user);
         UUID sellerId = UUID.fromString(user.userId());
         Product product = registerProductUseCase.registerProduct(request.toCommand(sellerId));
         ProductErrorCode code = ProductErrorCode.PRODUCT_REGISTER_SUCCESS;
@@ -76,8 +72,9 @@ public class ProductController {
             @AuthUser AuthenticatedUser user,
             @PathVariable UUID productId,
             @RequestBody @Valid ProductUpdateRequest request) {
-        requireApprovedSeller(user);
-        Product product = updateProductUseCase.updateProduct(request.toCommand(productId));
+        requireSeller(user);
+        UUID sellerId = UUID.fromString(user.userId());
+        Product product = updateProductUseCase.updateProduct(request.toCommand(productId, sellerId));
         ProductErrorCode code = ProductErrorCode.PRODUCT_UPDATE_SUCCESS;
         return ResponseEntity.ok(ApiResponse.success(code.getStatus(), code.getCode(), code.getMessage(),
                 ProductDetailResponse.from(product)));
@@ -95,15 +92,12 @@ public class ProductController {
                 ProductDetailResponse.from(product)));
     }
 
-    private void requireApprovedSeller(AuthenticatedUser user) {
+    private void requireSeller(AuthenticatedUser user) {
         if (user == null || !"SELLER".equals(user.role())) {
             throw new ForbiddenException(ProductErrorCode.FORBIDDEN.getMessage());
         }
         if (!user.emailVerified()) {
             throw new ForbiddenException(ProductErrorCode.EMAIL_NOT_VERIFIED.getMessage());
-        }
-        if (!sellerStatusVerifier.isApprovedSeller(UUID.fromString(user.userId()))) {
-            throw new ForbiddenException(ProductErrorCode.SELLER_NOT_APPROVED.getMessage());
         }
     }
 

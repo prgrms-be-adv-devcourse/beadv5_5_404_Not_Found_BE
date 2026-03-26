@@ -25,7 +25,7 @@ public record ProductUpdateRequest(
         @Min(0)
         Integer quantity
 ) {
-    public UpdateProductCommand toCommand(UUID productId) {
-        return new UpdateProductCommand(productId, categoryId, title, author, publisher, price, quantity);
+    public UpdateProductCommand toCommand(UUID productId, UUID sellerId) {
+        return new UpdateProductCommand(sellerId, productId, categoryId, title, author, publisher, price, quantity);
     }
 }

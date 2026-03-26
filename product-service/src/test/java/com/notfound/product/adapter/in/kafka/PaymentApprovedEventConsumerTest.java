@@ -1,10 +1,9 @@
 package com.notfound.product.adapter.in.kafka;
 
 import com.notfound.product.adapter.in.kafka.dto.PaymentApprovedEvent;
-import com.notfound.product.adapter.out.persistence.ProcessedEventJpaEntity;
-import com.notfound.product.adapter.out.persistence.ProcessedEventJpaRepository;
 import com.notfound.product.application.port.in.DeductStockCommand;
 import com.notfound.product.application.port.in.DeductStockUseCase;
+import com.notfound.product.application.port.out.ProcessedEventRepository;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,7 +32,7 @@ class PaymentApprovedEventConsumerTest {
     private DeductStockUseCase deductStockUseCase;
 
     @Mock
-    private ProcessedEventJpaRepository processedEventRepository;
+    private ProcessedEventRepository processedEventRepository;
 
     @InjectMocks
     private PaymentApprovedEventConsumer consumer;
@@ -109,8 +108,7 @@ class PaymentApprovedEventConsumerTest {
 
             consumer.consume(event);
 
-            ArgumentCaptor<ProcessedEventJpaEntity> captor = ArgumentCaptor.forClass(ProcessedEventJpaEntity.class);
-            verify(processedEventRepository).save(captor.capture());
+            verify(processedEventRepository).save(eventId);
         }
     }
 
