@@ -35,11 +35,8 @@ class CategoryControllerTest {
     private MockMvc mockMvc;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Mock
-    private GetCategoryListUseCase getCategoryListUseCase;
-
-    @Mock
-    private CreateCategoryUseCase createCategoryUseCase;
+    @Mock private GetCategoryListUseCase getCategoryListUseCase;
+    @Mock private CreateCategoryUseCase createCategoryUseCase;
 
     @BeforeEach
     void setUp() {
@@ -48,6 +45,7 @@ class CategoryControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new CategoryController(getCategoryListUseCase, createCategoryUseCase))
+                .setCustomArgumentResolvers(new HeaderAuthArgumentResolver())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setValidator(validator)
                 .build();
@@ -62,7 +60,7 @@ class CategoryControllerTest {
     class GetCategoryList {
 
         @Test
-        @DisplayName("카테고리 목록을 트리 형태로 반환한다")
+        @DisplayName("인증 없이 요청해도 카테고리 목록을 트리 형태로 반환한다")
         void success() throws Exception {
             UUID rootId = UUID.randomUUID();
             UUID childId = UUID.randomUUID();
@@ -95,30 +93,61 @@ class CategoryControllerTest {
     @DisplayName("POST /products/categories - 카테고리 등록")
     class CreateCategory {
 
+        private CreateCategoryRequest validRequest() {
+            return new CreateCategoryRequest(null, "국내도서", "domestic", 1);
+        }
+
         @Test
-        @DisplayName("유효한 요청이면 201과 등록된 카테고리를 반환한다")
+        @DisplayName("ADMIN이 요청하면 201과 등록된 카테고리를 반환한다")
         void success() throws Exception {
             UUID newId = UUID.randomUUID();
-            CreateCategoryRequest request = new CreateCategoryRequest(null, "국내도서", "domestic", 1);
             given(createCategoryUseCase.createCategory(any()))
                     .willReturn(createCategory(newId, null, 0));
 
             mockMvc.perform(post("/products/categories")
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-Role", "ADMIN")
+                            .header("X-Email-Verified", "true")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(validRequest())))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.code").value("CATEGORY_CREATE_SUCCESS"))
                     .andExpect(jsonPath("$.data.id").value(newId.toString()));
         }
 
         @Test
-        @DisplayName("name이 빈 값이면 400과 INVALID_INPUT_VALUE를 반환한다")
-        void fail_whenNameIsBlank() throws Exception {
-            CreateCategoryRequest request = new CreateCategoryRequest(null, "", "domestic", 1);
-
+        @DisplayName("인증 헤더가 없으면 403과 FORBIDDEN을 반환한다")
+        void fail_whenNoAuth() throws Exception {
             mockMvc.perform(post("/products/categories")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(validRequest())))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+        }
+
+        @Test
+        @DisplayName("ADMIN이 아니면 403과 FORBIDDEN을 반환한다")
+        void fail_whenNotAdmin() throws Exception {
+            mockMvc.perform(post("/products/categories")
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-Role", "SELLER")
+                            .header("X-Email-Verified", "true")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest())))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+        }
+
+        @Test
+        @DisplayName("name이 빈 값이면 400과 INVALID_INPUT_VALUE를 반환한다")
+        void fail_whenNameIsBlank() throws Exception {
+            mockMvc.perform(post("/products/categories")
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-Role", "ADMIN")
+                            .header("X-Email-Verified", "true")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new CreateCategoryRequest(null, "", "domestic", 1))))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"))
                     .andExpect(jsonPath("$.data.name").exists());
@@ -127,13 +156,15 @@ class CategoryControllerTest {
         @Test
         @DisplayName("slug가 중복이면 409와 CATEGORY_SLUG_DUPLICATE를 반환한다")
         void fail_whenSlugDuplicate() throws Exception {
-            CreateCategoryRequest request = new CreateCategoryRequest(null, "국내도서", "domestic", 1);
             given(createCategoryUseCase.createCategory(any()))
                     .willThrow(new CategorySlugDuplicateException("domestic"));
 
             mockMvc.perform(post("/products/categories")
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-Role", "ADMIN")
+                            .header("X-Email-Verified", "true")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(validRequest())))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.code").value("CATEGORY_SLUG_DUPLICATE"));
         }
@@ -141,14 +172,16 @@ class CategoryControllerTest {
         @Test
         @DisplayName("존재하지 않는 parentId이면 404와 CATEGORY_NOT_FOUND를 반환한다")
         void fail_whenParentNotFound() throws Exception {
-            UUID parentId = UUID.randomUUID();
-            CreateCategoryRequest request = new CreateCategoryRequest(parentId, "소설", "novel", 1);
             given(createCategoryUseCase.createCategory(any()))
-                    .willThrow(new CategoryNotFoundException(parentId));
+                    .willThrow(new CategoryNotFoundException(UUID.randomUUID()));
 
             mockMvc.perform(post("/products/categories")
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-Role", "ADMIN")
+                            .header("X-Email-Verified", "true")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(
+                                    new CreateCategoryRequest(UUID.randomUUID(), "소설", "novel", 1))))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.code").value("CATEGORY_NOT_FOUND"));
         }

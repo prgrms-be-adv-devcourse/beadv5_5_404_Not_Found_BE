@@ -1710,7 +1710,7 @@ Status Code: `200 OK`
 
 ### `POST /products/categories` — 카테고리 추가
 
-새로운 카테고리를 추가합니다.
+새로운 카테고리를 추가합니다. **ADMIN 전용 API**입니다.
 
 #### Request
 
@@ -1719,7 +1719,7 @@ Request Header:
 | 헤더 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | `Content-Type` | string | O | `application/json` |
-| `Authorization` | string | O | Bearer access token |
+| `Authorization` | string | O | Bearer access token (ADMIN 권한 필요) |
 
 Request Body:
 
@@ -1802,6 +1802,19 @@ Status Code: `400 Bad Request`
     "name": "카테고리명은 필수입니다.",
     "slug": "슬러그는 필수입니다."
   }
+}
+```
+
+**5. 클라이언트 오류 — 권한 없음**
+
+Status Code: `403 Forbidden`
+
+```json
+{
+  "status": 403,
+  "code": "FORBIDDEN",
+  "message": "접근 권한이 없습니다.",
+  "data": null
 }
 ```
 

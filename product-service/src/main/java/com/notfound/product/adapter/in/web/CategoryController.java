@@ -3,6 +3,7 @@ package com.notfound.product.adapter.in.web;
 import com.notfound.product.adapter.in.web.dto.*;
 import com.notfound.product.application.port.in.CreateCategoryUseCase;
 import com.notfound.product.application.port.in.GetCategoryListUseCase;
+import com.notfound.product.domain.exception.ForbiddenException;
 import com.notfound.product.domain.model.Category;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -37,7 +38,11 @@ public class CategoryController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<CreateCategoryResponse>> createCategory(
+            @AuthUser AuthenticatedUser user,
             @RequestBody @Valid CreateCategoryRequest request) {
+        if (user == null || !"ADMIN".equals(user.role())) {
+            throw new ForbiddenException(ProductErrorCode.FORBIDDEN.getMessage());
+        }
         Category category = createCategoryUseCase.createCategory(request.toCommand());
         ProductErrorCode code = ProductErrorCode.CATEGORY_CREATE_SUCCESS;
         return ResponseEntity.status(HttpStatus.CREATED)

@@ -4,6 +4,7 @@ import com.notfound.product.adapter.in.web.dto.ApiResponse;
 import com.notfound.product.adapter.in.web.dto.ProductErrorCode;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
 import com.notfound.product.domain.exception.CategorySlugDuplicateException;
+import com.notfound.product.domain.exception.ForbiddenException;
 import com.notfound.product.domain.exception.InsufficientStockException;
 import com.notfound.product.domain.exception.IsbnDuplicateException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
@@ -19,6 +20,13 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ApiResponse<Void>> handleForbidden(ForbiddenException e) {
+        ProductErrorCode code = resolveErrorCode(e.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(code.getStatus(), code.getCode(), e.getMessage()));
+    }
 
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleProductNotFound(ProductNotFoundException e) {
@@ -53,6 +61,16 @@ public class GlobalExceptionHandler {
         ProductErrorCode code = ProductErrorCode.PRODUCT_INSUFFICIENT_STOCK;
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(code.getStatus(), code.getCode(), e.getMessage()));
+    }
+
+    private ProductErrorCode resolveErrorCode(String message) {
+        if (ProductErrorCode.EMAIL_NOT_VERIFIED.getMessage().equals(message)) {
+            return ProductErrorCode.EMAIL_NOT_VERIFIED;
+        }
+        if (ProductErrorCode.SELLER_NOT_APPROVED.getMessage().equals(message)) {
+            return ProductErrorCode.SELLER_NOT_APPROVED;
+        }
+        return ProductErrorCode.FORBIDDEN;
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

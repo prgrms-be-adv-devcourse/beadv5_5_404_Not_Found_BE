@@ -16,6 +16,10 @@ public enum ProductErrorCode {
     CATEGORY_LIST_GET_SUCCESS(HttpStatus.OK, "CATEGORY_LIST_GET_SUCCESS", "카테고리 목록 조회에 성공했습니다."),
     CATEGORY_CREATE_SUCCESS(HttpStatus.CREATED, "CATEGORY_CREATE_SUCCESS", "카테고리가 등록되었습니다."),
 
+    FORBIDDEN(HttpStatus.FORBIDDEN, "FORBIDDEN", "접근 권한이 없습니다."),
+    EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "EMAIL_NOT_VERIFIED", "이메일 인증이 필요합니다."),
+    SELLER_NOT_APPROVED(HttpStatus.FORBIDDEN, "SELLER_NOT_APPROVED", "승인된 판매자가 아닙니다."),
+
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", "상품을 찾을 수 없습니다."),
     PRODUCT_ISBN_DUPLICATE(HttpStatus.CONFLICT, "PRODUCT_ISBN_DUPLICATE", "이미 등록된 ISBN입니다."),
     CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "CATEGORY_NOT_FOUND", "카테고리를 찾을 수 없습니다."),

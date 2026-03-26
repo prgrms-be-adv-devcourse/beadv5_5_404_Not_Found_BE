@@ -12,9 +12,6 @@ import java.util.UUID;
 public record ProductRegisterRequest(
 
         @NotNull
-        UUID sellerId,
-
-        @NotNull
         UUID categoryId,
 
         @NotBlank
@@ -42,7 +39,7 @@ public record ProductRegisterRequest(
         @NotNull
         BookType bookType
 ) {
-    public RegisterProductCommand toCommand() {
+    public RegisterProductCommand toCommand(UUID sellerId) {
         return new RegisterProductCommand(
                 sellerId, categoryId, isbn, title, author, publisher, price, quantity, bookType
         );
