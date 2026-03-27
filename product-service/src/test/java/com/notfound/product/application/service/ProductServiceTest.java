@@ -6,6 +6,7 @@ import com.notfound.product.application.port.out.ProductRepository;
 import com.notfound.product.application.port.out.SellerStatusVerifier;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
 import com.notfound.product.domain.exception.ForbiddenException;
+import com.notfound.product.domain.exception.IsbnDuplicateException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import com.notfound.product.domain.model.BookType;
 import com.notfound.product.domain.model.Category;
@@ -106,6 +107,22 @@ class ProductServiceTest {
 
             assertThatThrownBy(() -> productService.registerProduct(command))
                     .isInstanceOf(ForbiddenException.class);
+        }
+
+        @Test
+        @DisplayName("ISBN이 중복이면 IsbnDuplicateException이 발생한다")
+        void fail_whenIsbnDuplicate() {
+            RegisterProductCommand command = new RegisterProductCommand(
+                    sellerId, categoryId, "9791234567890",
+                    "테스트 도서", "저자", "출판사", 15000, 100, BookType.NEW
+            );
+            given(sellerStatusVerifier.isApprovedSeller(sellerId)).willReturn(true);
+            given(categoryRepository.findById(categoryId))
+                    .willReturn(Optional.of(createCategory(categoryId)));
+            given(productRepository.existsByIsbn("9791234567890")).willReturn(true);
+
+            assertThatThrownBy(() -> productService.registerProduct(command))
+                    .isInstanceOf(IsbnDuplicateException.class);
         }
 
         @Test
