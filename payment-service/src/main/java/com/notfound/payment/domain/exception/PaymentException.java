@@ -77,15 +77,6 @@ public class PaymentException extends RuntimeException {
         return new PaymentException("DEPOSIT_BALANCE_EXCEEDS_LIMIT", "예치금 최대 보유 한도를 초과합니다.");
     }
 
-    // Settlement
-    public static PaymentException settlementNotFound() {
-        return new PaymentException("SETTLEMENT_NOT_FOUND", "정산 내역을 찾을 수 없습니다.");
-    }
-
-    public static PaymentException settlementAlreadyCompleted() {
-        return new PaymentException("SETTLEMENT_ALREADY_COMPLETED", "이미 완료된 정산입니다.");
-    }
-
     // PG
     public static PaymentException pgConfirmFailed() {
         return new PaymentException("PG_CONFIRM_FAILED", "PG 결제 승인에 실패했습니다.");
