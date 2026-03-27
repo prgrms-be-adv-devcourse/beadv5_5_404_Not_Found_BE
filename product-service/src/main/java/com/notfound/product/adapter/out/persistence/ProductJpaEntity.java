@@ -83,6 +83,18 @@ public class ProductJpaEntity {
         return entity;
     }
 
+    public void updateFrom(Product product) {
+        this.categoryId = product.getCategoryId();
+        this.title = product.getTitle();
+        this.author = product.getAuthor();
+        this.publisher = product.getPublisher();
+        this.price = product.getPrice();
+        this.quantity = product.getQuantity();
+        this.status = product.getStatus();
+        this.avgRating = product.getAvgRating();
+        this.reviewCount = product.getReviewCount();
+    }
+
     public Product toDomain() {
         return Product.of(
                 id, sellerId, categoryId, isbn, title, author, publisher,

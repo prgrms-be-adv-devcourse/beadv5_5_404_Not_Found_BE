@@ -37,6 +37,7 @@
 | `ProductSoldOutEvent` | Product | Order | `product.sold-out` | 품절 상태 반영, 주문 제한 | 미구현 — Order가 주문 생성 시 REST로 재고 검증하므로 당장 불필요, Order 서비스 개발 시 추가 |
 | `StockDeductedEvent` | Product | (운영 추적) | `product.stock-deducted` | 재고 차감 완료 사실 추적 | 미구현 — 운영 모니터링 목적, 소비 서비스 없음 |
 | `StockRestoredEvent` | Product | (운영 추적) | `product.stock-restored` | 재고 복구 완료 사실 추적 | 미구현 — 운영 모니터링 목적, 소비 서비스 없음 |
+| `StockDeductFailedEvent` | Product | Order, Payment | `product.stock-deduct-failed` | 낙관적 락 충돌로 재고 차감 실패 시 보상 트랜잭션 트리거 | 미구현 — payment-service 환불 구현 완료 후 적용 |
 
 ### 리뷰 도메인 (Review)
 
