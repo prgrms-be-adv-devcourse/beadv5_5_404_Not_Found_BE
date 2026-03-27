@@ -164,14 +164,27 @@
 
 ### 4-3. 주문 상태 관리
 - 주문 상태 흐름: `PENDING_PAYMENT → CONFIRMED → SHIPPING → DELIVERED → PURCHASE_CONFIRMED`
-- 결제 모듈에서 결제 완료 이벤트 수신 시 `CONFIRMED`로 전환
-- 결제 완료 후 상품 모듈에 재고 차감 확정 요청
+- 결제 모듈에서 결제 완료 이벤트(`PaymentApprovedEvent`) 수신 시 `CONFIRMED`로 전환
+- 결제 완료 후 상품 모듈에 Kafka 이벤트로 재고 차감 요청
 - 취소 시 `CANCELLED`로 전환
 
+**재고 차감 실패 시나리오 (동시 주문)**
+
+주문 생성 시점에 재고를 검증하고(`GET /products?ids=`), 결제 완료 후 실제 차감한다.
+이 두 단계 사이에 동시 주문으로 재고가 소진되면 차감 실패가 발생할 수 있다.
+
+| 단계 | 처리 |
+|------|------|
+| 차감 실패 발생 | 상품 모듈이 `StockDeductFailedEvent` 발행 |
+| 주문 상태 전이 | `CONFIRMED → STOCK_FAILED` |
+| 환불 트리거 | 주문 모듈이 결제 모듈에 환불 요청 |
+| 환불 완료 | `STOCK_FAILED → REFUNDED`, 재고 복원 불필요 (차감 자체가 실패했으므로) |
+| 회원 알림 | 재고 부족으로 인한 자동 취소 안내 |
+
 ### 4-4. 주문 취소
-- 취소 가능 상태 검증
+- 취소 가능 상태: `CONFIRMED`, `SHIPPING` 이전
 - 결제 모듈에 환불 요청
-- 환불 완료 후 상품 모듈에 재고 복원 요청
+- 환불 완료 이벤트(`RefundCompletedEvent`) 수신 시 상품 모듈에서 재고 복원
 - 주문 상태: `CANCELLED`
 
 ### 4-5. 배송 관리
