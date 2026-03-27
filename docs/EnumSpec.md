@@ -79,7 +79,16 @@
 | `PENDING_REVIEW` | 검수 대기 | 상품 등록 직후 |
 | `ACTIVE` | 판매 가능 | 검수 승인 |
 | `INACTIVE` | 판매 중지 | 운영 제재/판매 중단 |
-| `SOLD_OUT` | 품절 | 재고 0 |
+| `SOLD_OUT` | 품절 | 재고 0 (시스템 자동 전환) |
+
+**허용 상태 전환 (관리자 수동 변경 기준)**
+
+| 현재 상태 | 전환 가능 상태 | 비고 |
+|-----------|--------------|------|
+| `PENDING_REVIEW` | `ACTIVE`, `INACTIVE` | 검수 승인/거부 |
+| `ACTIVE` | `INACTIVE` | 판매 중단 |
+| `INACTIVE` | `ACTIVE` | 판매 재개 |
+| `SOLD_OUT` | 불가 | 재고 복원 시 시스템이 자동으로 `ACTIVE` 전환 |
 
 ---
 
