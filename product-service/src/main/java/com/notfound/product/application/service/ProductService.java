@@ -94,6 +94,10 @@ public class ProductService implements
         Product product = productRepository.findById(command.productId())
                 .orElseThrow(() -> new ProductNotFoundException(command.productId()));
 
+        if (!product.getSellerId().equals(command.sellerId())) {
+            throw new ForbiddenException("본인의 상품만 수정할 수 있습니다.");
+        }
+
         if (command.categoryId() != null) {
             categoryRepository.findById(command.categoryId())
                     .orElseThrow(() -> new CategoryNotFoundException(command.categoryId()));

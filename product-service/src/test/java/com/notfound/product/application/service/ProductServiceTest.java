@@ -306,6 +306,19 @@ class ProductServiceTest {
         }
 
         @Test
+        @DisplayName("다른 판매자의 상품 수정 시 ForbiddenException이 발생한다")
+        void fail_whenNotOwner() {
+            UUID anotherSellerId = UUID.randomUUID();
+            Product product = createProduct(productId, 10, ProductStatus.ACTIVE); // sellerId 소유
+            given(sellerStatusVerifier.isApprovedSeller(anotherSellerId)).willReturn(true);
+            given(productRepository.findById(productId)).willReturn(Optional.of(product));
+
+            assertThatThrownBy(() -> productService.updateProduct(
+                    new UpdateProductCommand(anotherSellerId, productId, null, "제목", null, null, null, null)))
+                    .isInstanceOf(ForbiddenException.class);
+        }
+
+        @Test
         @DisplayName("존재하지 않는 상품 수정 시 ProductNotFoundException이 발생한다")
         void fail_whenProductNotFound() {
             given(sellerStatusVerifier.isApprovedSeller(sellerId)).willReturn(true);
