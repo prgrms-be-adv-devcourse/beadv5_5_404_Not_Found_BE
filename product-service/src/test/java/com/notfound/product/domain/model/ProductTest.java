@@ -1,6 +1,7 @@
 package com.notfound.product.domain.model;
 
 import com.notfound.product.domain.exception.InsufficientStockException;
+import com.notfound.product.domain.exception.InvalidStatusTransitionException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -142,6 +143,78 @@ class ProductTest {
             product.restoreStock(5);
 
             assertThat(product.getStatus()).isEqualTo(ProductStatus.INACTIVE);
+        }
+    }
+
+    @Nested
+    @DisplayName("상태 전환")
+    class ChangeStatus {
+
+        @Test
+        @DisplayName("PENDING_REVIEW → ACTIVE 전환이 가능하다")
+        void success_pendingReviewToActive() {
+            Product product = createProduct(10, ProductStatus.PENDING_REVIEW);
+
+            product.changeStatus(ProductStatus.ACTIVE);
+
+            assertThat(product.getStatus()).isEqualTo(ProductStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("PENDING_REVIEW → INACTIVE 전환이 가능하다")
+        void success_pendingReviewToInactive() {
+            Product product = createProduct(10, ProductStatus.PENDING_REVIEW);
+
+            product.changeStatus(ProductStatus.INACTIVE);
+
+            assertThat(product.getStatus()).isEqualTo(ProductStatus.INACTIVE);
+        }
+
+        @Test
+        @DisplayName("ACTIVE → INACTIVE 전환이 가능하다")
+        void success_activeToInactive() {
+            Product product = createProduct(10, ProductStatus.ACTIVE);
+
+            product.changeStatus(ProductStatus.INACTIVE);
+
+            assertThat(product.getStatus()).isEqualTo(ProductStatus.INACTIVE);
+        }
+
+        @Test
+        @DisplayName("INACTIVE → ACTIVE 전환이 가능하다")
+        void success_inactiveToActive() {
+            Product product = createProduct(10, ProductStatus.INACTIVE);
+
+            product.changeStatus(ProductStatus.ACTIVE);
+
+            assertThat(product.getStatus()).isEqualTo(ProductStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("SOLD_OUT 상태에서는 수동 상태 전환이 불가하다")
+        void fail_soldOutCannotTransition() {
+            Product product = createProduct(0, ProductStatus.SOLD_OUT);
+
+            assertThatThrownBy(() -> product.changeStatus(ProductStatus.ACTIVE))
+                    .isInstanceOf(InvalidStatusTransitionException.class);
+        }
+
+        @Test
+        @DisplayName("ACTIVE → PENDING_REVIEW 전환은 허용되지 않는다")
+        void fail_activeToPendingReview() {
+            Product product = createProduct(10, ProductStatus.ACTIVE);
+
+            assertThatThrownBy(() -> product.changeStatus(ProductStatus.PENDING_REVIEW))
+                    .isInstanceOf(InvalidStatusTransitionException.class);
+        }
+
+        @Test
+        @DisplayName("INACTIVE → SOLD_OUT 전환은 허용되지 않는다")
+        void fail_inactiveToSoldOut() {
+            Product product = createProduct(0, ProductStatus.INACTIVE);
+
+            assertThatThrownBy(() -> product.changeStatus(ProductStatus.SOLD_OUT))
+                    .isInstanceOf(InvalidStatusTransitionException.class);
         }
     }
 

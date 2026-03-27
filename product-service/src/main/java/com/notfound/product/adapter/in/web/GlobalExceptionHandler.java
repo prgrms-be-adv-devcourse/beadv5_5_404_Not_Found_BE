@@ -6,6 +6,7 @@ import com.notfound.product.domain.exception.CategoryNotFoundException;
 import com.notfound.product.domain.exception.CategorySlugDuplicateException;
 import com.notfound.product.domain.exception.ForbiddenException;
 import com.notfound.product.domain.exception.InsufficientStockException;
+import com.notfound.product.domain.exception.InvalidStatusTransitionException;
 import com.notfound.product.domain.exception.IsbnDuplicateException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -59,6 +60,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InsufficientStockException.class)
     public ResponseEntity<ApiResponse<Void>> handleInsufficientStock(InsufficientStockException e) {
         ProductErrorCode code = ProductErrorCode.PRODUCT_INSUFFICIENT_STOCK;
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(code.getStatus(), code.getCode(), e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidStatusTransitionException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidStatusTransition(InvalidStatusTransitionException e) {
+        ProductErrorCode code = ProductErrorCode.INVALID_STATUS_TRANSITION;
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(code.getStatus(), code.getCode(), e.getMessage()));
     }

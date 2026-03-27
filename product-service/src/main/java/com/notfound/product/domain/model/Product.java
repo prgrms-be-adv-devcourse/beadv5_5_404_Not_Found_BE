@@ -1,6 +1,7 @@
 package com.notfound.product.domain.model;
 
 import com.notfound.product.domain.exception.InsufficientStockException;
+import com.notfound.product.domain.exception.InvalidStatusTransitionException;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -92,6 +93,9 @@ public class Product {
     }
 
     public void changeStatus(ProductStatus newStatus) {
+        if (!this.status.canTransitionTo(newStatus)) {
+            throw new InvalidStatusTransitionException(this.status, newStatus);
+        }
         this.status = newStatus;
     }
 
