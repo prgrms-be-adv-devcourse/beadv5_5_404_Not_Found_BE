@@ -2,6 +2,7 @@ package com.notfound.product.application.service;
 
 import com.notfound.product.application.port.in.*;
 import com.notfound.product.application.port.out.CategoryRepository;
+import com.notfound.product.application.port.out.ProcessedEventRepository;
 import com.notfound.product.application.port.out.ProductRepository;
 import com.notfound.product.application.port.out.SellerStatusVerifier;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
@@ -44,6 +45,9 @@ class ProductServiceTest {
 
     @Mock
     private SellerStatusVerifier sellerStatusVerifier;
+
+    @Mock
+    private ProcessedEventRepository processedEventRepository;
 
     @InjectMocks
     private ProductService productService;
@@ -222,24 +226,40 @@ class ProductServiceTest {
         @Test
         @DisplayName("재고 차감 후 저장된다")
         void success_deductStock() {
+            String eventId = "event-1";
             Product product = createProduct(productId, 10, ProductStatus.ACTIVE);
+            given(processedEventRepository.existsById(eventId)).willReturn(false);
             given(productRepository.findById(productId)).willReturn(Optional.of(product));
             given(productRepository.save(any(Product.class)))
                     .willAnswer(invocation -> invocation.getArgument(0));
 
-            productService.deductStock(new DeductStockCommand(
+            productService.deductStock(new DeductStockCommand(eventId,
                     List.of(new DeductStockCommand.StockItem(productId, 3))));
 
             assertThat(product.getQuantity()).isEqualTo(7);
-            verify(productRepository).save(product);
+            verify(processedEventRepository).save(eventId);
+        }
+
+        @Test
+        @DisplayName("이미 처리된 eventId면 재고 차감을 수행하지 않는다")
+        void skip_whenAlreadyProcessed() {
+            String eventId = "event-1";
+            given(processedEventRepository.existsById(eventId)).willReturn(true);
+
+            productService.deductStock(new DeductStockCommand(eventId,
+                    List.of(new DeductStockCommand.StockItem(productId, 3))));
+
+            verify(productRepository, never()).findById(any());
         }
 
         @Test
         @DisplayName("존재하지 않는 상품 차감 시 ProductNotFoundException이 발생한다")
         void fail_whenProductNotFound() {
+            String eventId = "event-1";
+            given(processedEventRepository.existsById(eventId)).willReturn(false);
             given(productRepository.findById(productId)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> productService.deductStock(new DeductStockCommand(
+            assertThatThrownBy(() -> productService.deductStock(new DeductStockCommand(eventId,
                     List.of(new DeductStockCommand.StockItem(productId, 3)))))
                     .isInstanceOf(ProductNotFoundException.class);
         }
@@ -252,25 +272,41 @@ class ProductServiceTest {
         @Test
         @DisplayName("재고 복구 후 저장된다")
         void success_restoreStock() {
+            String eventId = "event-2";
             Product product = createProduct(productId, 0, ProductStatus.SOLD_OUT);
+            given(processedEventRepository.existsById(eventId)).willReturn(false);
             given(productRepository.findById(productId)).willReturn(Optional.of(product));
             given(productRepository.save(any(Product.class)))
                     .willAnswer(invocation -> invocation.getArgument(0));
 
-            productService.restoreStock(new RestoreStockCommand(
+            productService.restoreStock(new RestoreStockCommand(eventId,
                     List.of(new RestoreStockCommand.StockItem(productId, 5))));
 
             assertThat(product.getQuantity()).isEqualTo(5);
             assertThat(product.getStatus()).isEqualTo(ProductStatus.ACTIVE);
-            verify(productRepository).save(product);
+            verify(processedEventRepository).save(eventId);
+        }
+
+        @Test
+        @DisplayName("이미 처리된 eventId면 재고 복구를 수행하지 않는다")
+        void skip_whenAlreadyProcessed() {
+            String eventId = "event-2";
+            given(processedEventRepository.existsById(eventId)).willReturn(true);
+
+            productService.restoreStock(new RestoreStockCommand(eventId,
+                    List.of(new RestoreStockCommand.StockItem(productId, 5))));
+
+            verify(productRepository, never()).findById(any());
         }
 
         @Test
         @DisplayName("존재하지 않는 상품 복구 시 ProductNotFoundException이 발생한다")
         void fail_whenProductNotFound() {
+            String eventId = "event-2";
+            given(processedEventRepository.existsById(eventId)).willReturn(false);
             given(productRepository.findById(productId)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> productService.restoreStock(new RestoreStockCommand(
+            assertThatThrownBy(() -> productService.restoreStock(new RestoreStockCommand(eventId,
                     List.of(new RestoreStockCommand.StockItem(productId, 5)))))
                     .isInstanceOf(ProductNotFoundException.class);
         }

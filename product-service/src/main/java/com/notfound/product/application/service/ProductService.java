@@ -2,6 +2,7 @@ package com.notfound.product.application.service;
 
 import com.notfound.product.application.port.in.*;
 import com.notfound.product.application.port.out.CategoryRepository;
+import com.notfound.product.application.port.out.ProcessedEventRepository;
 import com.notfound.product.application.port.out.ProductRepository;
 import com.notfound.product.application.port.out.SellerStatusVerifier;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
@@ -33,6 +34,7 @@ public class ProductService implements
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final SellerStatusVerifier sellerStatusVerifier;
+    private final ProcessedEventRepository processedEventRepository;
 
     @Transactional
     @Override
@@ -121,22 +123,30 @@ public class ProductService implements
     @Transactional
     @Override
     public void deductStock(DeductStockCommand command) {
+        if (processedEventRepository.existsById(command.eventId())) {
+            return;
+        }
         for (DeductStockCommand.StockItem item : command.items()) {
             Product product = productRepository.findById(item.productId())
                     .orElseThrow(() -> new ProductNotFoundException(item.productId()));
             product.deductStock(item.quantity());
             productRepository.save(product);
         }
+        processedEventRepository.save(command.eventId());
     }
 
     @Transactional
     @Override
     public void restoreStock(RestoreStockCommand command) {
+        if (processedEventRepository.existsById(command.eventId())) {
+            return;
+        }
         for (RestoreStockCommand.StockItem item : command.items()) {
             Product product = productRepository.findById(item.productId())
                     .orElseThrow(() -> new ProductNotFoundException(item.productId()));
             product.restoreStock(item.quantity());
             productRepository.save(product);
         }
+        processedEventRepository.save(command.eventId());
     }
 }

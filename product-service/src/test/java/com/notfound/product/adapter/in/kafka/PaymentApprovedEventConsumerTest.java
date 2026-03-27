@@ -3,7 +3,6 @@ package com.notfound.product.adapter.in.kafka;
 import com.notfound.product.adapter.in.kafka.dto.PaymentApprovedEvent;
 import com.notfound.product.application.port.in.DeductStockCommand;
 import com.notfound.product.application.port.in.DeductStockUseCase;
-import com.notfound.product.application.port.out.ProcessedEventRepository;
 import com.notfound.product.domain.exception.ProductNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,7 +21,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,9 +28,6 @@ class PaymentApprovedEventConsumerTest {
 
     @Mock
     private DeductStockUseCase deductStockUseCase;
-
-    @Mock
-    private ProcessedEventRepository processedEventRepository;
 
     @InjectMocks
     private PaymentApprovedEventConsumer consumer;
@@ -62,75 +57,36 @@ class PaymentApprovedEventConsumerTest {
     class DeductStock {
 
         @Test
-        @DisplayName("단일 상품 이벤트 수신 시 재고가 차감된다")
+        @DisplayName("단일 상품 이벤트 수신 시 커맨드에 eventId와 아이템이 담긴다")
         void success_singleItem() {
             UUID productId = UUID.randomUUID();
             PaymentApprovedEvent event = createEvent(eventId,
                     List.of(new PaymentApprovedEvent.OrderItem(productId, 2)));
 
-            given(processedEventRepository.existsById(eventId)).willReturn(false);
-
             consumer.consume(event);
 
             ArgumentCaptor<DeductStockCommand> captor = ArgumentCaptor.forClass(DeductStockCommand.class);
             verify(deductStockUseCase).deductStock(captor.capture());
+            assertThat(captor.getValue().eventId()).isEqualTo(eventId);
             assertThat(captor.getValue().items()).hasSize(1);
             assertThat(captor.getValue().items().get(0).productId()).isEqualTo(productId);
             assertThat(captor.getValue().items().get(0).quantity()).isEqualTo(2);
         }
 
         @Test
-        @DisplayName("여러 상품 이벤트 수신 시 하나의 커맨드로 묶어 차감된다")
+        @DisplayName("여러 상품 이벤트 수신 시 하나의 커맨드로 묶어 전달된다")
         void success_multipleItems() {
-            UUID productId1 = UUID.randomUUID();
-            UUID productId2 = UUID.randomUUID();
-            UUID productId3 = UUID.randomUUID();
             PaymentApprovedEvent event = createEvent(eventId, List.of(
-                    new PaymentApprovedEvent.OrderItem(productId1, 1),
-                    new PaymentApprovedEvent.OrderItem(productId2, 3),
-                    new PaymentApprovedEvent.OrderItem(productId3, 2)
+                    new PaymentApprovedEvent.OrderItem(UUID.randomUUID(), 1),
+                    new PaymentApprovedEvent.OrderItem(UUID.randomUUID(), 3),
+                    new PaymentApprovedEvent.OrderItem(UUID.randomUUID(), 2)
             ));
-
-            given(processedEventRepository.existsById(eventId)).willReturn(false);
 
             consumer.consume(event);
 
             ArgumentCaptor<DeductStockCommand> captor = ArgumentCaptor.forClass(DeductStockCommand.class);
             verify(deductStockUseCase, times(1)).deductStock(captor.capture());
             assertThat(captor.getValue().items()).hasSize(3);
-        }
-
-        @Test
-        @DisplayName("재고 차감 후 eventId가 저장된다")
-        void success_savesProcessedEvent() {
-            UUID productId = UUID.randomUUID();
-            PaymentApprovedEvent event = createEvent(eventId,
-                    List.of(new PaymentApprovedEvent.OrderItem(productId, 1)));
-
-            given(processedEventRepository.existsById(eventId)).willReturn(false);
-
-            consumer.consume(event);
-
-            verify(processedEventRepository).save(eventId);
-        }
-    }
-
-    @Nested
-    @DisplayName("중복 이벤트 처리")
-    class DuplicateEvent {
-
-        @Test
-        @DisplayName("이미 처리된 eventId면 재고 차감을 수행하지 않는다")
-        void skip_whenAlreadyProcessed() {
-            PaymentApprovedEvent event = createEvent(eventId,
-                    List.of(new PaymentApprovedEvent.OrderItem(UUID.randomUUID(), 2)));
-
-            given(processedEventRepository.existsById(eventId)).willReturn(true);
-
-            consumer.consume(event);
-
-            verify(deductStockUseCase, never()).deductStock(any());
-            verify(processedEventRepository, never()).save(any());
         }
     }
 
@@ -139,20 +95,17 @@ class PaymentApprovedEventConsumerTest {
     class DeductStockFailure {
 
         @Test
-        @DisplayName("존재하지 않는 상품이면 ProductNotFoundException이 발생한다")
+        @DisplayName("서비스에서 ProductNotFoundException이 발생하면 전파된다")
         void fail_whenProductNotFound() {
             UUID productId = UUID.randomUUID();
             PaymentApprovedEvent event = createEvent(eventId,
                     List.of(new PaymentApprovedEvent.OrderItem(productId, 2)));
 
-            given(processedEventRepository.existsById(eventId)).willReturn(false);
             doThrow(new ProductNotFoundException(productId))
                     .when(deductStockUseCase).deductStock(any());
 
             assertThatThrownBy(() -> consumer.consume(event))
                     .isInstanceOf(ProductNotFoundException.class);
-
-            verify(processedEventRepository, never()).save(any());
         }
     }
 }
