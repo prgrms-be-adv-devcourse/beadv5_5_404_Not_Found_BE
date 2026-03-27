@@ -120,6 +120,7 @@
 | `CONFIRMED` | 주문 확정 | 결제 완료 시 |
 | `SHIPPING` | 배송 중 | 배송 시작 시 |
 | `DELIVERED` | 배송 완료 | 배송 완료 시 |
+| `PURCHASE_CONFIRMED` | 구매확정 | 수동 확정 또는 배송 완료 후 7일 경과 시 자동 전환 |
 | `CANCELLED` | 주문 취소 | 취소 완료 시 |
 
 ### OrderItemStatus — 주문상품 상태
@@ -213,14 +214,20 @@
 
 ## Settlement 영역
 
-### SettlementStatus
+### SettlementTargetStatus — 정산 대상 상태
 
-| 값 | 설명 |
-|----|------|
-| `PENDING` | 정산 대기 |
-| `COMPLETED` | 정산 완료 |
+| 값 | 설명 | 전이 조건 |
+|----|------|----------|
+| `PENDING` | 정산 대기 | 구매확정 시 생성 기본값 |
+| `SETTLED` | 정산 완료 | 월 정산 배치 실행 후 settlement에 연결 시 |
 
-> 실패 처리를 남기려면 `FAILED` 추가 고려
+### SettlementStatus — 정산 결과 상태
+
+| 값 | 설명 | 전이 조건 |
+|----|------|----------|
+| `PENDING` | 정산 실행 전 | 배치 시작 시 생성 기본값 |
+| `COMPLETED` | 정산 완료 | 판매자별 집계 및 계좌 조회 성공 |
+| `FAILED` | 정산 실패 | 계좌 조회 실패 또는 집계 오류 시 |
 
 ---
 
