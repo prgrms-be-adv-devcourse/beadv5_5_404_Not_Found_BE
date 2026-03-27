@@ -20,6 +20,9 @@ public class ProductJpaEntity {
     @Id
     private UUID id;
 
+    @Version
+    private Long version;
+
     @Column(name = "seller_id", nullable = false)
     private UUID sellerId;
 
