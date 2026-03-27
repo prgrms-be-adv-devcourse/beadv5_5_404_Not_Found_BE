@@ -1,0 +1,61 @@
+package com.notfound.member.application.service;
+
+import com.notfound.member.application.port.in.CreateAddressUseCase;
+import com.notfound.member.application.port.in.DeleteAddressUseCase;
+import com.notfound.member.application.port.in.GetMemberAddressesUseCase;
+import com.notfound.member.application.port.in.command.CreateAddressCommand;
+import com.notfound.member.application.port.out.AddressRepository;
+import com.notfound.member.domain.exception.MemberException;
+import com.notfound.member.domain.model.Address;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class AddressService implements GetMemberAddressesUseCase, CreateAddressUseCase, DeleteAddressUseCase {
+
+    private final AddressRepository addressRepository;
+
+    public AddressService(AddressRepository addressRepository) {
+        this.addressRepository = addressRepository;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Address> getAddresses(UUID memberId) {
+        return addressRepository.findByMemberIdAndIsDeletedFalse(memberId);
+    }
+
+    @Override
+    @Transactional
+    public Address createAddress(UUID memberId, CreateAddressCommand command) {
+        Address address = Address.builder()
+                .memberId(memberId)
+                .label(command.label())
+                .recipient(command.recipient())
+                .phone(command.phone())
+                .zipcode(command.zipcode())
+                .address1(command.address1())
+                .address2(command.address2())
+                .isDefault(false)
+                .isDeleted(false)
+                .build();
+
+        return addressRepository.save(address);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAddress(UUID memberId, UUID addressId) {
+        Address address = addressRepository.findById(addressId)
+                .orElseThrow(MemberException::addressNotFound);
+
+        if (!address.getMemberId().equals(memberId)) {
+            throw MemberException.accessDenied();
+        }
+
+        addressRepository.softDelete(addressId);
+    }
+}

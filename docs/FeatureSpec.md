@@ -163,7 +163,7 @@
 - 주문 생성 단계에서는 재고 차감하지 않음
 
 ### 4-3. 주문 상태 관리
-- 주문 상태 흐름: `PENDING_PAYMENT → CONFIRMED → SHIPPING → DELIVERED`
+- 주문 상태 흐름: `PENDING_PAYMENT → CONFIRMED → SHIPPING → DELIVERED → PURCHASE_CONFIRMED`
 - 결제 모듈에서 결제 완료 이벤트 수신 시 `CONFIRMED`로 전환
 - 결제 완료 후 상품 모듈에 재고 차감 확정 요청
 - 취소 시 `CANCELLED`로 전환
@@ -178,6 +178,18 @@
 - 택배사 및 송장번호 등록
 - 배송 상태: `PREPARING → SHIPPED → IN_TRANSIT → DELIVERED → RETURNED`
 - 배송 상태 변경에 따른 주문 상태 연동
+
+### 4-6. 구매확정
+- `DELIVERED` 상태에서만 전환 가능
+- 구매확정 이후 환불 불가 — 환불 가능 기간은 `DELIVERED` 상태 구간으로 제한
+- 구매확정 전환 조건
+
+| 방식 | 조건 |
+|------|------|
+| 자동 확정 | 배송 완료(`DELIVERED`) 후 7일 경과 시 스케줄러가 자동 전환 |
+| 수동 확정 | 구매자가 직접 구매확정 API 호출 |
+
+- `PURCHASE_CONFIRMED` 전환 시 `PurchaseConfirmedEvent` 발행 → Payment 서비스가 정산 대상 생성
 
 ---
 
@@ -213,17 +225,25 @@
 - 필요 시 `order_item` 단위 부분 환불로 확장 가능
 
 ### 5-3. 정산 처리
-- 결제 완료된 주문 항목 기반으로 정산 대상 생성
-- 스케줄러 기반 배치 작업으로 정산 실행
-- 매출 금액에서 서비스 수수료를 차감하여 정산 금액 산출
-- 회원 모듈에서 판매자 계좌 정보 조회
-- 판매자별 정산 결과 저장
+- **정산 트리거**: 구매확정(`PURCHASE_CONFIRMED`) 시 `PurchaseConfirmedEvent` consume → `settlement_target` 레코드 생성
+- 스케줄러 기반 배치 작업으로 정산 실행 (매월 25일)
+- 집계 기간: 전월 1일 ~ 전월 말일 구매확정 건
+- 매출 금액에서 서비스 수수료(3%)를 차감하여 정산 금액 산출
+- 회원 모듈에서 판매자 계좌 정보 조회 (REST)
+- 판매자별 정산 결과 저장 (`settlement` 레코드)
   - 총 매출 금액
   - 수수료 금액
   - 순 정산 금액
-  - 정산 일자
+  - 집계 기간 (period_start, period_end)
   - 정산 상태
-- 정산 상태: `PENDING → COMPLETED`
+- 정산 상태: `PENDING → COMPLETED / FAILED`
+- 정책값은 `application.yml`로 관리하여 코드 수정 없이 변경 가능
+
+| 정책 항목 | 값 |
+|------|-----|
+| 자동 구매확정 | 배송 완료 후 7일 |
+| 정산 실행일 | 매월 25일 |
+| 수수료율 | 3% |
 
 ---
 
