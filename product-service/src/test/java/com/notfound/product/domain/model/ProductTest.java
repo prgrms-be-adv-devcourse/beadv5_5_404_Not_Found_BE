@@ -136,6 +136,17 @@ class ProductTest {
         }
 
         @Test
+        @DisplayName("0 이하의 수량으로 복구 시 IllegalArgumentException이 발생한다")
+        void fail_whenQuantityIsZeroOrNegative() {
+            Product product = createProduct(5, ProductStatus.ACTIVE);
+
+            assertThatThrownBy(() -> product.restoreStock(0))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> product.restoreStock(-1))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
         @DisplayName("INACTIVE 상태에서는 복구해도 상태가 변경되지 않는다")
         void statusNotChanged_whenInactive() {
             Product product = createProduct(0, ProductStatus.INACTIVE);

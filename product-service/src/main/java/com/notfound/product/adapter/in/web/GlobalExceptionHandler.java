@@ -89,6 +89,6 @@ public class GlobalExceptionHandler {
                         (existing, replacement) -> existing));
         ProductErrorCode code = ProductErrorCode.INVALID_INPUT_VALUE;
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.success(code.getStatus(), code.getCode(), code.getMessage(), errors));
+                .body(ApiResponse.error(code.getStatus(), code.getCode(), code.getMessage(), errors));
     }
 }

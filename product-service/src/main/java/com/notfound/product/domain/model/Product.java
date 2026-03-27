@@ -69,6 +69,9 @@ public class Product {
     }
 
     public void restoreStock(int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("복원할 수량은 0보다 커야 합니다.");
+        }
         this.quantity += quantity;
         if (this.status == ProductStatus.SOLD_OUT) {
             this.status = ProductStatus.ACTIVE;
