@@ -177,17 +177,25 @@ erDiagram
         VARCHAR_200 pg_refund_id
         TIMESTAMP refunded_at
     }
+    SETTLEMENT_TARGET {
+        UUID id PK
+        UUID order_id FK
+        UUID seller_id FK
+        BIGINT total_amount "해당 주문에서 이 판매자 매출"
+        TIMESTAMP confirmed_at "구매확정 시각"
+        UUID settlement_id FK "nullable - 정산 완료 후 연결"
+        ENUM status "PENDING | SETTLED"
+    }
     SETTLEMENT {
         UUID id PK
         UUID seller_id FK
-        UUID order_item_id FK
-        UUID payment_id FK
-        INT gross_amount
-        INT commission_amount
-        INT net_amount
-        ENUM status
-        DATE settlement_date
-        TIMESTAMP settled_at
+        DATE period_start "집계 시작일"
+        DATE period_end "집계 종료일"
+        BIGINT total_sales_amount "총 매출"
+        BIGINT fee_amount "수수료"
+        BIGINT net_amount "순 정산 금액"
+        TIMESTAMP settled_at "정산 실행 시각"
+        ENUM status "PENDING | COMPLETED | FAILED"
     }
 
     MEMBER ||--o{ ADDRESS : has
@@ -203,6 +211,7 @@ erDiagram
 
     SELLER ||--o{ PRODUCT : sells
     SELLER ||--o{ ORDER_ITEM : fulfills
+    SELLER ||--o{ SETTLEMENT_TARGET : "정산 대상"
     SELLER ||--o{ SETTLEMENT : receives
 
     PRODUCT ||--o{ CART_ITEM : added_as
@@ -218,11 +227,12 @@ erDiagram
     ORDER ||--o{ DEPOSIT : "예치금 사용 이력"
 
     PAYMENT ||--o{ REFUND : refunded_by
-    PAYMENT ||--o{ SETTLEMENT : settles
     PAYMENT ||--o{ DEPOSIT : "충전 결제 참조"
 
+    ORDER ||--o{ SETTLEMENT_TARGET : "구매확정 시 생성"
+    SETTLEMENT ||--o{ SETTLEMENT_TARGET : "월 정산 시 연결"
+
     ORDER_ITEM ||--o{ REFUND : refunded_item
-    ORDER_ITEM ||--o{ SETTLEMENT : settled_item
 ```
 
 ---

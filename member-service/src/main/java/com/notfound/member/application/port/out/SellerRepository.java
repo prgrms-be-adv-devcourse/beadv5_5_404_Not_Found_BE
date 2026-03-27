@@ -7,5 +7,11 @@ import java.util.UUID;
 
 public interface SellerRepository {
 
+    Optional<Seller> findById(UUID sellerId);
+
     Optional<Seller> findByMemberId(UUID memberId);
+
+    boolean existsByMemberId(UUID memberId);
+
+    Seller save(Seller seller);
 }

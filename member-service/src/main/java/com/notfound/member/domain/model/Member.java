@@ -75,6 +75,23 @@ public class Member {
         return updatedAt;
     }
 
+    public void deductDeposit(int amount) {
+        if (amount <= 0) {
+            throw MemberException.invalidDepositAmount();
+        }
+        if (this.depositBalance < amount) {
+            throw MemberException.insufficientDeposit();
+        }
+        this.depositBalance -= amount;
+    }
+
+    public void chargeDeposit(int amount) {
+        if (amount <= 0) {
+            throw MemberException.invalidDepositAmount();
+        }
+        this.depositBalance += amount;
+    }
+
     public void withdraw() {
         if (this.status == MemberStatus.WITHDRAWN) {
             throw MemberException.alreadyWithdrawn();

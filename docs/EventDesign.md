@@ -51,16 +51,18 @@
 | 이벤트명 | Producer | Consumer | Topic | 목적 |
 |---------|----------|----------|-------|------|
 | `RefundFailedEvent` | Payment | Order | `refund.failed` | 환불 실패 시 주문 상태 보류/재처리 판단 |
-| `SettlementTargetCreatedEvent` | Payment | (내부 처리) | `settlement.target-created` | 정산 대상 생성 |
-| `SettlementCompletedEvent` | Payment | (내부 / 조회성) | `settlement.completed` | 정산 완료 반영 |
-| `SettlementFailedEvent` | Payment | (내부 처리) | `settlement.failed` | 정산 실패 추적 |
+| `SettlementCompletedEvent` | Payment | (미구현) | `settlement.completed` | 정산 완료 반영 — 소비 서비스 미정, 알림 등 확장 시 추가 |
+| `SettlementFailedEvent` | Payment | (미구현) | `settlement.failed` | 정산 실패 추적 — 소비 서비스 미정, 현재는 DB 상태 + 로그로 관리 |
+
+> `SettlementTargetCreatedEvent`는 Kafka 이벤트로 발행하지 않는다. Payment 서비스 내부에서 `PurchaseConfirmedEvent` 처리 시 `settlement_target`을 직접 생성한다.
 
 ### 주문 도메인 (Order)
 
 | 이벤트명 | Producer | Consumer | Topic | 목적 |
 |---------|----------|----------|-------|------|
 | `OrderCanceledEvent` | Order | (필요 시 확장) | `order.canceled` | 환불 완료 후 주문 최종 취소 확정 알림 |
-| `OrderDeliveredEvent` | Order | Review, Payment | `order.delivered` | 배송 완료 후 리뷰 가능, 정산 기준점 |
+| `OrderDeliveredEvent` | Order | Review | `order.delivered` | 배송 완료 후 리뷰 작성 가능 |
+| `PurchaseConfirmedEvent` | Order | Payment | `order.purchase-confirmed` | 구매확정 → 정산 대상 생성 트리거 |
 
 ---
 

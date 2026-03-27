@@ -33,7 +33,7 @@ public class InternalSecretFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String path = request.getServletPath();
+        String path = request.getRequestURI();
 
         if (!path.startsWith(INTERNAL_PATH_PREFIX)) {
             filterChain.doFilter(request, response);

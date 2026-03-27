@@ -25,9 +25,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final InternalSecretFilter internalSecretFilter;
+    private final RoleAuthorizationFilter roleAuthorizationFilter;
 
-    public SecurityConfig(InternalSecretFilter internalSecretFilter) {
+    public SecurityConfig(InternalSecretFilter internalSecretFilter,
+                          RoleAuthorizationFilter roleAuthorizationFilter) {
         this.internalSecretFilter = internalSecretFilter;
+        this.roleAuthorizationFilter = roleAuthorizationFilter;
     }
 
     @Bean
@@ -38,6 +41,7 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .addFilterBefore(internalSecretFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(roleAuthorizationFilter, InternalSecretFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().permitAll()
                 );
