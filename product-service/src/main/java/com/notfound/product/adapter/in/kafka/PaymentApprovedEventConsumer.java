@@ -3,6 +3,8 @@ package com.notfound.product.adapter.in.kafka;
 import com.notfound.product.adapter.in.kafka.dto.PaymentApprovedEvent;
 import com.notfound.product.application.port.in.DeductStockCommand;
 import com.notfound.product.application.port.in.DeductStockUseCase;
+
+import java.util.List;
 import com.notfound.product.application.port.out.ProcessedEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,9 +28,10 @@ public class PaymentApprovedEventConsumer {
 
         log.info("PaymentApprovedEvent 수신 — orderId: {}", event.payload().orderId());
 
-        for (PaymentApprovedEvent.OrderItem item : event.payload().orderItems()) {
-            deductStockUseCase.deductStock(new DeductStockCommand(item.productId(), item.quantity()));
-        }
+        List<DeductStockCommand.StockItem> items = event.payload().orderItems().stream()
+                .map(item -> new DeductStockCommand.StockItem(item.productId(), item.quantity()))
+                .toList();
+        deductStockUseCase.deductStock(new DeductStockCommand(items));
 
         processedEventRepository.save(event.eventId());
     }

@@ -227,7 +227,8 @@ class ProductServiceTest {
             given(productRepository.save(any(Product.class)))
                     .willAnswer(invocation -> invocation.getArgument(0));
 
-            productService.deductStock(new DeductStockCommand(productId, 3));
+            productService.deductStock(new DeductStockCommand(
+                    List.of(new DeductStockCommand.StockItem(productId, 3))));
 
             assertThat(product.getQuantity()).isEqualTo(7);
             verify(productRepository).save(product);
@@ -238,7 +239,8 @@ class ProductServiceTest {
         void fail_whenProductNotFound() {
             given(productRepository.findById(productId)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> productService.deductStock(new DeductStockCommand(productId, 3)))
+            assertThatThrownBy(() -> productService.deductStock(new DeductStockCommand(
+                    List.of(new DeductStockCommand.StockItem(productId, 3)))))
                     .isInstanceOf(ProductNotFoundException.class);
         }
     }
@@ -255,7 +257,8 @@ class ProductServiceTest {
             given(productRepository.save(any(Product.class)))
                     .willAnswer(invocation -> invocation.getArgument(0));
 
-            productService.restoreStock(new RestoreStockCommand(productId, 5));
+            productService.restoreStock(new RestoreStockCommand(
+                    List.of(new RestoreStockCommand.StockItem(productId, 5))));
 
             assertThat(product.getQuantity()).isEqualTo(5);
             assertThat(product.getStatus()).isEqualTo(ProductStatus.ACTIVE);
@@ -267,7 +270,8 @@ class ProductServiceTest {
         void fail_whenProductNotFound() {
             given(productRepository.findById(productId)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> productService.restoreStock(new RestoreStockCommand(productId, 5)))
+            assertThatThrownBy(() -> productService.restoreStock(new RestoreStockCommand(
+                    List.of(new RestoreStockCommand.StockItem(productId, 5)))))
                     .isInstanceOf(ProductNotFoundException.class);
         }
     }

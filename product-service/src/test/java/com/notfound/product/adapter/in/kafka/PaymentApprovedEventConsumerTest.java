@@ -74,12 +74,13 @@ class PaymentApprovedEventConsumerTest {
 
             ArgumentCaptor<DeductStockCommand> captor = ArgumentCaptor.forClass(DeductStockCommand.class);
             verify(deductStockUseCase).deductStock(captor.capture());
-            assertThat(captor.getValue().productId()).isEqualTo(productId);
-            assertThat(captor.getValue().quantity()).isEqualTo(2);
+            assertThat(captor.getValue().items()).hasSize(1);
+            assertThat(captor.getValue().items().get(0).productId()).isEqualTo(productId);
+            assertThat(captor.getValue().items().get(0).quantity()).isEqualTo(2);
         }
 
         @Test
-        @DisplayName("여러 상품 이벤트 수신 시 각 상품의 재고가 모두 차감된다")
+        @DisplayName("여러 상품 이벤트 수신 시 하나의 커맨드로 묶어 차감된다")
         void success_multipleItems() {
             UUID productId1 = UUID.randomUUID();
             UUID productId2 = UUID.randomUUID();
@@ -94,7 +95,9 @@ class PaymentApprovedEventConsumerTest {
 
             consumer.consume(event);
 
-            verify(deductStockUseCase, times(3)).deductStock(any());
+            ArgumentCaptor<DeductStockCommand> captor = ArgumentCaptor.forClass(DeductStockCommand.class);
+            verify(deductStockUseCase, times(1)).deductStock(captor.capture());
+            assertThat(captor.getValue().items()).hasSize(3);
         }
 
         @Test

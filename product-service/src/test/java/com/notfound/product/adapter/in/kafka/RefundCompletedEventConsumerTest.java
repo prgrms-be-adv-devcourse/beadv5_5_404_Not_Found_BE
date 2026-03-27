@@ -74,12 +74,13 @@ class RefundCompletedEventConsumerTest {
 
             ArgumentCaptor<RestoreStockCommand> captor = ArgumentCaptor.forClass(RestoreStockCommand.class);
             verify(restoreStockUseCase).restoreStock(captor.capture());
-            assertThat(captor.getValue().productId()).isEqualTo(productId);
-            assertThat(captor.getValue().quantity()).isEqualTo(2);
+            assertThat(captor.getValue().items()).hasSize(1);
+            assertThat(captor.getValue().items().get(0).productId()).isEqualTo(productId);
+            assertThat(captor.getValue().items().get(0).quantity()).isEqualTo(2);
         }
 
         @Test
-        @DisplayName("여러 상품 이벤트 수신 시 각 상품의 재고가 모두 복원된다")
+        @DisplayName("여러 상품 이벤트 수신 시 하나의 커맨드로 묶어 복원된다")
         void success_multipleItems() {
             UUID productId1 = UUID.randomUUID();
             UUID productId2 = UUID.randomUUID();
@@ -92,7 +93,9 @@ class RefundCompletedEventConsumerTest {
 
             consumer.consume(event);
 
-            verify(restoreStockUseCase, times(2)).restoreStock(any());
+            ArgumentCaptor<RestoreStockCommand> captor = ArgumentCaptor.forClass(RestoreStockCommand.class);
+            verify(restoreStockUseCase, times(1)).restoreStock(captor.capture());
+            assertThat(captor.getValue().items()).hasSize(2);
         }
 
         @Test

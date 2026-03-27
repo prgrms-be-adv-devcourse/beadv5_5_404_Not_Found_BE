@@ -3,6 +3,8 @@ package com.notfound.product.adapter.in.kafka;
 import com.notfound.product.adapter.in.kafka.dto.RefundCompletedEvent;
 import com.notfound.product.application.port.in.RestoreStockCommand;
 import com.notfound.product.application.port.in.RestoreStockUseCase;
+
+import java.util.List;
 import com.notfound.product.application.port.out.ProcessedEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,9 +28,10 @@ public class RefundCompletedEventConsumer {
 
         log.info("RefundCompletedEvent 수신 — orderId: {}", event.payload().orderId());
 
-        for (RefundCompletedEvent.OrderItem item : event.payload().orderItems()) {
-            restoreStockUseCase.restoreStock(new RestoreStockCommand(item.productId(), item.quantity()));
-        }
+        List<RestoreStockCommand.StockItem> items = event.payload().orderItems().stream()
+                .map(item -> new RestoreStockCommand.StockItem(item.productId(), item.quantity()))
+                .toList();
+        restoreStockUseCase.restoreStock(new RestoreStockCommand(items));
 
         processedEventRepository.save(event.eventId());
     }

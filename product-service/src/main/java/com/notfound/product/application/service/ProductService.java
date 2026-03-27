@@ -121,20 +121,22 @@ public class ProductService implements
     @Transactional
     @Override
     public void deductStock(DeductStockCommand command) {
-        Product product = productRepository.findById(command.productId())
-                .orElseThrow(() -> new ProductNotFoundException(command.productId()));
-
-        product.deductStock(command.quantity());
-        productRepository.save(product);
+        for (DeductStockCommand.StockItem item : command.items()) {
+            Product product = productRepository.findById(item.productId())
+                    .orElseThrow(() -> new ProductNotFoundException(item.productId()));
+            product.deductStock(item.quantity());
+            productRepository.save(product);
+        }
     }
 
     @Transactional
     @Override
     public void restoreStock(RestoreStockCommand command) {
-        Product product = productRepository.findById(command.productId())
-                .orElseThrow(() -> new ProductNotFoundException(command.productId()));
-
-        product.restoreStock(command.quantity());
-        productRepository.save(product);
+        for (RestoreStockCommand.StockItem item : command.items()) {
+            Product product = productRepository.findById(item.productId())
+                    .orElseThrow(() -> new ProductNotFoundException(item.productId()));
+            product.restoreStock(item.quantity());
+            productRepository.save(product);
+        }
     }
 }
