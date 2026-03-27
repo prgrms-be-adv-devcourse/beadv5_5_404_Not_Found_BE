@@ -151,22 +151,39 @@
 ### 4-1. 장바구니
 - 회원당 장바구니 1개
 - 상품 추가, 수량 변경, 상품 삭제
+- 재고 제한 없이 담기 가능 - 품절 상품도 장바구니에 담을 수 있음
 - 장바구니 데이터는 서버 측에 저장, 회원별 관리
+- 장바구니 조회 시 최신 재고 및 가격을 응답하며, 품절 상품 여부를 표시
 
 ### 4-2. 주문 생성
-- 장바구니 또는 바로구매에서 주문 생성
-- 상품 모듈의 `GET /products?ids=` 배치 조회 API를 호출하여 가격 및 재고 확인 후 주문 서비스 내에서 검증 처리 (별도 검증 전용 엔드포인트 없음)
-- 회원 모듈에서 배송지 조회 후 배송지 스냅샷 저장
-- 예치금 사용 금액 반영: `deposit_used`
+- 두 가지 진입 경로 지원
+  - 경로 1: 장바구니 → 결제 페이지
+  - 경로 2: 바로구매 → 결제 페이지
+- 결제 페이지 진입 시
+  - 회원 모듈에서 배송지 조회 (기본 배송지 표시)
+  - 배송지 스냅샷을 저장할 준비
+  - 회원의 현재 예치금 잔액 노출
+- 결제하기 버튼 = 단일 트랜잭션 처리
+  - 서버 금액 재계산 (클라이언트 금액은 신뢰하지 않음)
+  - 상품별 재고 재검증 (결제 시점의 재고 상태 확인)
+  - 재고 부족 시 결제 실패 응답
+  - 예치금에서 주문 금액 차감
+  - 재고 차감 (StockDeductedEvent 발행)
+  - 주문 생성 (상태: PAID)
 - 중복 주문 방지를 위한 `idempotency_key` 적용
-- 초기 주문 상태: `PENDING_PAYMENT`
-- 주문 생성 단계에서는 재고 차감하지 않음
+- 주문 생성 시점에 배송지 스냅샷 저장
+- 예치금 사용 금액 반영: `deposit_used`
 
 ### 4-3. 주문 상태 관리
 - 주문 상태 흐름: `PENDING_PAYMENT → CONFIRMED → SHIPPING → DELIVERED → PURCHASE_CONFIRMED`
-- 결제 모듈에서 결제 완료 이벤트(`PaymentApprovedEvent`) 수신 시 `CONFIRMED`로 전환
-- 결제 완료 후 상품 모듈에 Kafka 이벤트로 재고 차감 요청
-- 취소 시 `CANCELLED`로 전환
+- PENDING_PAYMENT: 결제 대기 (주문 생성 시 기본값)
+- CONFIRMED: 주문 확정 (결제 완료 시)
+- SHIPPING: 배송 시작
+- DELIVERED: 배송 완료
+- PURCHASE_CONFIRMED: 구매 확정 (수동 확정 또는 배송 완료 후 7일 경과 시 자동 전환)
+- CANCELLED: 주문 취소
+- 결제 모듈에서 결제 완료 이벤트 수신 시 CONFIRMED로 전환
+- 결제 완료 후 상품 모듈에 재고 차감 확정 요청
 
 **재고 차감 실패 시나리오 (동시 주문)**
 
@@ -182,9 +199,9 @@
 | 회원 알림 | 재고 부족으로 인한 자동 취소 안내 |
 
 ### 4-4. 주문 취소
-- 취소 가능 상태: `CONFIRMED`, `SHIPPING` 이전
-- 결제 모듈에 환불 요청
-- 환불 완료 이벤트(`RefundCompletedEvent`) 수신 시 상품 모듈에서 재고 복원
+- 취소 가능 상태 검증 (PAID, CONFIRMED 상태에서만 취소 가능)
+- 예치금 복원 처리
+- 재고 복원 요청 (StockRestoredEvent 발행)
 - 주문 상태: `CANCELLED`
 
 ### 4-5. 배송 관리
@@ -209,11 +226,10 @@
 ## 5. 결제 모듈
 
 ### 5-1. 결제 처리
-- 주문 모듈을 통해 주문 금액 및 결제 가능 상태 검증
-- **토스페이먼츠** 기반 결제 연동 구현
+- 상품 결제는 Order Service에서 예치금으로 직접 처리
+- Payment Service는 예치금 충전(PG 연동)과 정산만 담당
+- PG(토스페이먼츠)는 **예치금 충전 목적**으로만 사용
 - PG 클라이언트 인터페이스로 향후 PG사 확장 가능하도록 설계
-- 예치금 사용 시 예치금 잔액 우선 적용
-- 예치금 차감 후 잔여 금액에 대해 PG 결제 승인 요청
 - 중복 결제 방지를 위해 `idempotency_key`로 결제 요청 식별
 - 승인 후 결제 결과 저장
   - 결제 금액
@@ -221,21 +237,18 @@
   - 결제 수단 유형
   - 결제 상태
   - 결제 승인 시각
-- 결제 완료 시 Spring Event로 주문 모듈에 알림
+- 주문 결제는 Order Service에서 Spring Event로 별도 처리
 
 ### 5-2. 환불 처리
-- 주문 모듈의 주문 취소 또는 환불 요청을 기반으로 환불 진행
-- PG 결제 금액에 대해 토스 API 환불 요청
-- 예치금 사용분이 있으면 예치금 복원
-- 환불 결과 저장
+- 주문 취소 시 예치금 복원으로 처리
+- PG를 통한 환불은 예치금 충전 건에 대해서만 필요
+- 환결과 저장
   - 환불 금액
   - 환불 사유
-  - PG 환불 식별자
+  - PG 환불 식별자 (해당하는 경우)
   - 환불 상태
   - 환불 완료 시각
 - 환불 상태: `PENDING / COMPLETED / FAILED`
-- 현재 범위는 주문 전체 환불이 기본
-- 필요 시 `order_item` 단위 부분 환불로 확장 가능
 
 ### 5-3. 정산 처리
 - **정산 트리거**: 구매확정(`PURCHASE_CONFIRMED`) 시 `PurchaseConfirmedEvent` consume → `settlement_target` 레코드 생성
@@ -247,6 +260,7 @@
   - 총 매출 금액
   - 수수료 금액
   - 순 정산 금액
+  - 정산 일자
   - 집계 기간 (period_start, period_end)
   - 정산 상태
 - 정산 상태: `PENDING → COMPLETED / FAILED`
@@ -272,7 +286,6 @@
 |---|---|
 | Order → Product | 재고 및 가격 검증, 재고 차감 / 복원 |
 | Order → Member | 배송지 조회, 회원 상태 확인 |
-| Payment → Order | 주문 금액 검증 |
 | Payment → Member | 예치금 잔액 확인, 판매자 계좌 정보 조회 |
 | Product → Member | 판매자 권한 및 상태 확인 |
 | Review → Order | 구매 이력 확인 |
@@ -284,12 +297,24 @@
 
 | 이벤트 | Producer | Consumer | 목적 |
 |--------|----------|----------|------|
-| PaymentApprovedEvent | Payment | Order, Product | 결제 완료 → 주문 확정, 재고 차감 |
-| PaymentFailedEvent | Payment | Order | 결제 실패 → 주문 상태 정리 |
-| OrderCancelRequestedEvent | Order | Payment | 주문 취소 → 환불 처리 시작 |
-| RefundCompletedEvent | Payment | Order, Product | 환불 완료 → 주문 취소 확정, 재고 복원 |
+| StockDeductedEvent | Order | Product | 재고 차감 반영 |
+| StockRestoredEvent | Order | Product | 재고 복구 반영 |
+| PurchaseConfirmedEvent | Order | Payment | 구매확정 → 정산 대상 생성 |
+| OrderDeliveredEvent | Order | Review | 배송 완료 → 리뷰 작성 가능 |
 | ReviewCreatedEvent | Review | Product | 리뷰 등록 → 평균 평점 업데이트 |
 | ReviewUpdatedEvent | Review | Product | 리뷰 수정 → 평균 평점 재계산 |
 | ReviewDeletedEvent | Review | Product | 리뷰 삭제 → 평균 평점 업데이트 |
 | MemberRegisteredEvent | Member | (이메일 발송) | 회원가입 → 인증 메일 발송 |
 | SellerApprovedEvent | Member | Product | 판매자 승인 반영 |
+
+### Spring Event (도메인 내부 비동기 처리)
+
+각 서비스 내부에서 Spring ApplicationEventPublisher를 사용하여 도메인 이벤트를 처리합니다.
+
+| 이벤트 | 발행 서비스 | 목적 |
+|--------|------------|------|
+| OrderCancelledEvent | Order | 주문 취소 완료, 배송 중단 처리 |
+| DepositChargedEvent | Payment | 예치금 충전 완료, 회원 잔액 반영 |
+| RefundCompletedEvent | Payment | 환불 완료, 예치금 복원 및 재고 복구 트리거 |
+| SettlementCompletedEvent | Payment | 정산 완료 반영 |
+| SettlementFailedEvent | Payment | 정산 실패 추적 |
