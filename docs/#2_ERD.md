@@ -124,8 +124,6 @@ erDiagram
         ENUM status
         INT total_amount
         INT deposit_used "예치금 차감액"
-        INT payment_amount "PG 실결제액 (total - deposit_used - points_used)"
-        INT points_used
         JSONB shipping_snapshot
         VARCHAR_100 idempotency_key UK
         TIMESTAMP created_at
@@ -152,14 +150,14 @@ erDiagram
     }
     PAYMENT {
         UUID id PK
-        UUID order_id FK "nullable - 예치금 충전은 order 없음"
+        UUID member_id FK "예치금 충전을 수행하는 회원"
         ENUM pg_provider
         INT amount
         ENUM status
         VARCHAR_200 pg_transaction_id UK
         VARCHAR_500 payment_key
         ENUM method
-        ENUM purpose "ORDER_PAY | DEPOSIT_CHARGE"
+        ENUM purpose "DEPOSIT_CHARGE"
         TIMESTAMP paid_at
         VARCHAR_100 idempotency_key UK
     }
@@ -201,6 +199,7 @@ erDiagram
     MEMBER ||--o{ REVIEW : writes
     MEMBER ||--o{ DEPOSIT : "충전/사용 이력"
     MEMBER ||--o{ REFRESH_TOKEN : has
+    MEMBER ||--o{ PAYMENT : "예치금 충전"
 
     CATEGORY ||--o{ CATEGORY : parent_of
     CATEGORY ||--o{ PRODUCT : classifies
@@ -218,7 +217,6 @@ erDiagram
 
     ORDER ||--o{ ORDER_ITEM : contains
     ORDER ||--|| SHIPMENT : ships_with
-    ORDER ||--o| PAYMENT : "paid_by (예치금 전액이면 없음)"
     ORDER ||--o{ REVIEW : verified_by
     ORDER ||--o{ DEPOSIT : "예치금 사용 이력"
 
@@ -243,6 +241,7 @@ erDiagram
     MEMBER ||--o| SELLER : is
     MEMBER ||--o{ DEPOSIT : has
     MEMBER ||--o{ REFRESH_TOKEN : has
+    MEMBER ||--o{ PAYMENT : "charges deposit"
 
     CATEGORY ||--o{ PRODUCT : has
     SELLER ||--o{ PRODUCT : sells
@@ -251,13 +250,13 @@ erDiagram
     ORDER ||--o{ ORDER_ITEM : has
     PRODUCT ||--o{ ORDER_ITEM : in
     SELLER ||--o{ ORDER_ITEM : fulfills
-    ORDER ||--o| PAYMENT : paid
-    ORDER ||--|| SHIPMENT : ships
+    ORDER ||--o{ SHIPMENT : ships
     ORDER ||--o{ DEPOSIT : uses
     PAYMENT ||--o{ REFUND : has
-    PAYMENT ||--o{ SETTLEMENT : settles
     PAYMENT ||--o{ DEPOSIT : charges
     ORDER_ITEM ||--o{ REFUND : for
-    ORDER_ITEM ||--o{ SETTLEMENT : for
+    ORDER ||--o{ SETTLEMENT_TARGET : confirmed
+    SETTLEMENT ||--o{ SETTLEMENT_TARGET : settles
+    SELLER ||--o{ SETTLEMENT_TARGET : targets
     SELLER ||--o{ SETTLEMENT : gets
 ```
