@@ -68,6 +68,10 @@ erDiagram
         INT sort_order
         BOOLEAN is_active
     }
+    PROCESSED_EVENTS {
+        VARCHAR event_id PK "Kafka eventId (UUID 문자열), 중복 처리 방지"
+        TIMESTAMP processed_at "처리 완료 시각"
+    }
     PRODUCT {
         UUID id PK
         UUID seller_id FK

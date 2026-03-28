@@ -14,6 +14,7 @@
 |---------|----------|----------|-------|------|
 | `StockDeductedEvent` | Order | Product | `product.stock-deducted` | 주문 시 재고 차감 반영 |
 | `StockRestoredEvent` | Order | Product | `product.stock-restored` | 주문 취소 시 재고 복구 |
+| `StockDeductFailedEvent` | Product | Order, Payment | `product.stock-deduct-failed` | 낙관적 락 충돌로 재고 차감 실패 시 보상 트랜잭션 트리거 | 미구현 — payment-service 환불 구현 완료 후 적용 |
 | `PurchaseConfirmedEvent` | Order | Payment | `order.purchase-confirmed` | 구매확정 → 정산 대상 생성 트리거 |
 | `OrderDeliveredEvent` | Order | Review | `order.delivered` | 배송 완료 후 리뷰 작성 가능 |
 
@@ -125,3 +126,55 @@ adapter/
 ```
 
 Spring Event는 별도의 adapter 없이 ApplicationEventPublisher와 EventListener를 사용합니다.
+
+---
+
+## 5. 이벤트별 Payload 상세
+
+### PaymentApprovedEvent
+- **Topic**: `payment.approved`
+- **Producer**: Payment
+- **Consumer**: Order (주문 확정), Product (재고 차감)
+
+```json
+{
+  "eventId": "550e8400-e29b-41d4-a716-446655440000",
+  "eventType": "PaymentApprovedEvent",
+  "timestamp": "2026-03-23T12:00:00",
+  "payload": {
+    "orderId": "550e8400-e29b-41d4-a716-446655440001",
+    "memberId": "550e8400-e29b-41d4-a716-446655440002",
+    "orderItems": [
+      {
+        "productId": "550e8400-e29b-41d4-a716-446655440003",
+        "quantity": 2
+      }
+    ]
+  }
+}
+```
+
+---
+
+### RefundCompletedEvent
+- **Topic**: `refund.completed`
+- **Producer**: Payment
+- **Consumer**: Order (주문 취소 확정), Product (재고 복원)
+
+```json
+{
+  "eventId": "550e8400-e29b-41d4-a716-446655440000",
+  "eventType": "RefundCompletedEvent",
+  "timestamp": "2026-03-23T12:00:00",
+  "payload": {
+    "orderId": "550e8400-e29b-41d4-a716-446655440001",
+    "memberId": "550e8400-e29b-41d4-a716-446655440002",
+    "orderItems": [
+      {
+        "productId": "550e8400-e29b-41d4-a716-446655440003",
+        "quantity": 2
+      }
+    ]
+  }
+}
+```
