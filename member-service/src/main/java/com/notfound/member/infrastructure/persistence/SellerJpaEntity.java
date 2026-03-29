@@ -2,7 +2,9 @@ package com.notfound.member.infrastructure.persistence;
 
 import com.notfound.member.domain.model.Seller;
 import com.notfound.member.domain.model.SellerStatus;
+import com.notfound.member.infrastructure.encryption.AesEncryptionConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -39,13 +41,16 @@ public class SellerJpaEntity {
     @Column(name = "shop_name", nullable = false, length = 100)
     private String shopName;
 
-    @Column(name = "bank_code", length = 10)
+    @Convert(converter = AesEncryptionConverter.class)
+    @Column(name = "bank_code", length = 255)
     private String bankCode;
 
-    @Column(name = "bank_account", length = 50)
+    @Convert(converter = AesEncryptionConverter.class)
+    @Column(name = "bank_account", length = 255)
     private String bankAccount;
 
-    @Column(name = "account_holder", length = 100)
+    @Convert(converter = AesEncryptionConverter.class)
+    @Column(name = "account_holder", length = 255)
     private String accountHolder;
 
     @Column(name = "commission_rate", precision = 5, scale = 2)

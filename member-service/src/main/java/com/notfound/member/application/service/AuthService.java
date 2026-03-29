@@ -16,7 +16,9 @@ import com.notfound.member.domain.model.MemberRole;
 import com.notfound.member.domain.model.MemberStatus;
 import com.notfound.member.domain.model.RefreshToken;
 import com.notfound.member.domain.model.TokenBlacklist;
+import com.notfound.member.domain.event.MemberRegisteredEvent;
 import com.notfound.member.infrastructure.security.JwtProvider;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,19 +40,22 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
     private final TokenRevokeService tokenRevokeService;
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AuthService(MemberRepository memberRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        TokenBlacklistRepository tokenBlacklistRepository,
                        TokenRevokeService tokenRevokeService,
                        JwtProvider jwtProvider,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       ApplicationEventPublisher eventPublisher) {
         this.memberRepository = memberRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.tokenBlacklistRepository = tokenBlacklistRepository;
         this.tokenRevokeService = tokenRevokeService;
         this.jwtProvider = jwtProvider;
         this.passwordEncoder = passwordEncoder;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -73,6 +78,9 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
                 .build();
 
         Member savedMember = memberRepository.save(member);
+
+        eventPublisher.publishEvent(new MemberRegisteredEvent(
+                savedMember.getId(), savedMember.getEmail(), savedMember.getName()));
 
         return issueTokens(savedMember, userAgent, ipAddress);
     }

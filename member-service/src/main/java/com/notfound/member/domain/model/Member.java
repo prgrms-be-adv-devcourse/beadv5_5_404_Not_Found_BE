@@ -92,6 +92,19 @@ public class Member {
         this.depositBalance += amount;
     }
 
+    public void updateProfile(String name, String phone) {
+        if (name != null && !name.isBlank()) {
+            this.name = name;
+        }
+        if (phone != null && !phone.isBlank()) {
+            this.phone = phone;
+        }
+    }
+
+    public void changePassword(String newPasswordHash) {
+        this.passwordHash = newPasswordHash;
+    }
+
     public void withdraw() {
         if (this.status == MemberStatus.WITHDRAWN) {
             throw MemberException.alreadyWithdrawn();

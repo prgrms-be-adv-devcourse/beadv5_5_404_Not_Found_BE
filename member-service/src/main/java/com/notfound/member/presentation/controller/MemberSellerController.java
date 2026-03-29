@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,19 +43,18 @@ public class MemberSellerController {
         Seller seller = registerSellerUseCase.registerSeller(memberId, request.toCommand());
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(201, "SELLER_REGISTER_SUCCESS",
+                .body(ApiResponse.success(201, "SELLER_APPLY_SUCCESS",
                         "판매자 등록 신청이 완료되었습니다.", RegisterSellerResponse.from(seller)));
     }
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<SellerProfileResponse>> getMySellerProfile(
-            @AuthUser AuthenticatedUser user) {
+    @GetMapping("/{memberId}")
+    public ResponseEntity<ApiResponse<SellerProfileResponse>> getSellerProfile(
+            @PathVariable UUID memberId) {
 
-        UUID memberId = UUID.fromString(user.userId());
         Seller seller = getSellerAccountUseCase.getSellerAccount(memberId);
 
         return ResponseEntity.ok(
-                ApiResponse.success(200, "SELLER_PROFILE_FETCH_SUCCESS",
+                ApiResponse.success(200, "SELLER_INFO_FETCH_SUCCESS",
                         "판매자 정보 조회에 성공했습니다.", SellerProfileResponse.from(seller)));
     }
 }
