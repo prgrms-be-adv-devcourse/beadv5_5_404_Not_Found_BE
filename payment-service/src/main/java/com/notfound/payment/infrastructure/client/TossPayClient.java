@@ -29,6 +29,15 @@ public class TossPayClient implements PgPort {
     }
 
     @Override
+    public PgConfig getConfig() {
+        return new PgConfig(
+                tossProperties.clientKey(),
+                tossProperties.successUrl(),
+                tossProperties.failUrl()
+        );
+    }
+
+    @Override
     public PgConfirmResult confirm(PgConfirmCommand command) {
         String authorization = buildBasicAuth(tossProperties.secretKey());
 

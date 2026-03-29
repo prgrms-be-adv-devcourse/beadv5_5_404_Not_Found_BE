@@ -6,6 +6,7 @@ import java.util.UUID;
 public class Payment {
 
     private final UUID id;
+    private final UUID memberId;
     private final UUID orderId;
     private final PgProvider pgProvider;
     private final int amount;
@@ -19,6 +20,7 @@ public class Payment {
 
     private Payment(
             UUID id,
+            UUID memberId,
             UUID orderId,
             PgProvider pgProvider,
             int amount,
@@ -31,6 +33,7 @@ public class Payment {
             String idempotencyKey
     ) {
         this.id = id;
+        this.memberId = memberId;
         this.orderId = orderId;
         this.pgProvider = pgProvider;
         this.amount = amount;
@@ -44,6 +47,7 @@ public class Payment {
     }
 
     public static Payment create(
+            UUID memberId,
             UUID orderId,
             PgProvider pgProvider,
             int amount,
@@ -53,6 +57,7 @@ public class Payment {
     ) {
         return new Payment(
                 UUID.randomUUID(),
+                memberId,
                 orderId,
                 pgProvider,
                 amount,
@@ -68,6 +73,7 @@ public class Payment {
 
     public static Payment of(
             UUID id,
+            UUID memberId,
             UUID orderId,
             PgProvider pgProvider,
             int amount,
@@ -79,7 +85,7 @@ public class Payment {
             LocalDateTime paidAt,
             String idempotencyKey
     ) {
-        return new Payment(id, orderId, pgProvider, amount, status,
+        return new Payment(id, memberId, orderId, pgProvider, amount, status,
                 pgTransactionId, paymentKey, method, purpose, paidAt, idempotencyKey);
     }
 
@@ -99,6 +105,7 @@ public class Payment {
     }
 
     public UUID getId() { return id; }
+    public UUID getMemberId() { return memberId; }
     public UUID getOrderId() { return orderId; }
     public PgProvider getPgProvider() { return pgProvider; }
     public int getAmount() { return amount; }

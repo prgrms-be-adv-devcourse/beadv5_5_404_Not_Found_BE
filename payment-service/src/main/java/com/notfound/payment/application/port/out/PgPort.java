@@ -8,6 +8,10 @@ public interface PgPort {
 
     PgCancelResult cancel(PgCancelCommand command);
 
+    PgConfig getConfig();
+
+    record PgConfig(String clientKey, String successUrl, String failUrl) {}
+
     record PgConfirmCommand(
             String paymentKey,
             String orderId,

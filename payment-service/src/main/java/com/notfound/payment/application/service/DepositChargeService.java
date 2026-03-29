@@ -16,7 +16,6 @@ import com.notfound.payment.domain.model.PaymentMethodType;
 import com.notfound.payment.domain.model.PaymentPurpose;
 import com.notfound.payment.domain.model.PaymentStatus;
 import com.notfound.payment.domain.model.PgProvider;
-import com.notfound.payment.infrastructure.client.TossProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,7 +36,6 @@ public class DepositChargeService implements PrepareDepositChargeUseCase, Confir
     private final DepositPort depositPort;
     private final MemberPort memberPort;
     private final PgPort pgPort;
-    private final TossProperties tossProperties;
     private final PaymentStatusUpdater paymentStatusUpdater;
     private final DepositEventPublisher depositEventPublisher;
 
@@ -57,6 +55,7 @@ public class DepositChargeService implements PrepareDepositChargeUseCase, Confir
 
         String idempotencyKey = generateIdempotencyKey();
         Payment payment = Payment.create(
+                command.memberId(),
                 null,
                 PgProvider.TOSS,
                 command.amount(),
@@ -66,17 +65,18 @@ public class DepositChargeService implements PrepareDepositChargeUseCase, Confir
         );
         payment = paymentPort.save(payment);
 
+        PgPort.PgConfig pgConfig = pgPort.getConfig();
         return new PrepareResult(
                 payment.getId(),
                 payment.getAmount(),
                 PgProvider.TOSS.name(),
                 new PrepareResult.PgData(
-                        tossProperties.clientKey(),
+                        pgConfig.clientKey(),
                         idempotencyKey,
                         payment.getAmount(),
                         "예치금 충전",
-                        tossProperties.successUrl(),
-                        tossProperties.failUrl()
+                        pgConfig.successUrl(),
+                        pgConfig.failUrl()
                 )
         );
     }
