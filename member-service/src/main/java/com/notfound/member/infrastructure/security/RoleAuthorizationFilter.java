@@ -44,6 +44,12 @@ public class RoleAuthorizationFilter extends OncePerRequestFilter {
             return;
         }
 
+        // GET /member/seller/{memberId} → 공개 (판매자 정보 조회)
+        if ("GET".equalsIgnoreCase(request.getMethod()) && path.startsWith("/member/seller/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         // /internal/** → InternalSecretFilter에서 처리
         if (path.startsWith("/internal/")) {
             filterChain.doFilter(request, response);
@@ -63,8 +69,8 @@ public class RoleAuthorizationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // /admin/** → ADMIN만 접근 가능
-        if (path.startsWith("/admin/")) {
+        // /admin/** 또는 /member/admin/** → ADMIN만 접근 가능
+        if (path.startsWith("/admin/") || path.startsWith("/member/admin/")) {
             String role = request.getHeader(HEADER_ROLE);
             if (!"ADMIN".equals(role)) {
                 sendError(response, HttpStatus.FORBIDDEN, "MEMBER_FORBIDDEN", "관리자만 접근할 수 있습니다.");

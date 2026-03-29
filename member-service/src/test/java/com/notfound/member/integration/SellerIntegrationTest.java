@@ -81,7 +81,7 @@ class SellerIntegrationTest {
                 .andDo(print())
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value(201))
-                .andExpect(jsonPath("$.code").value("SELLER_REGISTER_SUCCESS"))
+                .andExpect(jsonPath("$.code").value("SELLER_APPLY_SUCCESS"))
                 .andExpect(jsonPath("$.data.sellerId").exists())
                 .andExpect(jsonPath("$.data.memberId").value(memberId))
                 .andExpect(jsonPath("$.data.shopName").value("테스트서점"))
@@ -114,7 +114,7 @@ class SellerIntegrationTest {
                         .content(body))
                 .andDo(print())
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("SELLER_ALREADY_REGISTERED"));
+                .andExpect(jsonPath("$.code").value("SELLER_APPLICATION_ALREADY_EXISTS"));
     }
 
     @Test
@@ -150,13 +150,10 @@ class SellerIntegrationTest {
     @Order(4)
     @DisplayName("판매자 프로필 조회 성공")
     void getMySellerProfile_success() throws Exception {
-        mockMvc.perform(get("/member/seller")
-                        .header("X-User-Id", memberId)
-                        .header("X-Role", "USER")
-                        .header("X-Email-Verified", "true"))
+        mockMvc.perform(get("/member/seller/{memberId}", memberId))
                 .andDo(print())
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("SELLER_PROFILE_FETCH_SUCCESS"))
+                .andExpect(jsonPath("$.code").value("SELLER_INFO_FETCH_SUCCESS"))
                 .andExpect(jsonPath("$.data.shopName").value("테스트서점"))
                 .andExpect(jsonPath("$.data.status").value("PENDING"));
     }
@@ -167,36 +164,54 @@ class SellerIntegrationTest {
     @Order(5)
     @DisplayName("판매자 승인 성공")
     void approveSeller_success() throws Exception {
-        mockMvc.perform(patch("/admin/seller/{sellerId}/approve", sellerId)
+        String body = """
+                { "status": "APPROVED" }
+                """;
+
+        mockMvc.perform(patch("/member/admin/seller/{memberId}", memberId)
                         .header("X-User-Id", memberId)
-                        .header("X-Role", "ADMIN"))
+                        .header("X-Role", "ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
                 .andDo(print())
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("SELLER_APPROVE_SUCCESS"))
-                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+                .andExpect(jsonPath("$.code").value("SELLER_STATUS_UPDATE_SUCCESS"))
+                .andExpect(jsonPath("$.data.sellerStatus").value("APPROVED"));
     }
 
     @Test
     @Order(6)
     @DisplayName("판매자 승인 실패 - 이미 승인된 판매자")
     void approveSeller_notPending() throws Exception {
-        mockMvc.perform(patch("/admin/seller/{sellerId}/approve", sellerId)
+        String body = """
+                { "status": "APPROVED" }
+                """;
+
+        mockMvc.perform(patch("/member/admin/seller/{memberId}", memberId)
                         .header("X-User-Id", memberId)
-                        .header("X-Role", "ADMIN"))
+                        .header("X-Role", "ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
                 .andDo(print())
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("SELLER_NOT_PENDING"));
+                .andExpect(jsonPath("$.code").value("INVALID_SELLER_STATUS"));
     }
 
     @Test
     @Order(7)
     @DisplayName("판매자 승인 실패 - 존재하지 않는 판매자")
     void approveSeller_notFound() throws Exception {
-        mockMvc.perform(patch("/admin/seller/00000000-0000-0000-0000-000000000000/approve")
+        String body = """
+                { "status": "APPROVED" }
+                """;
+
+        mockMvc.perform(patch("/member/admin/seller/{memberId}", "00000000-0000-0000-0000-000000000000")
                         .header("X-User-Id", memberId)
-                        .header("X-Role", "ADMIN"))
+                        .header("X-Role", "ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
                 .andDo(print())
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("SELLER_NOT_FOUND"));
+                .andExpect(jsonPath("$.code").value("SELLER_APPLICATION_NOT_FOUND"));
     }
 }
