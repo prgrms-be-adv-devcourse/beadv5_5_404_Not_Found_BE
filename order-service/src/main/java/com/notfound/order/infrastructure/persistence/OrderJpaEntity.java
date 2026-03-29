@@ -53,6 +53,8 @@ public class OrderJpaEntity {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    private LocalDateTime deliveredAt;
+
     public static OrderJpaEntity from(Order order) {
         OrderJpaEntity entity = new OrderJpaEntity();
         entity.id = order.getId();
@@ -65,6 +67,7 @@ public class OrderJpaEntity {
         entity.shippingSnapshot = order.getShippingSnapshot();
         entity.idempotencyKey = order.getIdempotencyKey();
         entity.createdAt = order.getCreatedAt();
+        entity.deliveredAt = order.getDeliveredAt();
         return entity;
     }
 
@@ -80,6 +83,7 @@ public class OrderJpaEntity {
                 .shippingSnapshot(shippingSnapshot)
                 .idempotencyKey(idempotencyKey)
                 .createdAt(createdAt)
+                .deliveredAt(deliveredAt)
                 .build();
     }
 }

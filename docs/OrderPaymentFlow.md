@@ -40,7 +40,7 @@ sequenceDiagram
 
     rect rgb(235, 245, 255)
         Note over Client,Cart: 1단계 — 장바구니 담기 (재고 제한 없음)
-        Client->>Cart: POST /cart/items (productId, quantity)
+        Client->>Cart: POST /order/cart/item (productId, quantity)
         Cart->>Cart: CartItem 저장
         Cart-->>Client: 장바구니 추가 완료
     end
@@ -57,11 +57,11 @@ sequenceDiagram
     rect rgb(255, 248, 235)
         Note over Client,Deposit: 3단계 — 결제 페이지 진입
         alt 장바구니 경로
-            Client->>Order: GET /orders/checkout?cartItemIds
+            Client->>Order: GET /order/checkout?cartItemIds
             Order->>Cart: 장바구니 조회
             Cart-->>Order: 상품 목록
         else 바로 결제 경로
-            Client->>Order: GET /orders/checkout?productId&quantity
+            Client->>Order: GET /order/checkout?productId&quantity
             Order->>Product: 상품 조회
             Product-->>Order: 상품 정보
         end
@@ -74,7 +74,7 @@ sequenceDiagram
 
     rect rgb(235, 255, 240)
         Note over Client,Event: 4단계 — 결제하기 버튼 (단일 트랜잭션)
-        Client->>Order: POST /orders (items)
+        Client->>Order: POST /order (items)
         Note over Order: 서버에서 총 금액 계산
         Order->>Product: 재고 재검증
         alt 재고 부족
@@ -204,7 +204,7 @@ sequenceDiagram
     participant Product
     participant Event
 
-    Client->>Order: POST /orders/{id}/cancel
+    Client->>Order: POST /order/{orderId}/cancel
     Order->>Order: 주문 상태 검증 (취소 가능 여부)
 
     alt 취소 불가 상태

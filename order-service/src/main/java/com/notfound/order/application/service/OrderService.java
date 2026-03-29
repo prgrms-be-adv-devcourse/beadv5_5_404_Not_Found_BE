@@ -1,11 +1,12 @@
 package com.notfound.order.application.service;
 
-import com.notfound.order.application.port.in.CheckoutUseCase;
-import com.notfound.order.application.port.in.CreateOrderUseCase;
+import com.notfound.order.application.port.in.*;
 import com.notfound.order.application.port.in.command.CreateOrderCommand;
 import com.notfound.order.application.port.out.*;
 import com.notfound.order.domain.exception.OrderException;
 import com.notfound.order.domain.model.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,7 +16,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
+public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
+        GetOrderListUseCase, GetOrderDetailUseCase, CancelOrderUseCase, ConfirmPurchaseUseCase {
 
     private static final int FREE_SHIPPING_THRESHOLD = 15000;
     private static final int SHIPPING_FEE = 2500;
@@ -27,6 +29,7 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
     private final MemberServicePort memberServicePort;
     private final ProductServicePort productServicePort;
     private final StockEventPublisher stockEventPublisher;
+    private final PurchaseEventPublisher purchaseEventPublisher;
 
     public OrderService(OrderRepository orderRepository,
                         OrderItemRepository orderItemRepository,
@@ -34,7 +37,8 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
                         CartItemRepository cartItemRepository,
                         MemberServicePort memberServicePort,
                         ProductServicePort productServicePort,
-                        StockEventPublisher stockEventPublisher) {
+                        StockEventPublisher stockEventPublisher,
+                        PurchaseEventPublisher purchaseEventPublisher) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.cartRepository = cartRepository;
@@ -42,6 +46,7 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
         this.memberServicePort = memberServicePort;
         this.productServicePort = productServicePort;
         this.stockEventPublisher = stockEventPublisher;
+        this.purchaseEventPublisher = purchaseEventPublisher;
     }
 
     @Override
@@ -236,6 +241,102 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
         }
 
         return new CreateOrderResult(savedOrder, savedItems);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Order> getOrders(UUID memberId, OrderStatus status, Pageable pageable) {
+        if (status != null) {
+            return orderRepository.findByMemberIdAndStatus(memberId, status, pageable);
+        }
+        return orderRepository.findByMemberId(memberId, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GetOrderDetailUseCase.OrderDetail getOrderDetail(UUID memberId, UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(OrderException::orderNotFound);
+
+        if (!order.getMemberId().equals(memberId)) {
+            throw OrderException.orderAccessDenied();
+        }
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        return new GetOrderDetailUseCase.OrderDetail(order, items);
+    }
+
+    @Override
+    @Transactional
+    public CancelOrderUseCase.CancelOrderResult cancelOrder(UUID memberId, UUID orderId, List<UUID> orderItemIds) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(OrderException::orderNotFound);
+
+        if (!order.getMemberId().equals(memberId)) {
+            throw OrderException.orderAccessDenied();
+        }
+
+        if (order.getStatus() != OrderStatus.PAID && order.getStatus() != OrderStatus.CONFIRMED) {
+            throw OrderException.orderCannotBeCancelled();
+        }
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        boolean isPartialCancel = orderItemIds != null && !orderItemIds.isEmpty();
+        int refundAmount;
+        List<UUID> cancelledIds;
+
+        if (isPartialCancel) {
+            refundAmount = 0;
+            cancelledIds = new ArrayList<>();
+            for (OrderItem item : items) {
+                if (orderItemIds.contains(item.getId())) {
+                    item.cancel();
+                    orderItemRepository.save(item);
+                    refundAmount += item.getSubtotal();
+                    cancelledIds.add(item.getId());
+                    stockEventPublisher.publishStockRestored(orderId, item.getProductId(), item.getQuantity());
+                }
+            }
+            memberServicePort.chargeDeposit(memberId, refundAmount);
+        } else {
+            order.cancel();
+            orderRepository.save(order);
+            refundAmount = order.getDepositUsed();
+            cancelledIds = items.stream().map(OrderItem::getId).toList();
+
+            for (OrderItem item : items) {
+                item.cancel();
+                orderItemRepository.save(item);
+                stockEventPublisher.publishStockRestored(orderId, item.getProductId(), item.getQuantity());
+            }
+            memberServicePort.chargeDeposit(memberId, refundAmount);
+        }
+
+        Order updatedOrder = orderRepository.findById(orderId).orElse(order);
+        return new CancelOrderUseCase.CancelOrderResult(updatedOrder, refundAmount, cancelledIds);
+    }
+
+    @Override
+    @Transactional
+    public Order confirmPurchase(UUID memberId, UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(OrderException::orderNotFound);
+
+        if (!order.getMemberId().equals(memberId)) {
+            throw OrderException.orderAccessDenied();
+        }
+
+        if (order.getStatus() != OrderStatus.DELIVERED) {
+            throw OrderException.orderCannotBeConfirmed();
+        }
+
+        order.confirmPurchase();
+        Order saved = orderRepository.save(order);
+
+        purchaseEventPublisher.publishPurchaseConfirmed(
+                saved.getId(), saved.getMemberId(), saved.getTotalAmount());
+
+        return saved;
     }
 
     private String generateOrderNumber() {

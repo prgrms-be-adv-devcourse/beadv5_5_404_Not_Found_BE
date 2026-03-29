@@ -2,8 +2,13 @@ package com.notfound.order.infrastructure.persistence;
 
 import com.notfound.order.application.port.out.OrderRepository;
 import com.notfound.order.domain.model.Order;
+import com.notfound.order.domain.model.OrderStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,5 +39,31 @@ public class OrderRepositoryAdapter implements OrderRepository {
     @Override
     public boolean existsByIdempotencyKey(String idempotencyKey) {
         return orderJpaRepository.existsByIdempotencyKey(idempotencyKey);
+    }
+
+    @Override
+    public List<Order> findByMemberId(UUID memberId) {
+        return orderJpaRepository.findByMemberId(memberId, Pageable.unpaged())
+                .map(OrderJpaEntity::toDomain)
+                .getContent();
+    }
+
+    @Override
+    public Page<Order> findByMemberIdAndStatus(UUID memberId, OrderStatus status, Pageable pageable) {
+        return orderJpaRepository.findByMemberIdAndStatus(memberId, status, pageable)
+                .map(OrderJpaEntity::toDomain);
+    }
+
+    @Override
+    public Page<Order> findByMemberId(UUID memberId, Pageable pageable) {
+        return orderJpaRepository.findByMemberId(memberId, pageable)
+                .map(OrderJpaEntity::toDomain);
+    }
+
+    @Override
+    public List<Order> findByStatusAndDeliveredBefore(OrderStatus status, LocalDateTime before) {
+        return orderJpaRepository.findByStatusAndDeliveredAtBefore(status, before).stream()
+                .map(OrderJpaEntity::toDomain)
+                .toList();
     }
 }

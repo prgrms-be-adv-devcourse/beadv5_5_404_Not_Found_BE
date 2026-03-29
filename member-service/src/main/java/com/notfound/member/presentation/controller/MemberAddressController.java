@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/member/addresses")
+@RequestMapping("/member/address")
 public class MemberAddressController {
 
     private final CreateAddressUseCase createAddressUseCase;

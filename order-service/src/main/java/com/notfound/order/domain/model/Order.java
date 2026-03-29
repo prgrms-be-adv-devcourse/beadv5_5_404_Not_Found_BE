@@ -15,6 +15,7 @@ public class Order {
     private String shippingSnapshot;
     private String idempotencyKey;
     private LocalDateTime createdAt;
+    private LocalDateTime deliveredAt;
 
     private Order() {}
 
@@ -30,13 +31,19 @@ public class Order {
     public String getShippingSnapshot() { return shippingSnapshot; }
     public String getIdempotencyKey() { return idempotencyKey; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getDeliveredAt() { return deliveredAt; }
 
     public void cancel() {
         this.status = OrderStatus.CANCELLED;
     }
 
-    public void confirm() {
+    public void confirmPurchase() {
         this.status = OrderStatus.PURCHASE_CONFIRMED;
+    }
+
+    public void markDelivered() {
+        this.status = OrderStatus.DELIVERED;
+        this.deliveredAt = LocalDateTime.now();
     }
 
     public static class Builder {
@@ -51,6 +58,7 @@ public class Order {
         public Builder shippingSnapshot(String shippingSnapshot) { order.shippingSnapshot = shippingSnapshot; return this; }
         public Builder idempotencyKey(String idempotencyKey) { order.idempotencyKey = idempotencyKey; return this; }
         public Builder createdAt(LocalDateTime createdAt) { order.createdAt = createdAt; return this; }
+        public Builder deliveredAt(LocalDateTime deliveredAt) { order.deliveredAt = deliveredAt; return this; }
         public Order build() { return order; }
     }
 }
