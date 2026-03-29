@@ -1,0 +1,154 @@
+package com.notfound.payment.application.service;
+
+import com.notfound.payment.application.port.in.ConfirmDepositChargeUseCase;
+import com.notfound.payment.application.port.in.PrepareDepositChargeUseCase;
+import com.notfound.payment.application.port.out.DepositEventPublisher;
+import com.notfound.payment.application.port.out.DepositPort;
+import com.notfound.payment.application.port.out.MemberPort;
+import com.notfound.payment.application.port.out.PaymentPort;
+import com.notfound.payment.application.port.out.PgPort;
+import com.notfound.payment.domain.event.DepositChargedEvent;
+import com.notfound.payment.domain.exception.PaymentException;
+import com.notfound.payment.domain.model.Deposit;
+import com.notfound.payment.domain.model.DepositType;
+import com.notfound.payment.domain.model.Payment;
+import com.notfound.payment.domain.model.PaymentMethodType;
+import com.notfound.payment.domain.model.PaymentPurpose;
+import com.notfound.payment.domain.model.PaymentStatus;
+import com.notfound.payment.domain.model.PgProvider;
+import com.notfound.payment.infrastructure.client.TossProperties;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class DepositChargeService implements PrepareDepositChargeUseCase, ConfirmDepositChargeUseCase {
+
+    private static final int DEPOSIT_MIN_CHARGE_AMOUNT = 1000;
+    private static final int DEPOSIT_MAX_CHARGE_AMOUNT = 500000;
+    private static final int DEPOSIT_MAX_BALANCE = 1000000;
+
+    private final PaymentPort paymentPort;
+    private final DepositPort depositPort;
+    private final MemberPort memberPort;
+    private final PgPort pgPort;
+    private final TossProperties tossProperties;
+    private final PaymentStatusUpdater paymentStatusUpdater;
+    private final DepositEventPublisher depositEventPublisher;
+
+    @Override
+    @Transactional
+    public PrepareResult prepare(PrepareCommand command) {
+        validateChargeAmount(command.amount());
+
+        if (!memberPort.existsActiveMember(command.memberId())) {
+            throw PaymentException.memberNotActive();
+        }
+
+        int currentBalance = memberPort.getDepositBalance(command.memberId());
+        if (currentBalance + command.amount() > DEPOSIT_MAX_BALANCE) {
+            throw PaymentException.depositBalanceExceedsLimit();
+        }
+
+        String idempotencyKey = generateIdempotencyKey();
+        Payment payment = Payment.create(
+                null,
+                PgProvider.TOSS,
+                command.amount(),
+                PaymentMethodType.PG,
+                PaymentPurpose.DEPOSIT_CHARGE,
+                idempotencyKey
+        );
+        payment = paymentPort.save(payment);
+
+        return new PrepareResult(
+                payment.getId(),
+                payment.getAmount(),
+                PgProvider.TOSS.name(),
+                new PrepareResult.PgData(
+                        tossProperties.clientKey(),
+                        idempotencyKey,
+                        payment.getAmount(),
+                        "예치금 충전",
+                        tossProperties.successUrl(),
+                        tossProperties.failUrl()
+                )
+        );
+    }
+
+    @Override
+    @Transactional
+    public ConfirmResult confirm(ConfirmCommand command) {
+        Payment payment = paymentPort.findByIdempotencyKey(command.orderId())
+                .orElseThrow(PaymentException::paymentReadyNotFound);
+
+        if (payment.getStatus() == PaymentStatus.COMPLETED) {
+            throw PaymentException.paymentAlreadyConfirmed();
+        }
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw PaymentException.paymentNotCompletable();
+        }
+        if (payment.getAmount() != command.amount()) {
+            throw PaymentException.amountMismatch();
+        }
+
+        PgPort.PgConfirmResult pgResult;
+        try {
+            pgResult = pgPort.confirm(new PgPort.PgConfirmCommand(
+                    command.paymentKey(),
+                    command.orderId(),
+                    command.amount()
+            ));
+        } catch (PaymentException e) {
+            paymentStatusUpdater.savePaymentFailed(payment);
+            throw e;
+        } catch (Exception e) {
+            paymentStatusUpdater.savePaymentFailed(payment);
+            throw PaymentException.pgConfirmFailed(e);
+        }
+
+        payment.complete(pgResult.pgTransactionId(), pgResult.paymentKey(), pgResult.approvedAt());
+        paymentPort.save(payment);
+
+        int currentBalance = memberPort.getDepositBalance(command.memberId());
+        int balanceAfter = currentBalance + payment.getAmount();
+
+        Deposit deposit = Deposit.create(
+                command.memberId(),
+                payment.getId(),
+                null,
+                DepositType.CHARGE,
+                payment.getAmount(),
+                balanceAfter,
+                "예치금 충전"
+        );
+        depositPort.save(deposit);
+        depositEventPublisher.publishDepositCharged(
+                new DepositChargedEvent(command.memberId(), payment.getAmount(), balanceAfter));
+
+        return new ConfirmResult(
+                payment.getId(),
+                payment.getAmount(),
+                balanceAfter,
+                pgResult.pgTransactionId(),
+                pgResult.method(),
+                pgResult.approvedAt()
+        );
+    }
+
+    private void validateChargeAmount(int amount) {
+        if (amount < DEPOSIT_MIN_CHARGE_AMOUNT || amount > DEPOSIT_MAX_CHARGE_AMOUNT) {
+            throw PaymentException.invalidChargeAmount();
+        }
+    }
+
+    private String generateIdempotencyKey() {
+        String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        return "DEPOSIT-" + date + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+}

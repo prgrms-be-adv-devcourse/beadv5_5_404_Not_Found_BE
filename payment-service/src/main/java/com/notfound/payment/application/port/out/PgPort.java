@@ -17,7 +17,8 @@ public interface PgPort {
     record PgConfirmResult(
             String pgTransactionId,
             String paymentKey,
-            LocalDateTime approvedAt
+            LocalDateTime approvedAt,
+            String method
     ) {}
 
     record PgCancelCommand(

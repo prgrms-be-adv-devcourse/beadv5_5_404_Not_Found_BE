@@ -35,3 +35,9 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+toss:
+  secret-key: ${TOSS_SECRET_KEY}
+  client-key: ${TOSS_CLIENT_KEY}
+  success-url: ${TOSS_SUCCESS_URL:https://example.com/deposit/success}
+  fail-url: ${TOSS_FAIL_URL:https://example.com/deposit/fail}
