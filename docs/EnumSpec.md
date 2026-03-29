@@ -313,6 +313,9 @@
 | `ORDER_NUMBER_MAX_LENGTH` | `30` | 주문번호 최대 길이 |
 | `IDEMPOTENCY_KEY_MAX_LENGTH` | `100` | 멱등키 최대 길이 |
 | `ORDER_ITEM_MAX_QUANTITY` | `99` | 주문상품 최대 수량 |
+| `FREE_SHIPPING_THRESHOLD` | `15000` | 무료배송 기준 금액 (도서류 1종 이상 포함 시) |
+| `SHIPPING_FEE` | `2500` | 유료배송비 |
+| `AUTO_CONFIRM_DAYS` | `7` | 배송 완료 후 자동 구매확정까지 일수 |
 
 ### JWT 정책
 

@@ -207,6 +207,7 @@ Client → Gateway → Member Service
 | `POST /auth/refresh` | Member Service | 토큰 재발급 |
 
 > 비회원은 상품 목록/상세 조회만 가능합니다. 리뷰 조회, 장바구니, 주문 등 그 외 모든 기능은 로그인이 필요합니다.
+> 비인증 상태에서 인증 필요 API 호출 시 Gateway가 `401 UNAUTHORIZED`를 반환합니다. 프론트엔드는 401 응답을 받으면 로그인 페이지로 리다이렉트합니다.
 
 **로그인 + 이메일 인증 필요 (USER 이상)**
 

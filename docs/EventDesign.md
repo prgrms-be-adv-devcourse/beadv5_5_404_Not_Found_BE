@@ -1,7 +1,7 @@
 # 이벤트 설계 문서
 
 > MSA 환경에서 서비스 간 비동기 통신은 두 가지 방식을 사용합니다:
-> 1. **Kafka**: 재고 관련 이벤트만 (StockDeductedEvent, StockRestoredEvent)
+> 1. **Kafka**: 재고 및 정산 관련 이벤트 (StockDeductedEvent, StockRestoredEvent, PurchaseConfirmedEvent)
 > 2. **Spring Event (ApplicationEventPublisher)**: 각 서비스 내부 도메인 이벤트
 
 ---
@@ -16,7 +16,11 @@
 | `StockRestoredEvent` | Order | Product | `product.stock-restored` | 주문 취소 시 재고 복구 |
 | `StockDeductFailedEvent` | Product | Order, Payment | `product.stock-deduct-failed` | 낙관적 락 충돌로 재고 차감 실패 시 보상 트랜잭션 트리거 | 미구현 — payment-service 환불 구현 완료 후 적용 |
 | `PurchaseConfirmedEvent` | Order | Payment | `order.purchase-confirmed` | 구매확정 → 정산 대상 생성 트리거 |
-| `OrderDeliveredEvent` | Order | Review | `order.delivered` | 배송 완료 후 리뷰 작성 가능 |
+
+> **삭제된 이벤트:**
+> - ~~`OrderDeliveredEvent`~~: 리뷰 작성 가능 여부는 Review 서비스가 리뷰 작성 시점에 Order 서비스에 REST로 구매 이력을 확인하는 방식으로 대체. Kafka 불필요.
+> - ~~`PaymentApprovedEvent`~~: 예치금 결제는 주문 생성 트랜잭션 내에서 REST 동기 호출로 처리되므로 별도 이벤트 불필요.
+> - ~~`RefundCompletedEvent` (Kafka)~~: 환불 흐름은 Order가 REST로 주도하며, Payment 내부 후처리는 Spring Event로 충분.
 
 ---
 
@@ -41,17 +45,13 @@
 
 ### Review Service
 
-| 이벤트명 | 발행처 | 목적 |
-|---------|--------|------|
-| `ReviewCreatedEvent` | Review Service | 리뷰 등록 시 상품 평균 평점 및 리뷰 수 업데이트 |
-| `ReviewUpdatedEvent` | Review Service | 리뷰 수정 시 상품 평균 평점 재계산 |
-| `ReviewDeletedEvent` | Review Service | 리뷰 삭제 시 상품 평균 평점 및 리뷰 수 업데이트 |
+> 리뷰 등록/수정/삭제 시 상품 평점 업데이트는 Review → Product REST 동기 호출로 처리. Spring Event/Kafka 사용하지 않음.
 
 ### Member Service
 
 | 이벤트명 | 발행처 | 목적 |
 |---------|--------|------|
-| `MemberRegisteredEvent` | Member Service | 회원가입 완료 후 인증 메일 발송 |
+| `MemberRegisteredEvent` | Member Service | 회원가입 완료 후 인증 메일 발송 (내부 Spring Event) |
 | `SellerApprovedEvent` | Member Service | 판매자 승인 완료 처리 |
 
 ---
@@ -129,52 +129,10 @@ Spring Event는 별도의 adapter 없이 ApplicationEventPublisher와 EventListe
 
 ---
 
-## 5. 이벤트별 Payload 상세
+## 5. 삭제된 Kafka 이벤트 (설계 변경 이력)
 
-### PaymentApprovedEvent
-- **Topic**: `payment.approved`
-- **Producer**: Payment
-- **Consumer**: Order (주문 확정), Product (재고 차감)
-
-```json
-{
-  "eventId": "550e8400-e29b-41d4-a716-446655440000",
-  "eventType": "PaymentApprovedEvent",
-  "timestamp": "2026-03-23T12:00:00",
-  "payload": {
-    "orderId": "550e8400-e29b-41d4-a716-446655440001",
-    "memberId": "550e8400-e29b-41d4-a716-446655440002",
-    "orderItems": [
-      {
-        "productId": "550e8400-e29b-41d4-a716-446655440003",
-        "quantity": 2
-      }
-    ]
-  }
-}
-```
-
----
-
-### RefundCompletedEvent
-- **Topic**: `refund.completed`
-- **Producer**: Payment
-- **Consumer**: Order (주문 취소 확정), Product (재고 복원)
-
-```json
-{
-  "eventId": "550e8400-e29b-41d4-a716-446655440000",
-  "eventType": "RefundCompletedEvent",
-  "timestamp": "2026-03-23T12:00:00",
-  "payload": {
-    "orderId": "550e8400-e29b-41d4-a716-446655440001",
-    "memberId": "550e8400-e29b-41d4-a716-446655440002",
-    "orderItems": [
-      {
-        "productId": "550e8400-e29b-41d4-a716-446655440003",
-        "quantity": 2
-      }
-    ]
-  }
-}
-```
+| 이벤트 | 삭제 사유 |
+|--------|----------|
+| `PaymentApprovedEvent` | 예치금 결제는 주문 생성 트랜잭션 내 REST 동기 호출로 처리. 별도 Kafka 이벤트 불필요 |
+| `RefundCompletedEvent` (Kafka) | 환불 흐름은 Order가 REST로 주도. Payment 내부 후처리는 Spring Event(`RefundCompletedEvent`)로 처리 |
+| `OrderDeliveredEvent` | 리뷰 작성 가능 여부는 Review → Order REST 구매 이력 확인으로 대체 |

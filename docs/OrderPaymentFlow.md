@@ -249,16 +249,35 @@ sequenceDiagram
 
 ---
 
+## 설계 결정 사항
+
+### 장바구니 — 회원 전용
+
+장바구니는 회원 전용 기능이다. 비회원 장바구니(X-Cart-Token)는 지원하지 않는다.
+
+### checkoutId — 사용하지 않음
+
+결제 페이지 조회(`GET /order/checkout`)는 순수 조회용 API이다. checkoutId를 생성하거나 DB에 저장하지 않는다. 중복 주문 방지는 `POST /order` 시 `idempotency_key`로 처리한다.
+
+### 배송비 정책
+
+| 조건 | 배송비 |
+|------|--------|
+| 도서류 1종류 이상 포함 + 총 금액 15,000원 이상 | 무료 |
+| 그 외 | 2,500원 |
+
+---
+
 ## API 엔드포인트
 
 ```
-POST   /order/cart/item              장바구니 상품 추가
-GET    /order/cart                    장바구니 조회 (품절/가격변동 표시)
+POST   /order/cart/item              장바구니 상품 추가 (회원 전용)
+GET    /order/cart                    장바구니 조회 (품절/가격변동 표시, 회원 전용)
 PATCH  /order/cart/item/{id}         장바구니 수량 수정
 DELETE /order/cart/item/{id}         장바구니 상품 삭제
 DELETE /order/cart                    장바구니 비우기
 
-GET    /order/checkout               결제 페이지 정보 조회 (상품, 배송지, 잔액)
+GET    /order/checkout               결제 페이지 정보 조회 (상품, 배송지, 잔액 — checkoutId 없음)
 POST   /order                        결제하기 (서버 금액 계산 → 재고 검증 → 예치금 차감 → 재고 차감 → 주문 생성)
 POST   /order/{orderId}/cancel       주문 취소 (예치금 환급 + 재고 복원)
 GET    /order                        주문 목록 조회

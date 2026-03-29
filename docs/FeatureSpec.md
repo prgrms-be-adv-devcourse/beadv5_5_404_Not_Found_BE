@@ -175,15 +175,14 @@
 - 예치금 사용 금액 반영: `deposit_used`
 
 ### 4-3. 주문 상태 관리
-- 주문 상태 흐름: `PENDING_PAYMENT → CONFIRMED → SHIPPING → DELIVERED → PURCHASE_CONFIRMED`
-- PENDING_PAYMENT: 결제 대기 (주문 생성 시 기본값)
-- CONFIRMED: 주문 확정 (결제 완료 시)
-- SHIPPING: 배송 시작
+- 주문 상태 흐름: `PAID → CONFIRMED → SHIPPING → DELIVERED → PURCHASE_CONFIRMED`
+- PAID: 결제 완료 (주문 생성 즉시 — 예치금 결제는 즉시 처리되므로 PENDING_PAYMENT 상태 없음)
+- CONFIRMED: 주문 확정 (판매자 확인)
+- SHIPPING: 배송 중
 - DELIVERED: 배송 완료
 - PURCHASE_CONFIRMED: 구매 확정 (수동 확정 또는 배송 완료 후 7일 경과 시 자동 전환)
-- CANCELLED: 주문 취소
-- 결제 모듈에서 결제 완료 이벤트 수신 시 CONFIRMED로 전환
-- 결제 완료 후 상품 모듈에 재고 차감 확정 요청
+- CANCELLED: 주문 취소 (PAID, CONFIRMED 상태에서만 가능)
+- 주문 생성 시 단일 트랜잭션 내에서 예치금 차감 + 재고 차감(Kafka) + 주문 생성을 처리
 
 **재고 차감 실패 시나리오 (동시 주문)**
 
@@ -300,12 +299,12 @@
 | StockDeductedEvent | Order | Product | 재고 차감 반영 |
 | StockRestoredEvent | Order | Product | 재고 복구 반영 |
 | PurchaseConfirmedEvent | Order | Payment | 구매확정 → 정산 대상 생성 |
-| OrderDeliveredEvent | Order | Review | 배송 완료 → 리뷰 작성 가능 |
-| ReviewCreatedEvent | Review | Product | 리뷰 등록 → 평균 평점 업데이트 |
-| ReviewUpdatedEvent | Review | Product | 리뷰 수정 → 평균 평점 재계산 |
-| ReviewDeletedEvent | Review | Product | 리뷰 삭제 → 평균 평점 업데이트 |
-| MemberRegisteredEvent | Member | (이메일 발송) | 회원가입 → 인증 메일 발송 |
 | SellerApprovedEvent | Member | Product | 판매자 승인 반영 |
+
+> **Kafka에서 제외된 이벤트:**
+> - `OrderDeliveredEvent`: 리뷰 작성 가능 여부는 Review → Order REST 구매 이력 확인으로 대체
+> - `ReviewCreatedEvent`, `ReviewUpdatedEvent`, `ReviewDeletedEvent`: Review → Product REST 동기 호출로 대체 (평점 업데이트)
+> - `MemberRegisteredEvent`: Member 서비스 내부 Spring Event로 대체 (인증 메일 발송)
 
 ### Spring Event (도메인 내부 비동기 처리)
 
