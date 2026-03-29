@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>결제 실패</title>
+    <style>
+        body { font-family: sans-serif; max-width: 480px; margin: 60px auto; }
+        #reason { background: #fff0f0; padding: 16px; border-radius: 6px; margin-top: 12px; color: #c00; }
+        a { display: inline-block; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h2>❌ 결제 실패</h2>
+    <div id="reason"></div>
+    <a href="/charge.html">다시 시도하기</a>
+
+    <script>
+        const params  = new URLSearchParams(location.search);
+        const code    = params.get('code')    || 'UNKNOWN';
+        const message = params.get('message') || '결제 처리 중 오류가 발생했습니다.';
+        document.getElementById('reason').textContent = `[${code}] ${message}`;
+    </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>예치금 충전 테스트</title>
+    <script src="https://js.tosspayments.com/v1/payment"></script>
+    <style>
+        body { font-family: sans-serif; max-width: 480px; margin: 60px auto; }
+        label { display: block; margin-bottom: 8px; }
+        input { width: 100%; padding: 8px; margin-bottom: 16px; box-sizing: border-box; }
+        button { padding: 10px 24px; cursor: pointer; }
+        #error { color: red; margin-top: 12px; }
+    </style>
+</head>
+<body>
+    <h2>예치금 충전 테스트</h2>
+    <label>회원 ID (UUID)
+        <input type="text" id="memberId" placeholder="예: 550e8400-e29b-41d4-a716-446655440000">
+    </label>
+    <label>충전 금액 (1,000 ~ 500,000 원)
+        <input type="number" id="amount" min="1000" max="500000" value="10000">
+    </label>
+    <button onclick="charge()">충전하기</button>
+    <p id="error"></p>
+
+    <script>
+        async function charge() {
+            const memberId = document.getElementById('memberId').value.trim();
+            const amount   = parseInt(document.getElementById('amount').value, 10);
+            const errEl    = document.getElementById('error');
+            errEl.textContent = '';
+
+            if (!memberId) { errEl.textContent = '회원 ID를 입력하세요.'; return; }
+            if (!amount || amount < 1000 || amount > 500000) {
+                errEl.textContent = '충전 금액은 1,000 ~ 500,000원 사이로 입력하세요.';
+                return;
+            }
+
+            sessionStorage.setItem('memberId', memberId);
+
+            try {
+                const res = await fetch('/payment/deposit/charge/ready', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Member-Id': memberId,
+                        'X-Email-Verified': 'true'
+                    },
+                    body: JSON.stringify({ amount })
+                });
+
+                const body = await res.json();
+                if (!res.ok) { errEl.textContent = body.message || '충전 준비 실패'; return; }
+
+                const pg = body.data.pgData;
+                const tossPayments = TossPayments(pg.clientKey);
+                await tossPayments.requestPayment('카드', {
+                    amount:      pg.amount,
+                    orderId:     pg.orderId,
+                    orderName:   pg.orderName,
+                    successUrl:  pg.successUrl,
+                    failUrl:     pg.failUrl,
+                });
+            } catch (e) {
+                errEl.textContent = e.message;
+            }
+        }
+    </script>
+</body>
+</html>
