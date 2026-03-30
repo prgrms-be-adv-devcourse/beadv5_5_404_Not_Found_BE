@@ -34,7 +34,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Member-Id': memberId,
+                        'X-User-Id': memberId,
                         'X-Email-Verified': 'true'
                     },
                     body: JSON.stringify({ paymentKey, orderId, amount })

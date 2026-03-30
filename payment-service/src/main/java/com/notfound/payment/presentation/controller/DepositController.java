@@ -23,7 +23,7 @@ public class DepositController {
 
     @GetMapping("/history")
     public ResponseEntity<ApiResponse<DepositHistoryResponse>> getHistory(
-            @RequestHeader("X-Member-Id") UUID memberId,
+            @RequestHeader("X-User-Id") UUID memberId,
             @RequestParam(required = false) DepositType type,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {

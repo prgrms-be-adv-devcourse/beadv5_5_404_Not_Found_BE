@@ -29,7 +29,7 @@ public class DepositChargeController {
 
     @PostMapping("/ready")
     public ResponseEntity<ApiResponse<DepositChargeReadyResponse>> ready(
-            @RequestHeader("X-Member-Id") UUID memberId,
+            @RequestHeader("X-User-Id") UUID memberId,
             @RequestHeader("X-Email-Verified") boolean emailVerified,
             @RequestBody @Valid DepositChargeReadyRequest request) {
 
@@ -49,7 +49,7 @@ public class DepositChargeController {
 
     @PostMapping("/confirm")
     public ResponseEntity<ApiResponse<DepositChargeConfirmResponse>> confirm(
-            @RequestHeader("X-Member-Id") UUID memberId,
+            @RequestHeader("X-User-Id") UUID memberId,
             @RequestHeader("X-Email-Verified") boolean emailVerified,
             @RequestBody @Valid DepositChargeConfirmRequest request) {
 
