@@ -17,12 +17,21 @@ public record SellerProfileResponse(
     public static SellerProfileResponse from(Seller seller) {
         return new SellerProfileResponse(
                 seller.getId(),
-                seller.getBusinessNumber(),
+                mask(seller.getBusinessNumber(), 3, 3),
                 seller.getShopName(),
                 seller.getBankCode(),
-                seller.getBankAccount(),
-                seller.getAccountHolder(),
+                mask(seller.getBankAccount(), 4, 4),
+                mask(seller.getAccountHolder(), 1, 0),
                 seller.getStatus().name()
         );
+    }
+
+    private static String mask(String value, int prefixLen, int suffixLen) {
+        if (value == null) return null;
+        if (value.length() <= prefixLen + suffixLen) return "*".repeat(value.length());
+        String prefix = value.substring(0, prefixLen);
+        String suffix = suffixLen > 0 ? value.substring(value.length() - suffixLen) : "";
+        String masked = "*".repeat(value.length() - prefixLen - suffixLen);
+        return prefix + masked + suffix;
     }
 }

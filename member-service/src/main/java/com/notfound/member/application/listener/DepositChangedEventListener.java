@@ -28,9 +28,8 @@ public class DepositChangedEventListener {
                 event.memberId(), event.type(), event.amount());
 
         switch (event.type()) {
-            case "CHARGE" -> chargeDepositUseCase.chargeDeposit(event.memberId(), event.amount());
-            case "DEDUCT" -> deductDepositUseCase.deductDeposit(event.memberId(), event.amount());
-            default -> log.warn("알 수 없는 예치금 변경 타입: {}", event.type());
+            case CHARGE -> chargeDepositUseCase.chargeDeposit(event.memberId(), event.amount());
+            case DEDUCT -> deductDepositUseCase.deductDeposit(event.memberId(), event.amount());
         }
     }
 }

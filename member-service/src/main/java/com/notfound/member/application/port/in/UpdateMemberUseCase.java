@@ -6,6 +6,5 @@ import com.notfound.member.domain.model.Member;
 import java.util.UUID;
 
 public interface UpdateMemberUseCase {
-
     Member updateMember(UUID memberId, UpdateMemberCommand command);
 }

@@ -16,8 +16,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -64,12 +64,12 @@ class AddressIntegrationTest {
     void createAddress_success() throws Exception {
         String body = """
                 {
+                    "label": "집",
                     "recipient": "홍길동",
                     "phone": "010-1111-2222",
                     "zipcode": "12345",
                     "address1": "서울시 강남구 테헤란로 1",
-                    "address2": "101호",
-                    "isDefault": true
+                    "address2": "101호"
                 }
                 """;
 
@@ -94,10 +94,60 @@ class AddressIntegrationTest {
 
     @Test
     @Order(2)
+    @DisplayName("배송지 목록 조회 성공")
+    void getAddresses_success() throws Exception {
+        mockMvc.perform(get("/member/address")
+                        .header("X-User-Id", memberId)
+                        .header("X-Role", "USER"))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("ADDRESS_LIST_FETCH_SUCCESS"))
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].recipient").value("홍길동"));
+    }
+
+    @Test
+    @Order(3)
+    @DisplayName("배송지 수정 성공")
+    void updateAddress_success() throws Exception {
+        String body = """
+                {
+                    "recipient": "김길동",
+                    "address2": "202호",
+                    "isDefault": false
+                }
+                """;
+
+        mockMvc.perform(patch("/member/address/{addressId}", addressId)
+                        .header("X-User-Id", memberId)
+                        .header("X-Role", "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("ADDRESS_UPDATE_SUCCESS"))
+                .andExpect(jsonPath("$.data.recipient").value("김길동"))
+                .andExpect(jsonPath("$.data.address2").value("202호"));
+    }
+
+    @Test
+    @Order(4)
+    @DisplayName("배송지 수정 후 목록 조회 - 변경 반영 확인")
+    void getAddresses_afterUpdate() throws Exception {
+        mockMvc.perform(get("/member/address")
+                        .header("X-User-Id", memberId)
+                        .header("X-Role", "USER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].recipient").value("김길동"));
+    }
+
+    @Test
+    @Order(5)
     @DisplayName("배송지 등록 실패 - 필수값 누락")
     void createAddress_validation() throws Exception {
         String body = """
                 {
+                    "label": "회사",
                     "recipient": "",
                     "phone": "",
                     "zipcode": "",
@@ -121,7 +171,7 @@ class AddressIntegrationTest {
     }
 
     @Test
-    @Order(3)
+    @Order(6)
     @DisplayName("배송지 삭제 성공 (소프트 삭제)")
     void deleteAddress_success() throws Exception {
         mockMvc.perform(delete("/member/address/{addressId}", addressId)
@@ -134,7 +184,7 @@ class AddressIntegrationTest {
     }
 
     @Test
-    @Order(4)
+    @Order(7)
     @DisplayName("배송지 삭제 실패 - 존재하지 않는 배송지")
     void deleteAddress_notFound() throws Exception {
         mockMvc.perform(delete("/member/address/00000000-0000-0000-0000-000000000000")
