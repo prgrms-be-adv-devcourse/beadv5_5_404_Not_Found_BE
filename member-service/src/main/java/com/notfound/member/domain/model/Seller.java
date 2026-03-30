@@ -69,6 +69,10 @@ public class Seller {
         this.approvedAt = LocalDateTime.now();
     }
 
+    public void suspend() {
+        this.status = SellerStatus.SUSPENDED;
+    }
+
     public static class Builder {
         private final Seller seller = new Seller();
 
