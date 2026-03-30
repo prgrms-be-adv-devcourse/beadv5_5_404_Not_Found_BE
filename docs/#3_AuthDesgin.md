@@ -141,7 +141,7 @@ Client → Gateway → Member Service
 6. Access Token + Refresh Token 발급 (Member Service에서 발급)
 7. Refresh Token SHA-256 해시 → REFRESH_TOKEN INSERT
 8. Access Token은 응답 바디, Refresh Token은 HttpOnly Cookie로 반환
-9. 이메일 인증 이벤트 발행 (Spring Event) → 인증 메일 발송
+9. 이메일 인증 이벤트 발행 (Kafka) → 인증 메일 발송
 ```
 
 > 가입 직후 `email_verified = false` 상태이므로 이메일 인증 완료 전까지 상품 조회 외 모든 기능은 사용할 수 없습니다.

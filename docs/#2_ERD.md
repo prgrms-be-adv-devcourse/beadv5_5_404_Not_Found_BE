@@ -130,7 +130,7 @@ erDiagram
         INT deposit_used "예치금 차감액"
         JSONB shipping_snapshot
         VARCHAR_100 idempotency_key UK
-        TIMESTAMP confirmed_at "구매확정 시각 (nullable)"
+        TIMESTAMP confirmed_at "구매확정 시각 (PURCHASE_CONFIRMED 전환 시 기록, NULL 허용)"
         TIMESTAMP created_at
     }
     ORDER_ITEM {
