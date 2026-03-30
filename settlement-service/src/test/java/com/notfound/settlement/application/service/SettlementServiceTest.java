@@ -122,6 +122,23 @@ class SettlementServiceTest {
         }
 
         @Test
+        @DisplayName("계좌 조회 성공 시 타겟은 SETTLED 상태로 변경된다")
+        void accountFound_targetSettled() {
+            UUID sellerId = UUID.randomUUID();
+            SettlementTarget target = SettlementTarget.create(
+                    UUID.randomUUID(), sellerId, 10000L, LocalDateTime.now());
+            given(settlementTargetRepository.findPendingByConfirmedAtBetween(any(), any()))
+                    .willReturn(List.of(target));
+            given(sellerAccountClient.findSellerAccount(sellerId))
+                    .willReturn(new SellerAccount("004", "123-456", "홍길동"));
+
+            settlementService.execute(YearMonth.of(2025, 2));
+
+            assertThat(target.getStatus()).isEqualTo(SettlementTargetStatus.SETTLED);
+            verify(settlementTargetRepository).saveAll(List.of(target));
+        }
+
+        @Test
         @DisplayName("계좌 조회 실패 시 타겟은 PENDING 상태를 유지한다")
         void accountNotFound_targetRemainingPending() {
             UUID sellerId = UUID.randomUUID();
