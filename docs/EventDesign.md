@@ -52,7 +52,6 @@
 | 이벤트명 | 발행처 | 목적 |
 |---------|--------|------|
 | `MemberRegisteredEvent` | Member Service | 회원가입 완료 후 인증 메일 발송 (내부 Spring Event) |
-| `SellerApprovedEvent` | Member Service | 판매자 승인 완료 처리 |
 
 ---
 

@@ -299,7 +299,6 @@
 | StockDeductedEvent | Order | Product | 재고 차감 반영 |
 | StockRestoredEvent | Order | Product | 재고 복구 반영 |
 | PurchaseConfirmedEvent | Order | Payment | 구매확정 → 정산 대상 생성 |
-| SellerApprovedEvent | Member | Product | 판매자 승인 반영 |
 
 > **Kafka에서 제외된 이벤트:**
 > - `OrderDeliveredEvent`: 리뷰 작성 가능 여부는 Review → Order REST 구매 이력 확인으로 대체
