@@ -72,8 +72,8 @@ public class AuthController {
                 resolveClientIp(httpRequest));
 
         return ResponseEntity.ok(
-                ApiResponse.success(200, "MEMBER_LOGIN_SUCCESS",
-                        "로그인이 완료되었습니다.", AuthResponse.from(result)));
+                ApiResponse.success(200, "LOGIN_SUCCESS",
+                        "로그인에 성공했습니다.", AuthResponse.from(result)));
     }
 
     @Operation(summary = "토큰 재발급", description = "Access Token 재발급")
@@ -88,7 +88,7 @@ public class AuthController {
                 resolveClientIp(httpRequest));
 
         return ResponseEntity.ok(
-                ApiResponse.success(200, "MEMBER_TOKEN_REFRESH_SUCCESS",
+                ApiResponse.success(200, "TOKEN_REFRESH_SUCCESS",
                         "토큰이 재발급되었습니다.", AuthResponse.from(result)));
     }
 
@@ -102,7 +102,7 @@ public class AuthController {
         logoutUseCase.logout(accessToken, request.refreshToken());
 
         return ResponseEntity.ok(
-                ApiResponse.success(200, "MEMBER_LOGOUT_SUCCESS",
+                ApiResponse.success(200, "LOGOUT_SUCCESS",
                         "로그아웃이 완료되었습니다.", null));
     }
 

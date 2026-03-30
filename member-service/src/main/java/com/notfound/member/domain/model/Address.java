@@ -62,6 +62,16 @@ public class Address {
         return isDeleted;
     }
 
+    public void update(String recipient, String phone, String zipcode,
+                       String address1, String address2, Boolean isDefault) {
+        if (recipient != null) this.recipient = recipient;
+        if (phone != null) this.phone = phone;
+        if (zipcode != null) this.zipcode = zipcode;
+        if (address1 != null) this.address1 = address1;
+        if (address2 != null) this.address2 = address2;
+        if (isDefault != null) this.isDefault = isDefault;
+    }
+
     public static class Builder {
         private final Address address = new Address();
 

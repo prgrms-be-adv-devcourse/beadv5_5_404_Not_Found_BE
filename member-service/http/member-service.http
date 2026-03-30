@@ -1,0 +1,406 @@
+@baseUrl = http://localhost:8081
+
+
+### ════════════════════════════════════════
+###  STEP 1. 회원가입 / 로그인 (Auth API)
+### ════════════════════════════════════════
+
+### STEP 1-1. 회원가입
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@test.com",
+  "password": "Test1234!@",
+  "name": "테스트유저",
+  "phone": "01012345678"
+}
+
+> {%
+  client.global.set("memberId", response.body.data.memberId);
+  client.global.set("accessToken", response.body.data.accessToken);
+  client.global.set("refreshToken", response.body.data.refreshToken);
+%}
+
+
+### STEP 1-2. ADMIN 회원가입
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "admin@test.com",
+  "password": "Admin1234!@",
+  "name": "관리자",
+  "phone": "01099999999"
+}
+
+> {%
+  client.global.set("adminMemberId", response.body.data.memberId);
+  client.global.set("adminAccessToken", response.body.data.accessToken);
+%}
+
+
+### STEP 1-3. 로그인
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@test.com",
+  "password": "Test1234!@"
+}
+
+> {%
+  client.global.set("memberId", response.body.data.memberId);
+  client.global.set("accessToken", response.body.data.accessToken);
+  client.global.set("refreshToken", response.body.data.refreshToken);
+%}
+
+
+### STEP 1-4. 토큰 재발급
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+> {%
+  client.global.set("accessToken", response.body.data.accessToken);
+  client.global.set("refreshToken", response.body.data.refreshToken);
+%}
+
+
+### STEP 1-5. 로그아웃
+POST {{baseUrl}}/auth/logout
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+Authorization: Bearer {{accessToken}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+
+### ════════════════════════════════════════
+###  STEP 2. DB 역할 설정 (최초 1회 / SQL 직접 실행)
+###
+###  -- ADMIN 역할 부여
+###  UPDATE member SET role = 'ADMIN' WHERE email = 'admin@test.com';
+###
+###  설정 후 ADMIN 재로그인 필요 (STEP 1-3 참고)
+### ════════════════════════════════════════
+
+
+### ════════════════════════════════════════
+###  STEP 3. 회원 정보 (Member API)
+### ════════════════════════════════════════
+
+### STEP 3-1. 내 정보 조회
+GET {{baseUrl}}/member/me
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 3-2. 내 정보 수정
+PATCH {{baseUrl}}/member/me
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "name": "수정된이름",
+  "phone": "01088887777"
+}
+
+
+### STEP 3-3. 예치금 잔액 조회
+GET {{baseUrl}}/member/me/deposit
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 3-4. 회원 탈퇴 (주의: 실행 시 계정 비활성화)
+DELETE {{baseUrl}}/member/me
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+Authorization: Bearer {{accessToken}}
+
+{
+  "password": "Test1234!@"
+}
+
+
+### ════════════════════════════════════════
+###  STEP 4. 배송지 관리 (Address API)
+### ════════════════════════════════════════
+
+### STEP 4-1. 배송지 등록
+POST {{baseUrl}}/member/address
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "recipient": "홍길동",
+  "phone": "01012345678",
+  "zipcode": "06236",
+  "address1": "서울특별시 강남구 테헤란로 1",
+  "address2": "101동 1001호",
+  "isDefault": true
+}
+
+> {%
+  client.global.set("addressId", response.body.data.addressId);
+%}
+
+
+### STEP 4-2. 배송지 목록 조회
+GET {{baseUrl}}/member/address
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 4-3. 배송지 수정
+PATCH {{baseUrl}}/member/address/{{addressId}}
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "recipient": "김길동",
+  "address2": "202호",
+  "isDefault": false
+}
+
+
+### STEP 4-4. 배송지 삭제
+DELETE {{baseUrl}}/member/address/{{addressId}}
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### ════════════════════════════════════════
+###  STEP 5. 판매자 등록 / 조회 / 승인 (Seller API)
+### ════════════════════════════════════════
+
+### STEP 5-1. 판매자 등록 신청
+POST {{baseUrl}}/member/seller
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "shopName": "테스트서점",
+  "businessNumber": "1234567890",
+  "bankCode": "004",
+  "bankAccount": "123456789012",
+  "accountHolder": "홍길동"
+}
+
+
+### STEP 5-2. 판매자 정보 조회 (인증 불필요)
+GET {{baseUrl}}/member/seller/{{memberId}}
+
+
+### STEP 5-3. 판매자 승인 (ADMIN)
+PATCH {{baseUrl}}/member/admin/seller/{{memberId}}
+Content-Type: application/json
+X-User-Id: {{adminMemberId}}
+X-Role: ADMIN
+
+{
+  "status": "APPROVED"
+}
+
+
+### STEP 5-4. 승인 후 판매자 정보 재조회
+GET {{baseUrl}}/member/seller/{{memberId}}
+
+
+### ════════════════════════════════════════
+###  STEP 6. Internal API (서비스 간 통신)
+###
+###  X-Internal-Secret 헤더 필수
+###  값은 .env.local의 INTERNAL_SECRET_KEY
+### ════════════════════════════════════════
+
+@internalSecret = your_internal_service_secret_key_here
+
+### STEP 6-1. 회원 배송지 조회 (Order 서비스용)
+GET {{baseUrl}}/internal/member/{{memberId}}/addresses
+X-Internal-Secret: {{internalSecret}}
+
+
+### STEP 6-2. 회원 활성 상태 확인 (Order/Payment 서비스용)
+GET {{baseUrl}}/internal/member/{{memberId}}/active
+X-Internal-Secret: {{internalSecret}}
+
+
+### STEP 6-3. 예치금 잔액 조회 (Payment 서비스용)
+GET {{baseUrl}}/internal/member/{{memberId}}/deposit
+X-Internal-Secret: {{internalSecret}}
+
+
+### STEP 6-4. 예치금 충전
+POST {{baseUrl}}/internal/member/{{memberId}}/deposit/charge
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "amount": 50000
+}
+
+
+### STEP 6-5. 예치금 차감
+POST {{baseUrl}}/internal/member/{{memberId}}/deposit/deduct
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "amount": 10000
+}
+
+
+### STEP 6-6. 판매자 승인 여부 확인 (Product 서비스용)
+GET {{baseUrl}}/internal/seller/{{memberId}}/approved
+X-Internal-Secret: {{internalSecret}}
+
+
+### STEP 6-7. 판매자 정산 계좌 조회 (Payment 서비스용)
+GET {{baseUrl}}/internal/seller/{{memberId}}/account
+X-Internal-Secret: {{internalSecret}}
+
+
+### STEP 6-8. 토큰 블랙리스트 확인 (Gateway용)
+GET {{baseUrl}}/internal/token-blacklist/test-jti-value
+X-Internal-Secret: {{internalSecret}}
+
+
+### ════════════════════════════════════════
+###  실패 케이스
+### ════════════════════════════════════════
+
+### [실패] 중복 이메일 회원가입 → 409
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@test.com",
+  "password": "Test1234!@",
+  "name": "중복유저",
+  "phone": "01011111111"
+}
+
+
+### [실패] 잘못된 비밀번호 로그인 → 401
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@test.com",
+  "password": "WrongPass1!@"
+}
+
+
+### [실패] 비밀번호 복잡도 미충족 → 400
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "weak@test.com",
+  "password": "12345678",
+  "name": "약한비번",
+  "phone": "01033333333"
+}
+
+
+### [실패] 인증 없이 내 정보 조회 → 401
+GET {{baseUrl}}/member/me
+
+
+### [실패] 배송지 필수값 누락 → 400
+POST {{baseUrl}}/member/address
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "recipient": "",
+  "phone": "",
+  "zipcode": "",
+  "address1": ""
+}
+
+
+### [실패] 존재하지 않는 배송지 삭제 → 404
+DELETE {{baseUrl}}/member/address/00000000-0000-0000-0000-000000000000
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### [실패] 판매자 중복 신청 → 409
+POST {{baseUrl}}/member/seller
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "shopName": "중복서점",
+  "businessNumber": "9999999999",
+  "bankCode": "004",
+  "bankAccount": "999999999999",
+  "accountHolder": "김중복"
+}
+
+
+### [실패] USER가 판매자 승인 시도 → 403
+PATCH {{baseUrl}}/member/admin/seller/{{memberId}}
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "status": "APPROVED"
+}
+
+
+### [실패] 존재하지 않는 판매자 승인 → 404
+PATCH {{baseUrl}}/member/admin/seller/00000000-0000-0000-0000-000000000000
+Content-Type: application/json
+X-User-Id: {{adminMemberId}}
+X-Role: ADMIN
+
+{
+  "status": "APPROVED"
+}
+
+
+### [실패] Internal API 시크릿 없이 접근 → 403
+GET {{baseUrl}}/internal/member/{{memberId}}/active
+
+
+### [실패] Internal API 잘못된 시크릿 → 403
+GET {{baseUrl}}/internal/member/{{memberId}}/active
+X-Internal-Secret: wrong-secret
+
+
+### [실패] 잔액 부족 차감 → 400
+POST {{baseUrl}}/internal/member/{{memberId}}/deposit/deduct
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "amount": 999999
+}
+
+
+### [실패] 회원 탈퇴 후 로그인 → 403
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@test.com",
+  "password": "Test1234!@"
+}

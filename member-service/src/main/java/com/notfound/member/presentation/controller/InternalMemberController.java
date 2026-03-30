@@ -45,7 +45,7 @@ public class InternalMemberController {
     }
 
     @Operation(summary = "배송지 목록 조회", description = "회원의 배송지 목록 조회 (주문 서비스용)")
-    @GetMapping("/{memberId}/addresses")
+    @GetMapping("/{memberId}/address")
     public ResponseEntity<ApiResponse<List<AddressResponse>>> getAddresses(
             @PathVariable UUID memberId) {
 

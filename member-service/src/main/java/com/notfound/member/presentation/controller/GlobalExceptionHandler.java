@@ -51,19 +51,28 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(400, "INVALID_INPUT_VALUE", "입력값이 올바르지 않습니다.", errors));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException e) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(400, "INVALID_INPUT_VALUE", e.getMessage()));
+    }
+
     private int resolveStatus(String code) {
         if (code.contains("NOT_FOUND")) return HttpStatus.NOT_FOUND.value();
-        if (code.contains("DUPLICATE") || code.contains("ALREADY_WITHDRAWN") || code.contains("ALREADY_REGISTERED")) return HttpStatus.CONFLICT.value();
+        if (code.contains("ALREADY_EXISTS") || code.contains("DUPLICATE") || code.contains("ALREADY_WITHDRAWN")) {
+            return HttpStatus.CONFLICT.value();
+        }
         if (code.contains("FORBIDDEN") || code.contains("EMAIL_NOT_VERIFIED") || code.contains("ACCESS_DENIED")
                 || code.contains("NOT_APPROVED") || code.contains("INACTIVE")) {
             return HttpStatus.FORBIDDEN.value();
         }
-        if (code.contains("INVALID") || code.contains("HIJACKED")) {
+        // 401 — 인증 관련만 명시 매핑
+        if (code.equals("INVALID_CREDENTIALS") || code.equals("INVALID_REFRESH_TOKEN")
+                || code.equals("INVALID_PASSWORD") || code.equals("INVALID_ACCESS_TOKEN")
+                || code.contains("HIJACKED") || code.contains("UNAUTHORIZED")) {
             return HttpStatus.UNAUTHORIZED.value();
         }
-        if (code.contains("INSUFFICIENT") || code.contains("NOT_PENDING")) {
-            return HttpStatus.BAD_REQUEST.value();
-        }
+        // 400 — 나머지 (INVALID_SELLER_STATUS, INSUFFICIENT, INVALID_DEPOSIT_AMOUNT 등)
         return HttpStatus.BAD_REQUEST.value();
     }
 }
