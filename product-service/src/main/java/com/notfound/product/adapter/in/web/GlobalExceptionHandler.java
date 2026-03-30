@@ -9,6 +9,7 @@ import com.notfound.product.domain.exception.InsufficientStockException;
 import com.notfound.product.domain.exception.InvalidStatusTransitionException;
 import com.notfound.product.domain.exception.IsbnDuplicateException;
 import com.notfound.product.domain.exception.ProductNotFoundException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -62,6 +63,13 @@ public class GlobalExceptionHandler {
         ProductErrorCode code = ProductErrorCode.PRODUCT_INSUFFICIENT_STOCK;
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(code.getStatus(), code.getCode(), e.getMessage()));
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLockingFailure(OptimisticLockingFailureException e) {
+        ProductErrorCode code = ProductErrorCode.PRODUCT_STOCK_CONFLICT;
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(code.getStatus(), code.getCode(), code.getMessage()));
     }
 
     @ExceptionHandler(InvalidStatusTransitionException.class)

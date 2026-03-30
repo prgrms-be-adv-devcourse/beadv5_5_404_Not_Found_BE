@@ -99,8 +99,13 @@ public class SellerService implements CheckSellerStatusUseCase, CheckSellerRegis
                         saved.getMemberId(), saved.getId(), saved.getShopName()));
                 return saved;
             }
-            case SUSPENDED -> seller.suspend();
-            default -> throw new IllegalArgumentException("지원하지 않는 상태입니다: " + status);
+            case SUSPENDED -> {
+                if (seller.getStatus() == SellerStatus.SUSPENDED) {
+                    throw new IllegalArgumentException("이미 정지된 판매자입니다.");
+                }
+                seller.suspend();
+            }
+            case PENDING -> throw new IllegalArgumentException("PENDING 상태로 변경할 수 없습니다.");
         }
 
         return sellerRepository.save(seller);

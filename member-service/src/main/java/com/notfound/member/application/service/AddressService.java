@@ -64,6 +64,17 @@ public class AddressService implements GetMemberAddressesUseCase, CreateAddressU
             throw MemberException.accessDenied();
         }
 
+        // 기본 배송지로 설정 시 기존 기본 배송지 해제
+        if (Boolean.TRUE.equals(command.isDefault())) {
+            addressRepository.findByMemberIdAndIsDeletedFalse(memberId).stream()
+                    .filter(Address::isDefault)
+                    .filter(a -> !a.getId().equals(addressId))
+                    .forEach(a -> {
+                        a.update(null, null, null, null, null, false);
+                        addressRepository.save(a);
+                    });
+        }
+
         address.update(command.recipient(), command.phone(), command.zipcode(),
                 command.address1(), command.address2(), command.isDefault());
 

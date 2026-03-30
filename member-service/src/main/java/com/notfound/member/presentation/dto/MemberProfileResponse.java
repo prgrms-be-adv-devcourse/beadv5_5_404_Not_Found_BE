@@ -14,7 +14,6 @@ public record MemberProfileResponse(
         boolean sellerRegistered,
         LocalDateTime createdAt
 ) {
-
     public static MemberProfileResponse from(Member member, boolean sellerRegistered) {
         return new MemberProfileResponse(
                 member.getId(),
@@ -23,7 +22,6 @@ public record MemberProfileResponse(
                 member.getPhone(),
                 member.getRole().name(),
                 sellerRegistered,
-                member.getCreatedAt()
-        );
+                member.getCreatedAt());
     }
 }
