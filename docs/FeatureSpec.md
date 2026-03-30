@@ -168,21 +168,23 @@
   - 상품별 재고 재검증 (결제 시점의 재고 상태 확인)
   - 재고 부족 시 결제 실패 응답
   - 예치금에서 주문 금액 차감
-  - 재고 차감 (StockDeductedEvent 발행)
+  - 재고 차감 (payment-service → product-service REST 동기 호출)
   - 주문 생성 (상태: PAID)
 - 중복 주문 방지를 위한 `idempotency_key` 적용
 - 주문 생성 시점에 배송지 스냅샷 저장
 - 예치금 사용 금액 반영: `deposit_used`
 
 ### 4-3. 주문 상태 관리
-- 주문 상태 흐름: `PAID → CONFIRMED → SHIPPING → DELIVERED → PURCHASE_CONFIRMED`
-- PAID: 결제 완료 (주문 생성 즉시 — 예치금 결제는 즉시 처리되므로 PENDING_PAYMENT 상태 없음)
+- 주문 상태 흐름: `PENDING → PAID → CONFIRMED → SHIPPING → DELIVERED → PURCHASE_CONFIRMED`
+- PENDING: 결제 대기 (주문 생성 직후, 결제 실행 전)
+- PAID: 결제 완료 (payment-service 결제 완료 후)
 - CONFIRMED: 주문 확정 (판매자 확인)
 - SHIPPING: 배송 중
 - DELIVERED: 배송 완료
 - PURCHASE_CONFIRMED: 구매 확정 (수동 확정 또는 배송 완료 후 7일 경과 시 자동 전환)
-- CANCELLED: 주문 취소 (PAID, CONFIRMED 상태에서만 가능)
-- 주문 생성 시 단일 트랜잭션 내에서 예치금 차감 + 재고 차감(Kafka) + 주문 생성을 처리
+- CANCELLED: 주문 취소 (PENDING, PAID, CONFIRMED 상태에서만 가능)
+- 주문 생성(`POST /order`)과 결제 실행(`POST /payment/orders/{orderId}/pay`)은 분리됨
+- 결제 실행 시 payment-service가 재고 차감(REST) + 예치금 차감 + 주문 상태 PAID 전환을 처리
 
 **재고 차감 실패 시나리오 (동시 주문)**
 
@@ -198,9 +200,9 @@
 | 회원 알림 | 재고 부족으로 인한 자동 취소 안내 |
 
 ### 4-4. 주문 취소
-- 취소 가능 상태 검증 (PAID, CONFIRMED 상태에서만 취소 가능)
-- 예치금 복원 처리
-- 재고 복원 요청 (StockRestoredEvent 발행)
+- 취소 가능 상태: PENDING, PAID, CONFIRMED
+- PENDING 취소: 예치금 환급 없음, 재고 복원 없음 (아직 차감 전이므로 단순 상태 변경)
+- PAID/CONFIRMED 취소: 예치금 환급 + 재고 복원(REST) 필요
 - 주문 상태: `CANCELLED`
 
 ### 4-5. 배송 관리
@@ -218,7 +220,8 @@
 | 자동 확정 | 배송 완료(`DELIVERED`) 후 7일 경과 시 스케줄러가 자동 전환 |
 | 수동 확정 | 구매자가 직접 구매확정 API 호출 |
 
-- `PURCHASE_CONFIRMED` 전환 시 `PurchaseConfirmedEvent` 발행 → Payment 서비스가 정산 대상 생성
+- `PURCHASE_CONFIRMED` 전환 시 `confirmed_at` 시각 기록
+- `PurchaseConfirmedEvent` 발행 시 `confirmedAt` 포함 → Payment 서비스가 정산 대상 생성
 
 ---
 
@@ -296,12 +299,12 @@
 
 | 이벤트 | Producer | Consumer | 목적 |
 |--------|----------|----------|------|
-| StockDeductedEvent | Order | Product | 재고 차감 반영 |
-| StockRestoredEvent | Order | Product | 재고 복구 반영 |
 | PurchaseConfirmedEvent | Order | Payment | 구매확정 → 정산 대상 생성 |
+| SellerApprovedEvent | Member | Product | 판매자 승인 반영 |
 
 > **Kafka에서 제외된 이벤트:**
-> - `OrderDeliveredEvent`: 리뷰 작성 가능 여부는 Review → Order REST 구매 이력 확인으로 대체
+> - `StockDeductedEvent`, `StockRestoredEvent`: payment-service/order-service → product-service REST 동기 호출로 대체
+> - `OrderDeliveredEvent`: Review → Order REST 구매 이력 확인으로 대체
 > - `ReviewCreatedEvent`, `ReviewUpdatedEvent`, `ReviewDeletedEvent`: Review → Product REST 동기 호출로 대체 (평점 업데이트)
 > - `MemberRegisteredEvent`: Member 서비스 내부 Spring Event로 대체 (인증 메일 발송)
 

@@ -58,11 +58,11 @@ sequenceDiagram
     rect rgb(255, 248, 235)
         Note over Client,Deposit: 3단계 — 결제 페이지 진입
         alt 장바구니 경로
-            Client->>Order: GET /orders/checkout?cartItemIds
+            Client->>Order: GET /order/checkout?cartItemIds
             Order->>Cart: 장바구니 조회
             Cart-->>Order: 상품 목록
         else 바로 결제 경로
-            Client->>Order: GET /orders/checkout?productId&quantity
+            Client->>Order: GET /order/checkout?productId&quantity
             Order->>Product: 상품 조회
             Product-->>Order: 상품 정보
         end
@@ -219,7 +219,7 @@ sequenceDiagram
     participant Deposit
     participant Product
 
-    Client->>Order: POST /orders/{id}/cancel
+    Client->>Order: POST /order/{orderId}/cancel
     Order->>Order: 주문 상태 검증 (취소 가능 여부)
 
     alt 취소 불가 상태
@@ -246,7 +246,7 @@ sequenceDiagram
 | `CONFIRMED` | 주문 확정 (판매자 확인) |
 | `SHIPPING` | 배송 중 |
 | `DELIVERED` | 배송 완료 |
-| `PURCHASE_CONFIRMED` | 구매확정 → PurchaseConfirmedEvent 발행 (Kafka → Payment, 정산 대상 생성) |
+| `PURCHASE_CONFIRMED` | 구매확정 → confirmed_at 시각 기록, PurchaseConfirmedEvent 발행 (Kafka → Payment, 정산 대상 생성, confirmedAt 포함) |
 | `CANCELLED` | 취소/환불 완료 |
 
 ---
