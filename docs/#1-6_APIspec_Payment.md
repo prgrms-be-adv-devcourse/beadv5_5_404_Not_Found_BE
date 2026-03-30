@@ -21,6 +21,23 @@
 | 수수료 정책 등록 | POST | /payment/commission | 정책 등록 |
 | 수수료 정책 조회 | GET | /payment/commission | 정책 조회 |
 
+### Payment → Order Internal 호출
+
+| 기능 | Method | Endpoint | 설명 | 대상 서비스 |
+|------|--------|----------|------|------------|
+| 주문 상태 변경 | POST | /internal/order/{orderId}/status | 결제 완료 후 PENDING → PAID 변경 | order-service |
+
+> payment-service가 결제 실행(`POST /payment/orders/{orderId}/pay`) 완료 후, order-service의 내부 API를 호출하여 주문 상태를 PAID로 변경하고 depositUsed를 전달합니다.
+
+Request Body:
+
+```json
+{
+  "status": "PAID",
+  "depositUsed": 55000
+}
+```
+
 ### Notes
 
 - **Payment Purpose**: PaymentPurpose는 DEPOSIT_CHARGE만 지원합니다. ORDER_PAY는 제거되었습니다.
