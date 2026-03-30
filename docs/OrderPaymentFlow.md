@@ -98,7 +98,7 @@ sequenceDiagram
             else 예치금 충분
                 Deposit->>Deposit: 예치금 차감 + 거래 내역 기록 (type: USE)
                 Deposit-->>Payment: 차감 완료
-                Payment->>Order: POST /internal/orders/{orderId}/status { "status": "PAID" }
+                Payment->>Order: POST /internal/order/{orderId}/status { "status": "PAID" }
                 Order->>Order: 주문 상태 PENDING → PAID
                 Order-->>Payment: 상태 변경 완료
                 Payment->>Cart: 장바구니 항목 제거
@@ -194,7 +194,7 @@ flowchart TD
 1. **재고 차감** → `POST /internal/products/stock/deduct` (product-service REST)
    - 실패 시 즉시 예외 반환 (예치금 차감 이전이므로 롤백 불필요)
 2. **예치금 차감** → 부족 시 결제 실패 반환
-3. **주문 상태 PAID로 변경** → `POST /internal/orders/{orderId}/status` (order-service REST)
+3. **주문 상태 PAID로 변경** → `POST /internal/order/{orderId}/status` (order-service REST)
 4. **장바구니 항목 제거** (장바구니 경유 시)
 
 ---
@@ -280,7 +280,7 @@ POST   /order/{orderId}/cancel                   주문 취소 (예치금 환급
 GET    /order                                    주문 목록 조회
 GET    /order/{orderId}                          주문 상세 조회
 
-POST   /internal/orders/{orderId}/status         [Internal] 주문 상태 변경 (payment-service 전용)
+POST   /internal/order/{orderId}/status         [Internal] 주문 상태 변경 (payment-service 전용)
 POST   /internal/products/stock/deduct           [Internal] 재고 차감 (payment-service → product-service)
 POST   /internal/products/stock/restore          [Internal] 재고 복원 (order-service → product-service)
 ```
