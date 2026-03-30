@@ -86,9 +86,10 @@ public class ProductController {
         if (user == null || !"SELLER".equals(user.role())) {
             throw new ForbiddenException(ProductErrorCode.FORBIDDEN.getMessage());
         }
-        if (!user.emailVerified()) {
-            throw new ForbiddenException(ProductErrorCode.EMAIL_NOT_VERIFIED.getMessage());
-        }
+        // TODO: member-service 이메일 인증 구현 후 활성화 (issue #30)
+        // if (!user.emailVerified()) {
+        //     throw new ForbiddenException(ProductErrorCode.EMAIL_NOT_VERIFIED.getMessage());
+        // }
     }
 
     private void requireAdmin(AuthenticatedUser user) {

@@ -1071,3 +1071,102 @@ Status Code: `500 Internal Server Error`
 ```
 
 ---
+
+## 📌 Internal Product API
+
+> 서비스 간 내부 통신 전용 API입니다. 외부(클라이언트)에서 직접 호출하지 않습니다.
+
+| 기능 | Method | Endpoint | 설명 | 호출 서비스 |
+|------|--------|----------|------|------------|
+| 재고 차감 | POST | /internal/products/stock/deduct | 결제 시 재고 차감 (동기) | payment-service |
+
+### `POST /internal/products/stock/deduct` — 재고 차감
+
+payment-service가 결제 실행 시 호출합니다. 동기 처리이며 실패 시 즉시 예외를 반환합니다.
+
+#### Request
+
+Request Body:
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `items` | object[] | O | 차감할 상품 목록 |
+| `items[].productId` | UUID | O | 상품 ID |
+| `items[].quantity` | number | O | 차감 수량 |
+
+Request Body Example:
+
+```json
+{
+  "items": [
+    {
+      "productId": "550e8400-e29b-41d4-a716-446655440003",
+      "quantity": 2
+    },
+    {
+      "productId": "550e8400-e29b-41d4-a716-446655440004",
+      "quantity": 1
+    }
+  ]
+}
+```
+
+#### Response
+
+**1. 요청 성공**
+
+Status Code: `200 OK`
+
+```json
+{
+  "status": 200,
+  "code": "STOCK_DEDUCTED",
+  "message": "재고가 정상적으로 차감되었습니다.",
+  "data": null
+}
+```
+
+**2. 재고 부족**
+
+Status Code: `409 Conflict`
+
+```json
+{
+  "status": 409,
+  "code": "INSUFFICIENT_STOCK",
+  "message": "재고가 부족합니다.",
+  "data": {
+    "productId": "550e8400-e29b-41d4-a716-446655440003",
+    "requested": 2,
+    "available": 1
+  }
+}
+```
+
+**3. 상품 없음**
+
+Status Code: `404 Not Found`
+
+```json
+{
+  "status": 404,
+  "code": "PRODUCT_NOT_FOUND",
+  "message": "해당 상품을 찾을 수 없습니다.",
+  "data": null
+}
+```
+
+**4. 서버 오류**
+
+Status Code: `500 Internal Server Error`
+
+```json
+{
+  "status": 500,
+  "code": "INTERNAL_SERVER_ERROR",
+  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
+  "data": null
+}
+```
+
+---

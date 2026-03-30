@@ -125,11 +125,12 @@ erDiagram
         UUID id PK
         VARCHAR_30 order_number UK
         UUID member_id FK
-        ENUM status
+        ENUM status "PENDING | PAID | CONFIRMED | SHIPPING | DELIVERED | PURCHASE_CONFIRMED | CANCELLED"
         INT total_amount
         INT deposit_used "예치금 차감액"
         JSONB shipping_snapshot
         VARCHAR_100 idempotency_key UK
+        TIMESTAMP confirmed_at "구매확정 시각 (nullable)"
         TIMESTAMP created_at
     }
     ORDER_ITEM {
