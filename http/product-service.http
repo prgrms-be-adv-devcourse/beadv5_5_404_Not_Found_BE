@@ -1,4 +1,6 @@
 @baseUrl = http://localhost:8080
+# INTERNAL_SECRET_KEY 환경변수 값과 일치해야 함
+@internalSecret = test-secret
 
 
 ### ════════════════════════════════════════
@@ -200,6 +202,7 @@ Authorization: Bearer {{sellerToken}}
 ### STEP 6-1. 재고 차감 정상 → 200
 POST http://localhost:8082/internal/products/stock/deduct
 Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
 
 {
   "items": [
@@ -215,6 +218,7 @@ Content-Type: application/json
 ### STEP 6-1을 여러 번 실행해 재고를 소진하거나, quantity를 재고보다 크게 설정
 POST http://localhost:8082/internal/products/stock/deduct
 Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
 
 {
   "items": [
@@ -229,6 +233,7 @@ Content-Type: application/json
 ### STEP 6-3. 존재하지 않는 상품 → 404 (PRODUCT_NOT_FOUND)
 POST http://localhost:8082/internal/products/stock/deduct
 Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
 
 {
   "items": [
@@ -243,6 +248,7 @@ Content-Type: application/json
 ### STEP 6-4. 요청 유효성 실패 (quantity = 0) → 400 (INVALID_INPUT_VALUE)
 POST http://localhost:8082/internal/products/stock/deduct
 Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
 
 {
   "items": [

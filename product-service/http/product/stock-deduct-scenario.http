@@ -1,5 +1,7 @@
 @productServiceUrl = http://localhost:8082
 @memberServiceUrl  = http://localhost:8081
+# INTERNAL_SECRET_KEY 환경변수 값과 일치해야 함
+@internalSecret    = your_internal_service_secret_key_here
 
 # STEP 0-4 실행 후 자동 저장됨 (직접 실행 시 sellerEntityId를 여기에 붙여넣기)
 @sellerEntityId = 4e8f9e93-05ba-4d79-9f8b-a7f687b4b88c
@@ -204,6 +206,7 @@ GET {{productServiceUrl}}/products/{{productId}}
 ### STEP 4-1. 재고 5개 차감 → 200 (재고 10 → 5)
 POST {{productServiceUrl}}/internal/products/stock/deduct
 Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
 
 {
   "items": [
@@ -222,6 +225,7 @@ GET {{productServiceUrl}}/products/{{productId}}
 ### STEP 4-3. 나머지 재고 전량 차감 → 200 + status SOLD_OUT (재고 5 → 0)
 POST {{productServiceUrl}}/internal/products/stock/deduct
 Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
 
 {
   "items": [
@@ -244,6 +248,7 @@ GET {{productServiceUrl}}/products/{{productId}}
 ### STEP 5-1. 재고 부족 → 400 (PRODUCT_INSUFFICIENT_STOCK)
 POST {{productServiceUrl}}/internal/products/stock/deduct
 Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
 
 {
   "items": [
@@ -258,6 +263,7 @@ Content-Type: application/json
 ### STEP 5-2. 존재하지 않는 상품 → 404 (PRODUCT_NOT_FOUND)
 POST {{productServiceUrl}}/internal/products/stock/deduct
 Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
 
 {
   "items": [
@@ -272,6 +278,7 @@ Content-Type: application/json
 ### STEP 5-3. quantity = 0 → 400 (INVALID_INPUT_VALUE)
 POST {{productServiceUrl}}/internal/products/stock/deduct
 Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
 
 {
   "items": [
@@ -286,6 +293,7 @@ Content-Type: application/json
 ### STEP 5-4. items 빈 배열 → 400 (INVALID_INPUT_VALUE)
 POST {{productServiceUrl}}/internal/products/stock/deduct
 Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
 
 {
   "items": []

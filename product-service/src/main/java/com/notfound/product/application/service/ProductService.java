@@ -2,7 +2,6 @@ package com.notfound.product.application.service;
 
 import com.notfound.product.application.port.in.*;
 import com.notfound.product.application.port.out.CategoryRepository;
-import com.notfound.product.application.port.out.ProcessedEventRepository;
 import com.notfound.product.application.port.out.ProductRepository;
 import com.notfound.product.application.port.out.SellerStatusVerifier;
 import com.notfound.product.domain.exception.CategoryNotFoundException;
@@ -34,7 +33,6 @@ public class ProductService implements
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final SellerStatusVerifier sellerStatusVerifier;
-    private final ProcessedEventRepository processedEventRepository;
 
     @Transactional
     @Override
@@ -134,18 +132,11 @@ public class ProductService implements
     @Transactional
     @Override
     public void restoreStock(RestoreStockCommand command) {
-        // TODO: KafkaListener concurrency > 1 또는 멀티 파티션 운영 시 existsById→save 패턴이
-        //       비원자적으로 동작하여 재고 이중 복원이 발생할 수 있음.
-        //       해당 시점에 INSERT ON CONFLICT DO NOTHING 기반 원자적 처리로 교체 필요.
-        if (processedEventRepository.existsById(command.eventId())) {
-            return;
-        }
         for (RestoreStockCommand.StockItem item : command.items()) {
             Product product = productRepository.findById(item.productId())
                     .orElseThrow(() -> new ProductNotFoundException(item.productId()));
             product.restoreStock(item.quantity());
             productRepository.save(product);
         }
-        processedEventRepository.save(command.eventId());
     }
 }
