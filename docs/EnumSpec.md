@@ -125,7 +125,8 @@
 
 | 값 | 설명 | 전이 조건 |
 |----|------|----------|
-| `PAID` | 결제 완료 | 주문 생성 시 기본값 |
+| `PENDING` | 결제 대기 | 주문 생성 시 기본값 (결제 전) |
+| `PAID` | 결제 완료 | payment-service 결제 완료 후 (PENDING → PAID) |
 | `CONFIRMED` | 주문 확정 | 판매자/시스템 확인 시 |
 | `SHIPPING` | 배송 중 | 배송 시작 시 |
 | `DELIVERED` | 배송 완료 | 배송 완료 시 |
@@ -313,6 +314,9 @@
 | `ORDER_NUMBER_MAX_LENGTH` | `30` | 주문번호 최대 길이 |
 | `IDEMPOTENCY_KEY_MAX_LENGTH` | `100` | 멱등키 최대 길이 |
 | `ORDER_ITEM_MAX_QUANTITY` | `99` | 주문상품 최대 수량 |
+| `FREE_SHIPPING_THRESHOLD` | `15000` | 무료배송 기준 금액 (도서류 1종 이상 포함 시) |
+| `SHIPPING_FEE` | `2500` | 유료배송비 |
+| `AUTO_CONFIRM_DAYS` | `7` | 배송 완료 후 자동 구매확정까지 일수 |
 
 ### JWT 정책
 

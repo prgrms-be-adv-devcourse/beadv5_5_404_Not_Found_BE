@@ -15,7 +15,7 @@
 | 장바구니 항목 삭제 | DELETE | /order/cart/item/{cartItemId} | 항목 삭제 |
 | 장바구니 비우기 | DELETE | /order/cart | 전체 삭제 |
 | 결제 페이지 정보 조회 | GET | /order/checkout | 결제 페이지 정보 조회 |
-| 주문 생성 | POST | /order | 주문 생성 + 예치금 결제 |
+| 주문 생성 | POST | /order | 주문 생성 (PENDING 상태, 결제 미포함) |
 | 주문 목록 조회 | GET | /order | 주문 리스트 |
 | 주문 상세 조회 | GET | /order/{orderId} | 주문 상세 |
 | 주문 취소 | POST | /order/{orderId}/cancel | 주문 취소 |
@@ -25,12 +25,16 @@
 
 ### Notes
 
+- **Cart**: 장바구니는 회원 전용 기능입니다. 비회원 장바구니는 지원하지 않습니다.
 - **Cart Item Stock Check**: 장바구니에 상품을 추가할 때는 재고를 확인하지 않습니다. 어떤 상품이든 추가할 수 있습니다.
 - **Cart Item Latest Info**: 장바구니 조회 시 상품의 최신 가격과 재고 정보를 함께 반환합니다. 가격 변동 또는 품절 여부를 표시합니다.
-- **Order Status**: 주문은 생성 시점에 즉시 PAID 상태로 변경됩니다. PENDING_PAYMENT 상태는 존재하지 않습니다. 유효한 상태: PAID, CONFIRMED, SHIPPING, DELIVERED, PURCHASE_CONFIRMED, CANCELLED
+- **Order Status**: 주문은 생성 시점에 PENDING 상태입니다. 결제 완료(`POST /payment/orders/{orderId}/pay`) 후 PAID로 전환됩니다. 유효한 상태: PENDING, PAID, CONFIRMED, SHIPPING, DELIVERED, PURCHASE_CONFIRMED, CANCELLED
+- **Order-Payment Separation**: `POST /order`는 주문 정보만 생성(PENDING)합니다. 실제 결제(재고 차감 + 예치금 차감)는 payment-service의 `POST /payment/orders/{orderId}/pay`가 담당합니다.
 - **Purchase Confirm**: 배송 완료(DELIVERED) 후 구매자가 수동 확정하거나, 7일 경과 시 스케줄러가 자동으로 PURCHASE_CONFIRMED로 전환합니다. 전환 시 PurchaseConfirmedEvent(Kafka)를 발행하여 Payment 서비스가 정산 대상을 생성합니다.
 - **Payment**: 모든 상품 결제는 예치금만 사용합니다. PG는 예치금 충전(POST /payment/deposit/charge/*) 시에만 사용됩니다.
-- **Stock Events**: 재고 차감/복원은 Kafka를 통해 처리됩니다. (StockDeductedEvent, StockRestoredEvent)
+- **Stock**: 재고 차감/복원은 REST 동기 호출로 처리됩니다. Kafka 이벤트를 사용하지 않습니다.
+- **Checkout**: 결제 페이지 조회(`GET /order/checkout`)는 순수 조회용 API입니다. checkoutId는 생성하지 않으며, DB에 저장하지 않습니다. 중복 주문 방지는 `POST /order` 시 `idempotency_key`로 처리합니다.
+- **Shipping Fee**: 배송비 정책 — 도서류 1종류 이상 포함, 총 금액 15,000원 이상 시 무료배송. 그 외 2,500원 유료배송.
 
 ---
 
@@ -42,8 +46,7 @@ Request Header:
 
 | 헤더 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `Authorization` | string | X | 회원 사용 시 Bearer access token |
-| `X-Cart-Token` | string | X | 비회원 사용 시 장바구니 식별 토큰 |
+| `Authorization` | string | O | Bearer access token |
 
 #### Response
 
@@ -84,15 +87,15 @@ Status Code: `200 OK`
 }
 ```
 
-**2. 클라이언트 오류 — 장바구니 식별 정보 없음**
+**2. 클라이언트 오류 — 인증 실패**
 
-Status Code: `400 Bad Request`
+Status Code: `401 Unauthorized`
 
 ```json
 {
-  "status": 400,
-  "code": "CART_IDENTIFIER_MISSING",
-  "message": "장바구니 식별 정보가 없습니다.",
+  "status": 401,
+  "code": "UNAUTHORIZED",
+  "message": "인증이 필요합니다.",
   "data": null
 }
 ```
@@ -133,8 +136,7 @@ Request Header:
 
 | 헤더 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `Authorization` | string | X | 회원 사용 시 Bearer access token |
-| `X-Cart-Token` | string | X | 비회원 사용 시 장바구니 식별 토큰 |
+| `Authorization` | string | O | Bearer access token |
 
 Request Body:
 
@@ -171,15 +173,15 @@ Status Code: `201 Created`
 }
 ```
 
-**2. 클라이언트 오류 — 장바구니 식별 정보 없음**
+**2. 클라이언트 오류 — 인증 실패**
 
-Status Code: `400 Bad Request`
+Status Code: `401 Unauthorized`
 
 ```json
 {
-  "status": 400,
-  "code": "CART_IDENTIFIER_MISSING",
-  "message": "장바구니 식별 정보가 없습니다.",
+  "status": 401,
+  "code": "UNAUTHORIZED",
+  "message": "인증이 필요합니다.",
   "data": null
 }
 ```
@@ -254,8 +256,7 @@ Request Header:
 
 | 헤더 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `Authorization` | string | X | 회원 사용 시 Bearer access token |
-| `X-Cart-Token` | string | X | 비회원 사용 시 장바구니 식별 토큰 |
+| `Authorization` | string | O | Bearer access token |
 
 Request Body:
 
@@ -289,15 +290,15 @@ Status Code: `200 OK`
 }
 ```
 
-**2. 클라이언트 오류 — 장바구니 식별 정보 없음**
+**2. 클라이언트 오류 — 인증 실패**
 
-Status Code: `400 Bad Request`
+Status Code: `401 Unauthorized`
 
 ```json
 {
-  "status": 400,
-  "code": "CART_IDENTIFIER_MISSING",
-  "message": "장바구니 식별 정보가 없습니다.",
+  "status": 401,
+  "code": "UNAUTHORIZED",
+  "message": "인증이 필요합니다.",
   "data": null
 }
 ```
@@ -372,8 +373,7 @@ Request Header:
 
 | 헤더 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `Authorization` | string | X | 회원 사용 시 Bearer access token |
-| `X-Cart-Token` | string | X | 비회원 사용 시 장바구니 식별 토큰 |
+| `Authorization` | string | O | Bearer access token |
 
 #### Response
 
@@ -390,15 +390,15 @@ Status Code: `200 OK`
 }
 ```
 
-**2. 클라이언트 오류 — 장바구니 식별 정보 없음**
+**2. 클라이언트 오류 — 인증 실패**
 
-Status Code: `400 Bad Request`
+Status Code: `401 Unauthorized`
 
 ```json
 {
-  "status": 400,
-  "code": "CART_IDENTIFIER_MISSING",
-  "message": "장바구니 식별 정보가 없습니다.",
+  "status": 401,
+  "code": "UNAUTHORIZED",
+  "message": "인증이 필요합니다.",
   "data": null
 }
 ```
@@ -452,8 +452,7 @@ Request Header:
 
 | 헤더 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `Authorization` | string | X | 회원 사용 시 Bearer access token |
-| `X-Cart-Token` | string | X | 비회원 사용 시 장바구니 식별 토큰 |
+| `Authorization` | string | O | Bearer access token |
 
 #### Response
 
@@ -470,15 +469,15 @@ Status Code: `200 OK`
 }
 ```
 
-**2. 클라이언트 오류 — 장바구니 식별 정보 없음**
+**2. 클라이언트 오류 — 인증 실패**
 
-Status Code: `400 Bad Request`
+Status Code: `401 Unauthorized`
 
 ```json
 {
-  "status": 400,
-  "code": "CART_IDENTIFIER_MISSING",
-  "message": "장바구니 식별 정보가 없습니다.",
+  "status": 401,
+  "code": "UNAUTHORIZED",
+  "message": "인증이 필요합니다.",
   "data": null
 }
 ```
@@ -543,7 +542,6 @@ Status Code: `200 OK`
   "code": "CHECKOUT_READY",
   "message": "결제 페이지 정보를 조회했습니다.",
   "data": {
-    "checkoutId": "chk_20260320_001",
     "items": [
       {
         "cartItemId": 1,
@@ -590,7 +588,6 @@ Status Code: `200 OK`
   "code": "CHECKOUT_READY",
   "message": "결제 페이지 정보를 조회했습니다.",
   "data": {
-    "checkoutId": "chk_20260320_002",
     "items": [
       {
         "productId": 101,
@@ -1054,6 +1051,8 @@ Status Code: `500 Internal Server Error`
 
 ### `POST /order/{orderId}/cancel` — 주문 취소
 
+전체 취소 또는 부분 취소(특정 주문 항목만)를 지원합니다. `orderItemIds`를 생략하거나 빈 배열이면 전체 취소, 특정 항목 ID를 전달하면 부분 취소입니다.
+
 #### Request
 
 Path Variable:
@@ -1072,33 +1071,57 @@ Request Body:
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `reason` | string | O | 취소 사유 |
-| `orderItemIds` | array | O | 취소 대상 주문 항목 ID 목록 |
+| `orderItemIds` | array | X | 부분 취소 시 취소할 주문 항목 ID 목록. 생략 시 전체 취소 |
 
-Request Body Example:
+Request Body Example — 전체 취소:
+
+```json
+{}
+```
+
+Request Body Example — 부분 취소:
 
 ```json
 {
-  "reason": "상품 파손",
   "orderItemIds": [1, 2]
 }
 ```
 
 #### Response
 
-**1. 요청 성공**
+**1. 요청 성공 — 전체 취소**
 
-Status Code: `201 Created`
+Status Code: `200 OK`
 
 ```json
 {
-  "status": 201,
-  "code": "RETURN_REQUEST_SUCCESS",
-  "message": "반품 신청이 접수되었습니다.",
+  "status": 200,
+  "code": "ORDER_CANCEL_SUCCESS",
+  "message": "주문이 취소되었습니다.",
   "data": {
     "orderId": 1001,
-    "returnStatus": "PENDING",
-    "orderItemIds": [1, 2]
+    "orderStatus": "CANCELLED",
+    "refundAmount": 55000,
+    "cancelledAt": "2026-03-20T10:00:00Z"
+  }
+}
+```
+
+**2. 요청 성공 — 부분 취소**
+
+Status Code: `200 OK`
+
+```json
+{
+  "status": 200,
+  "code": "ORDER_PARTIAL_CANCEL_SUCCESS",
+  "message": "선택한 항목이 취소되었습니다.",
+  "data": {
+    "orderId": 1001,
+    "orderStatus": "PAID",
+    "cancelledItemIds": [1, 2],
+    "refundAmount": 30000,
+    "cancelledAt": "2026-03-20T10:00:00Z"
   }
 }
 ```
@@ -1116,17 +1139,17 @@ Status Code: `404 Not Found`
 }
 ```
 
-**3. 클라이언트 오류 — 반품 불가 상태**
+**3. 클라이언트 오류 — 취소 불가 상태**
 
 Status Code: `409 Conflict`
 
 ```json
 {
   "status": 409,
-  "code": "ORDER_CANNOT_BE_RETURNED",
-  "message": "현재 주문 상태에서는 반품 신청이 불가능합니다.",
+  "code": "ORDER_CANNOT_BE_CANCELLED",
+  "message": "현재 주문 상태에서는 취소가 불가능합니다. (취소 가능: PAID, CONFIRMED)",
   "data": {
-    "currentStatus": "CONFIRMED"
+    "currentStatus": "SHIPPING"
   }
 }
 ```
@@ -1144,7 +1167,20 @@ Status Code: `403 Forbidden`
 }
 ```
 
-**5. 서버 오류**
+**5. 클라이언트 오류 — 인증 실패**
+
+Status Code: `401 Unauthorized`
+
+```json
+{
+  "status": 401,
+  "code": "UNAUTHORIZED",
+  "message": "인증이 필요합니다.",
+  "data": null
+}
+```
+
+**6. 서버 오류**
 
 Status Code: `500 Internal Server Error`
 
@@ -1455,6 +1491,99 @@ Status Code: `400 Bad Request`
 ```
 
 **5. 서버 오류**
+
+Status Code: `500 Internal Server Error`
+
+```json
+{
+  "status": 500,
+  "code": "INTERNAL_SERVER_ERROR",
+  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
+  "data": null
+}
+```
+
+---
+
+## 📌 Internal Order API
+
+> 서비스 간 내부 통신 전용 API입니다. 외부(클라이언트)에서 직접 호출하지 않습니다.
+
+| 기능 | Method | Endpoint | 설명 | 호출 서비스 |
+|------|--------|----------|------|------------|
+| 주문 상태 변경 | POST | /internal/orders/{orderId}/status | PENDING → PAID 상태 변경 | payment-service |
+
+### `POST /internal/orders/{orderId}/status` — 주문 상태 변경
+
+payment-service가 결제 완료 후 주문 상태를 PENDING → PAID로 변경합니다.
+
+#### Request
+
+Path Variable:
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|----------|------|------|------|
+| `orderId` | UUID | O | 상태를 변경할 주문 ID |
+
+Request Body:
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `status` | string | O | 변경할 상태 (`PAID`) |
+
+Request Body Example:
+
+```json
+{
+  "status": "PAID"
+}
+```
+
+#### Response
+
+**1. 요청 성공**
+
+Status Code: `200 OK`
+
+```json
+{
+  "status": 200,
+  "code": "ORDER_STATUS_UPDATED",
+  "message": "주문 상태가 변경되었습니다.",
+  "data": {
+    "orderId": "550e8400-e29b-41d4-a716-446655440001",
+    "status": "PAID"
+  }
+}
+```
+
+**2. 주문 없음**
+
+Status Code: `404 Not Found`
+
+```json
+{
+  "status": 404,
+  "code": "ORDER_NOT_FOUND",
+  "message": "해당 주문을 찾을 수 없습니다.",
+  "data": null
+}
+```
+
+**3. 상태 전환 불가**
+
+Status Code: `409 Conflict`
+
+```json
+{
+  "status": 409,
+  "code": "INVALID_ORDER_STATUS_TRANSITION",
+  "message": "현재 주문 상태에서 해당 상태로 전환할 수 없습니다.",
+  "data": null
+}
+```
+
+**4. 서버 오류**
 
 Status Code: `500 Internal Server Error`
 

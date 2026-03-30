@@ -160,6 +160,22 @@ class ProductControllerTest {
         }
 
         @Test
+        @DisplayName("이메일 미인증 판매자도 201과 등록된 상품을 반환한다 (issue #30 해결 전 임시)")
+        void success_whenEmailNotVerified() throws Exception {
+            UUID productId = UUID.randomUUID();
+            given(registerProductUseCase.registerProduct(any())).willReturn(createProduct(productId));
+
+            mockMvc.perform(post("/products")
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-Role", "SELLER")
+                            .header("X-Email-Verified", "false")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest())))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.code").value("PRODUCT_REGISTER_SUCCESS"));
+        }
+
+        @Test
         @DisplayName("인증 헤더가 없으면 403과 FORBIDDEN을 반환한다")
         void fail_whenNoAuth() throws Exception {
             mockMvc.perform(post("/products")
@@ -180,19 +196,6 @@ class ProductControllerTest {
                             .content(objectMapper.writeValueAsString(validRequest())))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("FORBIDDEN"));
-        }
-
-        @Test
-        @DisplayName("이메일 미인증 판매자면 403과 EMAIL_NOT_VERIFIED를 반환한다")
-        void fail_whenEmailNotVerified() throws Exception {
-            mockMvc.perform(post("/products")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-Role", "SELLER")
-                            .header("X-Email-Verified", "false")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(validRequest())))
-                    .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.code").value("EMAIL_NOT_VERIFIED"));
         }
 
         @Test
