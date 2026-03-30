@@ -26,6 +26,7 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "com.notfound.settlement.adapter.in.kafka.dto"
+        spring.json.value.default.type: "com.notfound.settlement.adapter.in.kafka.dto.PurchaseConfirmedEvent"
 
 eureka:
   client:
