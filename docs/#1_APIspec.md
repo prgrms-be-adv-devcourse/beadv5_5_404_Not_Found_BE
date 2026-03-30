@@ -2316,6 +2316,7 @@ Status Code: `500 Internal Server Error`
 | 주문 목록 조회 | GET | /order | 주문 리스트 |
 | 주문 상세 조회 | GET | /order/{orderId} | 주문 상세 |
 | 주문 취소 | POST | /order/{orderId}/cancel | 주문 취소 |
+| 구매확정 | POST | /order/{orderId}/confirm | 구매확정 (DELIVERED → PURCHASE_CONFIRMED) |
 | 반품 신청 | POST | /order/{orderId}/return | 반품 요청 |
 | 송장 등록/배송 정보 수정 | PATCH | /order/{orderId}/shipment | 송장/배송 수정 |
 
@@ -3099,6 +3100,114 @@ Status Code: `403 Forbidden`
 ```
 
 **5. 서버 오류**
+
+Status Code: `500 Internal Server Error`
+
+```json
+{
+  "status": 500,
+  "code": "INTERNAL_SERVER_ERROR",
+  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
+  "data": null
+}
+```
+
+---
+
+### `POST /order/{orderId}/confirm` — 구매확정
+
+배송 완료(DELIVERED) 상태의 주문을 구매확정(PURCHASE_CONFIRMED)으로 전환합니다. 전환 시 `confirmed_at` 시각을 기록하고, `PurchaseConfirmedEvent`(Kafka)를 발행하여 Payment 서비스가 정산 대상(`settlement_target`)을 생성합니다.
+
+> 자동 확정: 배송 완료 후 7일 경과 시 스케줄러가 자동 전환합니다. 이 API는 수동 확정용입니다.
+
+#### Request
+
+Path Variable:
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|----------|------|------|------|
+| `orderId` | number | O | 구매확정할 주문 ID |
+
+Request Header:
+
+| 헤더 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `Authorization` | string | O | Bearer access token |
+
+#### Response
+
+**1. 요청 성공**
+
+Status Code: `200 OK`
+
+```json
+{
+  "status": 200,
+  "code": "PURCHASE_CONFIRM_SUCCESS",
+  "message": "구매확정이 완료되었습니다.",
+  "data": {
+    "orderId": 1001,
+    "orderStatus": "PURCHASE_CONFIRMED",
+    "confirmedAt": "2026-03-30T12:00:00"
+  }
+}
+```
+
+**2. 클라이언트 오류 — 주문 없음**
+
+Status Code: `404 Not Found`
+
+```json
+{
+  "status": 404,
+  "code": "ORDER_NOT_FOUND",
+  "message": "주문을 찾을 수 없습니다.",
+  "data": null
+}
+```
+
+**3. 클라이언트 오류 — 구매확정 불가 상태**
+
+Status Code: `409 Conflict`
+
+```json
+{
+  "status": 409,
+  "code": "ORDER_CANNOT_BE_CONFIRMED",
+  "message": "배송 완료(DELIVERED) 상태에서만 구매확정이 가능합니다.",
+  "data": {
+    "currentStatus": "CONFIRMED"
+  }
+}
+```
+
+**4. 클라이언트 오류 — 권한 없음**
+
+Status Code: `403 Forbidden`
+
+```json
+{
+  "status": 403,
+  "code": "ORDER_ACCESS_DENIED",
+  "message": "해당 주문에 접근할 권한이 없습니다.",
+  "data": null
+}
+```
+
+**5. 클라이언트 오류 — 인증 실패**
+
+Status Code: `401 Unauthorized`
+
+```json
+{
+  "status": 401,
+  "code": "UNAUTHORIZED",
+  "message": "인증이 필요합니다.",
+  "data": null
+}
+```
+
+**6. 서버 오류**
 
 Status Code: `500 Internal Server Error`
 

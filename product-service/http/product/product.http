@@ -1,0 +1,156 @@
+@baseUrl   = http://localhost:8082
+@sellerId  = 11111111-1111-1111-1111-111111111111
+@adminId   = 00000000-0000-0000-0000-000000000001
+
+# category.http 에서 카테고리 생성 후 data.id를 아래에 붙여넣기
+@categoryId = 00000000-0000-0000-0000-000000000000
+
+# 상품 등록 후 data.id를 아래에 붙여넣기
+@productId  = 00000000-0000-0000-0000-000000000000
+
+
+### 상품 등록 (SELLER)
+POST {{baseUrl}}/products
+Content-Type: application/json
+X-User-Id: {{sellerId}}
+X-Role: SELLER
+X-Email-Verified: true
+
+{
+  "categoryId": "{{categoryId}}",
+  "isbn": "9791234567891",
+  "title": "클린 아키텍처",
+  "author": "로버트 C. 마틴",
+  "publisher": "인사이트",
+  "price": 25000,
+  "quantity": 100,
+  "bookType": "NEW"
+}
+
+
+### 상품 목록 조회 (전체)
+GET {{baseUrl}}/products
+
+
+### 상품 목록 조회 (ids 필터)
+GET {{baseUrl}}/products?ids={{productId}}
+
+
+### 상품 단건 조회
+GET {{baseUrl}}/products/{{productId}}
+
+
+### 상품 수정 (SELLER)
+PATCH {{baseUrl}}/products/{{productId}}
+Content-Type: application/json
+X-User-Id: {{sellerId}}
+X-Role: SELLER
+X-Email-Verified: true
+
+{
+  "title": "클린 아키텍처 (개정판)",
+  "price": 28000,
+  "quantity": 50
+}
+
+
+### 상품 상태 변경 → ACTIVE (ADMIN)
+# ProductStatus: PENDING_REVIEW | ACTIVE | INACTIVE | SOLD_OUT
+PATCH {{baseUrl}}/products/{{productId}}/status
+Content-Type: application/json
+X-User-Id: {{adminId}}
+X-Role: ADMIN
+X-Email-Verified: true
+
+{
+  "status": "ACTIVE"
+}
+
+
+### [실패] 이메일 미인증 SELLER → 403
+POST {{baseUrl}}/products
+Content-Type: application/json
+X-User-Id: {{sellerId}}
+X-Role: SELLER
+X-Email-Verified: false
+
+{
+  "categoryId": "{{categoryId}}",
+  "isbn": "9791234567892",
+  "title": "이메일 미인증 상품",
+  "author": "테스터",
+  "publisher": "테스트출판사",
+  "price": 10000,
+  "quantity": 10,
+  "bookType": "USED"
+}
+
+
+### [실패] MEMBER 권한으로 상품 등록 → 403
+POST {{baseUrl}}/products
+Content-Type: application/json
+X-User-Id: {{sellerId}}
+X-Role: MEMBER
+X-Email-Verified: true
+
+{
+  "categoryId": "{{categoryId}}",
+  "isbn": "9791234567893",
+  "title": "권한없음 상품",
+  "author": "테스터",
+  "publisher": "테스트출판사",
+  "price": 10000,
+  "quantity": 10,
+  "bookType": "NEW"
+}
+
+
+### [실패] 인증 헤더 없음 → 403
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "categoryId": "{{categoryId}}",
+  "isbn": "9791234567894",
+  "title": "헤더없음 상품",
+  "author": "테스터",
+  "publisher": "테스트출판사",
+  "price": 10000,
+  "quantity": 10,
+  "bookType": "NEW"
+}
+
+
+### [실패] ISBN 중복 → 409
+POST {{baseUrl}}/products
+Content-Type: application/json
+X-User-Id: {{sellerId}}
+X-Role: SELLER
+X-Email-Verified: true
+
+{
+  "categoryId": "{{categoryId}}",
+  "isbn": "9791234567891",
+  "title": "중복 ISBN 상품",
+  "author": "테스터",
+  "publisher": "테스트출판사",
+  "price": 10000,
+  "quantity": 10,
+  "bookType": "NEW"
+}
+
+
+### [실패] 존재하지 않는 상품 조회 → 404
+GET {{baseUrl}}/products/00000000-0000-0000-0000-000000000000
+
+
+### [실패] MEMBER가 상태 변경 시도 → 403
+PATCH {{baseUrl}}/products/{{productId}}/status
+Content-Type: application/json
+X-User-Id: {{sellerId}}
+X-Role: MEMBER
+X-Email-Verified: true
+
+{
+  "status": "INACTIVE"
+}

@@ -23,6 +23,8 @@ logs/
 Thumbs.db
 
 # Environment
+.env
+**/.env
 *.env.local
 
 # Spring Boot
