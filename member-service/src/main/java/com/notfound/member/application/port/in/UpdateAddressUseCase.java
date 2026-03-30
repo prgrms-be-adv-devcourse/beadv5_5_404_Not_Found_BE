@@ -6,6 +6,5 @@ import com.notfound.member.domain.model.Address;
 import java.util.UUID;
 
 public interface UpdateAddressUseCase {
-
     Address updateAddress(UUID memberId, UUID addressId, UpdateAddressCommand command);
 }

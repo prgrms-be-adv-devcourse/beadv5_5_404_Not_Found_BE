@@ -1,4 +1,6 @@
 @baseUrl = http://localhost:8080
+# INTERNAL_SECRET_KEY 환경변수 값과 일치해야 함
+@internalSecret = test-secret
 
 
 ### ════════════════════════════════════════
@@ -191,10 +193,78 @@ Authorization: Bearer {{sellerToken}}
 
 
 ### ════════════════════════════════════════
-###  STEP 6. 토큰 재발급 (만료 시)
+###  STEP 6. 재고 차감 Internal API (서비스 간 직접 호출)
+###
+###  ※ gateway를 거치지 않으므로 product-service 포트(8082)로 직접 호출
+###  ※ STEP 5-1 상품 등록 → STEP 5-4 ACTIVE 전환 후 실행
 ### ════════════════════════════════════════
 
-### STEP 6-1. SELLER 토큰 재발급
+### STEP 6-1. 재고 차감 정상 → 200
+POST http://localhost:8082/internal/products/stock/deduct
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "items": [
+    {
+      "productId": "{{productId}}",
+      "quantity": 5
+    }
+  ]
+}
+
+
+### STEP 6-2. 재고 부족 → 400 (PRODUCT_INSUFFICIENT_STOCK)
+### STEP 6-1을 여러 번 실행해 재고를 소진하거나, quantity를 재고보다 크게 설정
+POST http://localhost:8082/internal/products/stock/deduct
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "items": [
+    {
+      "productId": "{{productId}}",
+      "quantity": 99999
+    }
+  ]
+}
+
+
+### STEP 6-3. 존재하지 않는 상품 → 404 (PRODUCT_NOT_FOUND)
+POST http://localhost:8082/internal/products/stock/deduct
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "items": [
+    {
+      "productId": "00000000-0000-0000-0000-000000000000",
+      "quantity": 1
+    }
+  ]
+}
+
+
+### STEP 6-4. 요청 유효성 실패 (quantity = 0) → 400 (INVALID_INPUT_VALUE)
+POST http://localhost:8082/internal/products/stock/deduct
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "items": [
+    {
+      "productId": "{{productId}}",
+      "quantity": 0
+    }
+  ]
+}
+
+
+### ════════════════════════════════════════
+###  STEP 7. 토큰 재발급 (만료 시)
+### ════════════════════════════════════════
+
+### STEP 7-1. SELLER 토큰 재발급
 POST {{baseUrl}}/api/member/auth/refresh
 Content-Type: application/json
 

@@ -101,6 +101,8 @@ public class MemberService implements CheckMemberActiveUseCase, GetDepositBalanc
                 throw MemberException.invalidPassword();
             }
             member.changePassword(passwordEncoder.encode(command.password()));
+            // 비밀번호 변경 시 기존 세션 전부 무효화
+            tokenRevokeService.revokeAllByMemberId(memberId);
         }
 
         member.updateProfile(command.name(), command.phone());

@@ -70,7 +70,7 @@ class InternalMemberIntegrationTest {
                 }
                 """;
 
-        mockMvc.perform(post("/member/addresses")
+        mockMvc.perform(post("/member/address")
                         .header("X-User-Id", memberId)
                         .header("X-Role", "USER")
                         .header("X-Email-Verified", "true")
@@ -85,7 +85,7 @@ class InternalMemberIntegrationTest {
     @Order(1)
     @DisplayName("[Internal] 배송지 목록 조회 성공")
     void getAddresses_success() throws Exception {
-        mockMvc.perform(get("/internal/member/{memberId}/addresses", memberId)
+        mockMvc.perform(get("/internal/member/{memberId}/address", memberId)
                         .header("X-Internal-Secret", INTERNAL_SECRET))
                 .andDo(print())
                 .andExpect(status().isOk())
@@ -98,7 +98,7 @@ class InternalMemberIntegrationTest {
     @Order(2)
     @DisplayName("[Internal] 배송지 목록 조회 실패 - Internal Secret 누락")
     void getAddresses_noSecret() throws Exception {
-        mockMvc.perform(get("/internal/member/{memberId}/addresses", memberId))
+        mockMvc.perform(get("/internal/member/{memberId}/address", memberId))
                 .andDo(print())
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));

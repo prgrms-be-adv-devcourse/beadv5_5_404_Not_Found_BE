@@ -5,6 +5,9 @@ import java.util.UUID;
 public record DepositChangedEvent(
         UUID memberId,
         int amount,
-        String type
+        Type type
 ) {
+    public enum Type {
+        CHARGE, DEDUCT
+    }
 }

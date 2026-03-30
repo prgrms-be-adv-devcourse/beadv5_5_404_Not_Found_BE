@@ -9,12 +9,7 @@ public record UpdateMemberResponse(
         String name,
         String phone
 ) {
-
     public static UpdateMemberResponse from(Member member) {
-        return new UpdateMemberResponse(
-                member.getId(),
-                member.getName(),
-                member.getPhone()
-        );
+        return new UpdateMemberResponse(member.getId(), member.getName(), member.getPhone());
     }
 }
