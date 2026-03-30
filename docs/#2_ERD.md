@@ -196,6 +196,12 @@ erDiagram
         TIMESTAMP settled_at "정산 실행 시각"
         ENUM status "PENDING | COMPLETED | FAILED"
     }
+    SHEDLOCK {
+        VARCHAR_64 name PK "락 이름 (e.g. monthly-settlement)"
+        TIMESTAMP lock_until "락 만료 시각 (lockAtMostFor 기준 자동 해제)"
+        TIMESTAMP locked_at "락 획득 시각"
+        VARCHAR_255 locked_by "락을 획득한 인스턴스 (hostname)"
+    }
 
     MEMBER ||--o{ ADDRESS : has
     MEMBER ||--o| SELLER : becomes
