@@ -11,7 +11,9 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "cart_item")
+@Table(name = "cart_item", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"cartId", "productId"})
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CartItemJpaEntity {

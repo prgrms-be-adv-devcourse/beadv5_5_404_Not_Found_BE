@@ -32,6 +32,12 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(400, "INVALID_INPUT_VALUE", "입력값이 올바르지 않습니다.", errors));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException e) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(400, "INVALID_INPUT_VALUE", e.getMessage()));
+    }
+
     private int resolveStatus(String code) {
         if (code.contains("NOT_FOUND")) return HttpStatus.NOT_FOUND.value();
         if (code.contains("ACCESS_DENIED")) return HttpStatus.FORBIDDEN.value();

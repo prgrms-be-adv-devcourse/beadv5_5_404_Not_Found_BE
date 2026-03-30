@@ -27,12 +27,6 @@ public class RoleAuthorizationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // /internal/** → InternalSecretFilter handles
-        if (path.startsWith("/internal/")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         // All order APIs require authentication
         String userId = request.getHeader(HEADER_USER_ID);
         if (userId == null || userId.isBlank()) {

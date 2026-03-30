@@ -22,6 +22,9 @@ public class CartItem {
     public LocalDateTime getCreatedAt() { return createdAt; }
 
     public void updateQuantity(int quantity) {
+        if (quantity < 1) {
+            throw new IllegalArgumentException("수량은 1 이상이어야 합니다.");
+        }
         this.quantity = quantity;
     }
 
@@ -30,7 +33,11 @@ public class CartItem {
         public Builder id(UUID id) { item.id = id; return this; }
         public Builder cartId(UUID cartId) { item.cartId = cartId; return this; }
         public Builder productId(UUID productId) { item.productId = productId; return this; }
-        public Builder quantity(int quantity) { item.quantity = quantity; return this; }
+        public Builder quantity(int quantity) {
+            if (quantity < 1) throw new IllegalArgumentException("수량은 1 이상이어야 합니다.");
+            item.quantity = quantity;
+            return this;
+        }
         public Builder createdAt(LocalDateTime createdAt) { item.createdAt = createdAt; return this; }
         public CartItem build() { return item; }
     }

@@ -6,6 +6,7 @@ import com.notfound.order.application.port.out.CartRepository;
 import com.notfound.order.domain.exception.OrderException;
 import com.notfound.order.domain.model.Cart;
 import com.notfound.order.domain.model.CartItem;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,22 +28,42 @@ public class CartService implements AddCartItemUseCase, GetCartUseCase,
     @Override
     @Transactional
     public CartItem addCartItem(UUID memberId, UUID productId, int quantity) {
-        Cart cart = cartRepository.findByMemberId(memberId)
-                .orElseGet(() -> cartRepository.save(
-                        Cart.builder().memberId(memberId).build()));
+        Cart cart = getOrCreateCart(memberId);
 
-        // If same product exists, add quantity
         return cartItemRepository.findByCartIdAndProductId(cart.getId(), productId)
                 .map(existing -> {
                     existing.updateQuantity(existing.getQuantity() + quantity);
                     return cartItemRepository.save(existing);
                 })
-                .orElseGet(() -> cartItemRepository.save(
-                        CartItem.builder()
-                                .cartId(cart.getId())
-                                .productId(productId)
-                                .quantity(quantity)
-                                .build()));
+                .orElseGet(() -> {
+                    try {
+                        return cartItemRepository.save(
+                                CartItem.builder()
+                                        .cartId(cart.getId())
+                                        .productId(productId)
+                                        .quantity(quantity)
+                                        .build());
+                    } catch (DataIntegrityViolationException e) {
+                        // 동시 요청으로 중복 생성된 경우 → 재조회 후 수량 합산
+                        CartItem existing = cartItemRepository.findByCartIdAndProductId(cart.getId(), productId)
+                                .orElseThrow(OrderException::cartItemNotFound);
+                        existing.updateQuantity(existing.getQuantity() + quantity);
+                        return cartItemRepository.save(existing);
+                    }
+                });
+    }
+
+    private Cart getOrCreateCart(UUID memberId) {
+        return cartRepository.findByMemberId(memberId)
+                .orElseGet(() -> {
+                    try {
+                        return cartRepository.save(Cart.builder().memberId(memberId).build());
+                    } catch (DataIntegrityViolationException e) {
+                        // 동시 최초 요청으로 중복 생성된 경우 → 재조회
+                        return cartRepository.findByMemberId(memberId)
+                                .orElseThrow(OrderException::cartNotFound);
+                    }
+                });
     }
 
     @Override
