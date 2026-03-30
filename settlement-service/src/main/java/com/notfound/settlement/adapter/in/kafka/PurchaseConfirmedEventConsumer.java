@@ -26,7 +26,7 @@ public class PurchaseConfirmedEventConsumer {
                         event.payload().orderId(),
                         event.payload().sellerId(),
                         event.payload().totalAmount(),
-                        event.timestamp()   // confirmedAt = 이벤트 발행 시각 (이슈 #27)
+                        event.payload().confirmedAt()
                 )
         );
     }

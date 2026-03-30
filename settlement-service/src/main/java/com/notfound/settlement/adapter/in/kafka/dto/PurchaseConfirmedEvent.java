@@ -22,7 +22,8 @@ public record PurchaseConfirmedEvent(
             UUID orderId,
             UUID sellerId,
             List<OrderItem> orderItems,
-            long totalAmount
+            long totalAmount,
+            LocalDateTime confirmedAt
     ) {}
 
     public record OrderItem(
