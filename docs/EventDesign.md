@@ -1,26 +1,24 @@
 # 이벤트 설계 문서
 
 > MSA 환경에서 서비스 간 비동기 통신은 두 가지 방식을 사용합니다:
-> 1. **Kafka**: 재고 및 정산 관련 이벤트 (StockDeductedEvent, StockRestoredEvent, PurchaseConfirmedEvent)
+> 1. **Kafka**: 정산 관련 이벤트만 (PurchaseConfirmedEvent)
 > 2. **Spring Event (ApplicationEventPublisher)**: 각 서비스 내부 도메인 이벤트
+>
+> **재고 차감/복원은 REST 동기 호출로 처리합니다** (payment-service → product-service, Kafka 미사용)
 
 ---
 
 ## 1. Kafka Events (서비스 간 비동기 통신)
 
-재고 차감/복원 및 정산 관련 이벤트를 Kafka를 통해 비동기로 처리됩니다.
+정산 관련 이벤트만 Kafka를 통해 비동기로 처리합니다.
 
 | 이벤트명 | Producer | Consumer | Topic | 목적 |
 |---------|----------|----------|-------|------|
-| `StockDeductedEvent` | Order | Product | `product.stock-deducted` | 주문 시 재고 차감 반영 |
-| `StockRestoredEvent` | Order | Product | `product.stock-restored` | 주문 취소 시 재고 복구 |
-| `StockDeductFailedEvent` | Product | Order, Payment | `product.stock-deduct-failed` | 낙관적 락 충돌로 재고 차감 실패 시 보상 트랜잭션 트리거 | 미구현 — payment-service 환불 구현 완료 후 적용 |
 | `PurchaseConfirmedEvent` | Order | Payment | `order.purchase-confirmed` | 구매확정 → 정산 대상 생성 트리거 |
 
-> **삭제된 이벤트:**
-> - ~~`OrderDeliveredEvent`~~: 리뷰 작성 가능 여부는 Review 서비스가 리뷰 작성 시점에 Order 서비스에 REST로 구매 이력을 확인하는 방식으로 대체. Kafka 불필요.
-> - ~~`PaymentApprovedEvent`~~: 예치금 결제는 주문 생성 트랜잭션 내에서 REST 동기 호출로 처리되므로 별도 이벤트 불필요.
-> - ~~`RefundCompletedEvent` (Kafka)~~: 환불 흐름은 Order가 REST로 주도하며, Payment 내부 후처리는 Spring Event로 충분.
+> **재고 차감/복원은 REST 동기 호출로 처리합니다:**
+> - 재고 차감: payment-service → `POST /internal/products/stock/deduct` (product-service)
+> - 재고 복원: order-service → `POST /internal/products/stock/restore` (product-service, 추후 구현)
 
 ---
 
@@ -61,7 +59,7 @@
 {도메인}.{이벤트 동사/상태}
 ```
 
-예시: `product.stock-deducted`, `product.stock-restored`
+예시: `order.purchase-confirmed`
 
 ---
 
@@ -70,7 +68,7 @@
 ```json
 {
   "eventId": "UUID",
-  "eventType": "StockDeductedEvent",
+  "eventType": "PurchaseConfirmedEvent",
   "timestamp": "2026-03-23T12:00:00Z",
   "payload": {
     // 이벤트별 데이터
@@ -80,32 +78,16 @@
 
 ### Kafka Events 메시지 구조
 
-**StockDeductedEvent**
+**PurchaseConfirmedEvent**
 ```json
 {
   "eventId": "UUID",
-  "eventType": "StockDeductedEvent",
+  "eventType": "PurchaseConfirmedEvent",
   "timestamp": "2026-03-23T12:00:00Z",
   "payload": {
     "orderId": "UUID",
-    "productId": "UUID",
-    "quantity": 2,
-    "reason": "ORDER_CREATED"
-  }
-}
-```
-
-**StockRestoredEvent**
-```json
-{
-  "eventId": "UUID",
-  "eventType": "StockRestoredEvent",
-  "timestamp": "2026-03-23T12:00:00Z",
-  "payload": {
-    "orderId": "UUID",
-    "productId": "UUID",
-    "quantity": 2,
-    "reason": "ORDER_CANCELLED"
+    "memberId": "UUID",
+    "confirmedAt": "2026-03-23T12:00:00Z"
   }
 }
 ```
@@ -132,6 +114,9 @@ Spring Event는 별도의 adapter 없이 ApplicationEventPublisher와 EventListe
 
 | 이벤트 | 삭제 사유 |
 |--------|----------|
+| `StockDeductedEvent` | 재고 차감은 payment-service → product-service REST 동기 호출로 전환 (이슈 #32, #35) |
+| `StockRestoredEvent` | 재고 복원도 REST 동기 호출로 전환 예정 (이슈 #32) |
+| `StockDeductFailedEvent` | StockDeductedEvent 제거로 불필요 |
 | `PaymentApprovedEvent` | 예치금 결제는 주문 생성 트랜잭션 내 REST 동기 호출로 처리. 별도 Kafka 이벤트 불필요 |
 | `RefundCompletedEvent` (Kafka) | 환불 흐름은 Order가 REST로 주도. Payment 내부 후처리는 Spring Event(`RefundCompletedEvent`)로 처리 |
 | `OrderDeliveredEvent` | 리뷰 작성 가능 여부는 Review → Order REST 구매 이력 확인으로 대체 |

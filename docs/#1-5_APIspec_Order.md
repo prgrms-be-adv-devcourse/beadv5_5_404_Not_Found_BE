@@ -15,7 +15,7 @@
 | 장바구니 항목 삭제 | DELETE | /order/cart/item/{cartItemId} | 항목 삭제 |
 | 장바구니 비우기 | DELETE | /order/cart | 전체 삭제 |
 | 결제 페이지 정보 조회 | GET | /order/checkout | 결제 페이지 정보 조회 |
-| 주문 생성 | POST | /order | 주문 생성 + 예치금 결제 |
+| 주문 생성 | POST | /order | 주문 생성 (PENDING 상태, 결제 미포함) |
 | 주문 목록 조회 | GET | /order | 주문 리스트 |
 | 주문 상세 조회 | GET | /order/{orderId} | 주문 상세 |
 | 주문 취소 | POST | /order/{orderId}/cancel | 주문 취소 |
@@ -28,10 +28,11 @@
 - **Cart**: 장바구니는 회원 전용 기능입니다. 비회원 장바구니는 지원하지 않습니다.
 - **Cart Item Stock Check**: 장바구니에 상품을 추가할 때는 재고를 확인하지 않습니다. 어떤 상품이든 추가할 수 있습니다.
 - **Cart Item Latest Info**: 장바구니 조회 시 상품의 최신 가격과 재고 정보를 함께 반환합니다. 가격 변동 또는 품절 여부를 표시합니다.
-- **Order Status**: 주문은 생성 시점에 즉시 PAID 상태로 변경됩니다. PENDING_PAYMENT 상태는 존재하지 않습니다. 유효한 상태: PAID, CONFIRMED, SHIPPING, DELIVERED, PURCHASE_CONFIRMED, CANCELLED
+- **Order Status**: 주문은 생성 시점에 PENDING 상태입니다. 결제 완료(`POST /payment/orders/{orderId}/pay`) 후 PAID로 전환됩니다. 유효한 상태: PENDING, PAID, CONFIRMED, SHIPPING, DELIVERED, PURCHASE_CONFIRMED, CANCELLED
+- **Order-Payment Separation**: `POST /order`는 주문 정보만 생성(PENDING)합니다. 실제 결제(재고 차감 + 예치금 차감)는 payment-service의 `POST /payment/orders/{orderId}/pay`가 담당합니다.
 - **Purchase Confirm**: 배송 완료(DELIVERED) 후 구매자가 수동 확정하거나, 7일 경과 시 스케줄러가 자동으로 PURCHASE_CONFIRMED로 전환합니다. 전환 시 PurchaseConfirmedEvent(Kafka)를 발행하여 Payment 서비스가 정산 대상을 생성합니다.
 - **Payment**: 모든 상품 결제는 예치금만 사용합니다. PG는 예치금 충전(POST /payment/deposit/charge/*) 시에만 사용됩니다.
-- **Stock Events**: 재고 차감/복원은 Kafka를 통해 처리됩니다. (StockDeductedEvent, StockRestoredEvent)
+- **Stock**: 재고 차감/복원은 REST 동기 호출로 처리됩니다. Kafka 이벤트를 사용하지 않습니다.
 - **Checkout**: 결제 페이지 조회(`GET /order/checkout`)는 순수 조회용 API입니다. checkoutId는 생성하지 않으며, DB에 저장하지 않습니다. 중복 주문 방지는 `POST /order` 시 `idempotency_key`로 처리합니다.
 - **Shipping Fee**: 배송비 정책 — 도서류 1종류 이상 포함, 총 금액 15,000원 이상 시 무료배송. 그 외 2,500원 유료배송.
 
@@ -1490,6 +1491,99 @@ Status Code: `400 Bad Request`
 ```
 
 **5. 서버 오류**
+
+Status Code: `500 Internal Server Error`
+
+```json
+{
+  "status": 500,
+  "code": "INTERNAL_SERVER_ERROR",
+  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
+  "data": null
+}
+```
+
+---
+
+## 📌 Internal Order API
+
+> 서비스 간 내부 통신 전용 API입니다. 외부(클라이언트)에서 직접 호출하지 않습니다.
+
+| 기능 | Method | Endpoint | 설명 | 호출 서비스 |
+|------|--------|----------|------|------------|
+| 주문 상태 변경 | POST | /internal/orders/{orderId}/status | PENDING → PAID 상태 변경 | payment-service |
+
+### `POST /internal/orders/{orderId}/status` — 주문 상태 변경
+
+payment-service가 결제 완료 후 주문 상태를 PENDING → PAID로 변경합니다.
+
+#### Request
+
+Path Variable:
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|----------|------|------|------|
+| `orderId` | UUID | O | 상태를 변경할 주문 ID |
+
+Request Body:
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `status` | string | O | 변경할 상태 (`PAID`) |
+
+Request Body Example:
+
+```json
+{
+  "status": "PAID"
+}
+```
+
+#### Response
+
+**1. 요청 성공**
+
+Status Code: `200 OK`
+
+```json
+{
+  "status": 200,
+  "code": "ORDER_STATUS_UPDATED",
+  "message": "주문 상태가 변경되었습니다.",
+  "data": {
+    "orderId": "550e8400-e29b-41d4-a716-446655440001",
+    "status": "PAID"
+  }
+}
+```
+
+**2. 주문 없음**
+
+Status Code: `404 Not Found`
+
+```json
+{
+  "status": 404,
+  "code": "ORDER_NOT_FOUND",
+  "message": "해당 주문을 찾을 수 없습니다.",
+  "data": null
+}
+```
+
+**3. 상태 전환 불가**
+
+Status Code: `409 Conflict`
+
+```json
+{
+  "status": 409,
+  "code": "INVALID_ORDER_STATUS_TRANSITION",
+  "message": "현재 주문 상태에서 해당 상태로 전환할 수 없습니다.",
+  "data": null
+}
+```
+
+**4. 서버 오류**
 
 Status Code: `500 Internal Server Error`
 
