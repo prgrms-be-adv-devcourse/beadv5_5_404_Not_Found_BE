@@ -72,7 +72,7 @@ public class MemberAddressController {
     public ResponseEntity<ApiResponse<AddressResponse>> updateAddress(
             @AuthUser AuthenticatedUser user,
             @PathVariable UUID addressId,
-            @RequestBody UpdateAddressRequest request) {
+            @Valid @RequestBody UpdateAddressRequest request) {
 
         UUID memberId = UUID.fromString(user.userId());
         Address updated = updateAddressUseCase.updateAddress(

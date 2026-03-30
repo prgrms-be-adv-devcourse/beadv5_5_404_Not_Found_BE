@@ -61,7 +61,7 @@ public class MemberController {
     @PatchMapping
     public ResponseEntity<ApiResponse<UpdateMemberResponse>> updateMyProfile(
             @AuthUser AuthenticatedUser user,
-            @RequestBody UpdateMemberRequest request) {
+            @Valid @RequestBody UpdateMemberRequest request) {
 
         UUID memberId = UUID.fromString(user.userId());
         Member member = updateMemberUseCase.updateMember(memberId, request.toCommand());

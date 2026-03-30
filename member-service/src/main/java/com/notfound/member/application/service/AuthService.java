@@ -74,7 +74,7 @@ public class AuthService implements RegisterMemberUseCase, LoginUseCase, Refresh
                 .status(MemberStatus.ACTIVE)
                 .pointBalance(0)
                 .depositBalance(0)
-                .emailVerified(false)
+                .emailVerified(true) // TODO: 이메일 인증 기능 구현 시 false로 변경
                 .build();
 
         Member savedMember = memberRepository.save(member);
