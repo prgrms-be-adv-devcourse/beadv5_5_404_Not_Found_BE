@@ -5,7 +5,8 @@ import java.util.UUID;
 
 public record CreateOrderCommand(
         List<OrderItemCommand> items,
-        UUID addressId
+        UUID addressId,
+        String idempotencyKey
 ) {
     public record OrderItemCommand(
             UUID productId,

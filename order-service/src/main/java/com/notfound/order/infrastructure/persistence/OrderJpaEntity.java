@@ -49,9 +49,21 @@ public class OrderJpaEntity {
     @Column(nullable = false, unique = true, length = 100)
     private String idempotencyKey;
 
+    private UUID addressId;
+
+    @Column(columnDefinition = "text")
+    private String cartItemIds;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    private LocalDateTime deliveredAt;
+
+    private LocalDateTime confirmedAt;
+
+    @Version
+    private Long version;
 
     public static OrderJpaEntity from(Order order) {
         OrderJpaEntity entity = new OrderJpaEntity();
@@ -64,7 +76,12 @@ public class OrderJpaEntity {
         entity.depositUsed = order.getDepositUsed();
         entity.shippingSnapshot = order.getShippingSnapshot();
         entity.idempotencyKey = order.getIdempotencyKey();
+        entity.addressId = order.getAddressId();
+        entity.cartItemIds = order.getCartItemIds();
         entity.createdAt = order.getCreatedAt();
+        entity.deliveredAt = order.getDeliveredAt();
+        entity.confirmedAt = order.getConfirmedAt();
+        entity.version = order.getVersion();
         return entity;
     }
 
@@ -79,7 +96,12 @@ public class OrderJpaEntity {
                 .depositUsed(depositUsed)
                 .shippingSnapshot(shippingSnapshot)
                 .idempotencyKey(idempotencyKey)
+                .addressId(addressId)
+                .cartItemIds(cartItemIds)
                 .createdAt(createdAt)
+                .deliveredAt(deliveredAt)
+                .confirmedAt(confirmedAt)
+                .version(version)
                 .build();
     }
 }

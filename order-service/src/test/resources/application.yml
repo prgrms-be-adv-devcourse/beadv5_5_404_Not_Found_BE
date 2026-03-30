@@ -4,11 +4,13 @@ server:
 spring:
   application:
     name: order-service-test
+  flyway:
+    enabled: false
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/bookcommerce}
-    username: ${DB_USERNAME:postgres}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
+    driver-class-name: ${DB_DRIVER}
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -16,15 +18,16 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 service:
   member:
-    url: ${MEMBER_SERVICE_URL:http://localhost:8081}
+    url: ${MEMBER_SERVICE_URL}
 
 internal:
   secret-key: ${INTERNAL_SECRET_KEY}

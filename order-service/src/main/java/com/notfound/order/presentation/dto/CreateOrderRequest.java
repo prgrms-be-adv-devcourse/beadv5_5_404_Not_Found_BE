@@ -15,7 +15,10 @@ public record CreateOrderRequest(
         List<OrderItemRequest> items,
 
         @NotNull(message = "배송지를 선택해주세요.")
-        UUID addressId
+        UUID addressId,
+
+        @NotNull(message = "멱등키는 필수입니다.")
+        String idempotencyKey
 ) {
     public record OrderItemRequest(
             @NotNull(message = "상품 ID는 필수입니다.")
@@ -31,6 +34,6 @@ public record CreateOrderRequest(
         var commandItems = items.stream()
                 .map(i -> new CreateOrderCommand.OrderItemCommand(i.productId(), i.quantity(), i.cartItemId()))
                 .toList();
-        return new CreateOrderCommand(commandItems, addressId);
+        return new CreateOrderCommand(commandItems, addressId, idempotencyKey);
     }
 }

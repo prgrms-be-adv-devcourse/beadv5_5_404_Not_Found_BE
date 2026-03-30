@@ -1,0 +1,14 @@
+# Flyway 마이그레이션 검증용 프로파일
+# H2 PostgreSQL 모드에서 Flyway 스크립트가 정상 실행되는지 확인
+spring:
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+internal:
+  secret-key: test-internal-secret-key-for-testing
