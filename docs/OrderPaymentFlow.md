@@ -40,7 +40,7 @@ sequenceDiagram
 
     rect rgb(235, 245, 255)
         Note over Client,Cart: 1단계 — 장바구니 담기 (재고 제한 없음)
-        Client->>Cart: POST /cart/items (productId, quantity)
+        Client->>Cart: POST /order/cart/item (productId, quantity)
         Cart->>Cart: CartItem 저장
         Cart-->>Client: 장바구니 추가 완료
     end
@@ -57,11 +57,11 @@ sequenceDiagram
     rect rgb(255, 248, 235)
         Note over Client,Deposit: 3단계 — 결제 페이지 진입
         alt 장바구니 경로
-            Client->>Order: GET /orders/checkout?cartItemIds
+            Client->>Order: GET /order/checkout?cartItemIds
             Order->>Cart: 장바구니 조회
             Cart-->>Order: 상품 목록
         else 바로 결제 경로
-            Client->>Order: GET /orders/checkout?productId&quantity
+            Client->>Order: GET /order/checkout?productId&quantity
             Order->>Product: 상품 조회
             Product-->>Order: 상품 정보
         end
@@ -74,7 +74,7 @@ sequenceDiagram
 
     rect rgb(235, 255, 240)
         Note over Client,Event: 4단계 — 결제하기 버튼 (단일 트랜잭션)
-        Client->>Order: POST /orders (items)
+        Client->>Order: POST /order (items)
         Note over Order: 서버에서 총 금액 계산
         Order->>Product: 재고 재검증
         alt 재고 부족
@@ -204,7 +204,7 @@ sequenceDiagram
     participant Product
     participant Event
 
-    Client->>Order: POST /orders/{id}/cancel
+    Client->>Order: POST /order/{orderId}/cancel
     Order->>Order: 주문 상태 검증 (취소 가능 여부)
 
     alt 취소 불가 상태
@@ -249,35 +249,16 @@ sequenceDiagram
 
 ---
 
-## 설계 결정 사항
-
-### 장바구니 — 회원 전용
-
-장바구니는 회원 전용 기능이다. 비회원 장바구니(X-Cart-Token)는 지원하지 않는다.
-
-### checkoutId — 사용하지 않음
-
-결제 페이지 조회(`GET /order/checkout`)는 순수 조회용 API이다. checkoutId를 생성하거나 DB에 저장하지 않는다. 중복 주문 방지는 `POST /order` 시 `idempotency_key`로 처리한다.
-
-### 배송비 정책
-
-| 조건 | 배송비 |
-|------|--------|
-| 도서류 1종류 이상 포함 + 총 금액 15,000원 이상 | 무료 |
-| 그 외 | 2,500원 |
-
----
-
 ## API 엔드포인트
 
 ```
-POST   /order/cart/item              장바구니 상품 추가 (회원 전용)
-GET    /order/cart                    장바구니 조회 (품절/가격변동 표시, 회원 전용)
+POST   /order/cart/item              장바구니 상품 추가
+GET    /order/cart                    장바구니 조회 (품절/가격변동 표시)
 PATCH  /order/cart/item/{id}         장바구니 수량 수정
 DELETE /order/cart/item/{id}         장바구니 상품 삭제
 DELETE /order/cart                    장바구니 비우기
 
-GET    /order/checkout               결제 페이지 정보 조회 (상품, 배송지, 잔액 — checkoutId 없음)
+GET    /order/checkout               결제 페이지 정보 조회 (상품, 배송지, 잔액)
 POST   /order                        결제하기 (서버 금액 계산 → 재고 검증 → 예치금 차감 → 재고 차감 → 주문 생성)
 POST   /order/{orderId}/cancel       주문 취소 (예치금 환급 + 재고 복원)
 GET    /order                        주문 목록 조회
