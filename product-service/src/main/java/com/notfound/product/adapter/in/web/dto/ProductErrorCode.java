@@ -29,6 +29,7 @@ public enum ProductErrorCode {
     CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "CATEGORY_NOT_FOUND", "카테고리를 찾을 수 없습니다."),
     CATEGORY_SLUG_DUPLICATE(HttpStatus.CONFLICT, "CATEGORY_SLUG_DUPLICATE", "이미 사용 중인 슬러그입니다."),
     PRODUCT_INSUFFICIENT_STOCK(HttpStatus.BAD_REQUEST, "PRODUCT_INSUFFICIENT_STOCK", "재고가 부족합니다."),
+    PRODUCT_STOCK_CONFLICT(HttpStatus.CONFLICT, "PRODUCT_STOCK_CONFLICT", "재고 처리 중 충돌이 발생했습니다."),
     INVALID_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, "INVALID_STATUS_TRANSITION", "허용되지 않는 상태 전환입니다."),
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "INVALID_INPUT_VALUE", "입력값이 올바르지 않습니다.");
 
