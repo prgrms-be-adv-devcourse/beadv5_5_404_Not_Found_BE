@@ -193,6 +193,10 @@ public class OrderController {
             @PathVariable UUID orderId,
             @Valid @RequestBody UpdateShipmentRequest request) {
 
+        if (!"SELLER".equalsIgnoreCase(user.role())) {
+            throw com.notfound.order.domain.exception.OrderException.shipmentAccessDenied();
+        }
+
         UUID memberId = UUID.fromString(user.userId());
         com.notfound.order.domain.model.ShipmentStatus status = request.shipmentStatus() != null
                 ? com.notfound.order.domain.model.ShipmentStatus.valueOf(request.shipmentStatus())

@@ -26,7 +26,7 @@ public class OrderException extends RuntimeException {
     }
 
     public static OrderException noItemsSelected() {
-        return new OrderException("NO_ITEMS_SELECTED", "주문할 상품을 선택해주세요.");
+        return new OrderException("NO_ITEMS_SELECTED", "주문할 상품을 선택해 주세요.");
     }
 
     public static OrderException productNotFound() {
@@ -34,7 +34,7 @@ public class OrderException extends RuntimeException {
     }
 
     public static OrderException emptyOrder() {
-        return new OrderException("EMPTY_ORDER", "주문 항목이 비어있습니다.");
+        return new OrderException("EMPTY_ORDER", "주문 항목이 비어 있습니다.");
     }
 
     public static OrderException insufficientStock() {
@@ -62,15 +62,15 @@ public class OrderException extends RuntimeException {
     }
 
     public static OrderException orderCannotBeCancelled() {
-        return new OrderException("ORDER_CANCEL_NOT_ALLOWED", "취소할 수 없는 주문입니다.");
+        return new OrderException("ORDER_CANNOT_BE_CANCELLED", "취소할 수 없는 주문입니다.");
     }
 
     public static OrderException orderCannotBeConfirmed() {
-        return new OrderException("ORDER_CANNOT_BE_CONFIRMED", "구매확정할 수 없는 주문입니다.");
+        return new OrderException("ORDER_CANNOT_BE_CONFIRMED", "구매 확정할 수 없는 주문입니다.");
     }
 
     public static OrderException orderCannotBeReturned() {
-        return new OrderException("ORDER_CANNOT_BE_RETURNED", "현재 주문 상태에서는 반품 신청이 불가능합니다.");
+        return new OrderException("ORDER_CANNOT_BE_RETURNED", "현재 주문 상태에서는 반품 요청이 불가능합니다.");
     }
 
     public static OrderException shipmentAccessDenied() {

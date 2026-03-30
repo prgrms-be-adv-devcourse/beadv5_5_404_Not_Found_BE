@@ -42,7 +42,7 @@ public class AutoConfirmScheduler {
             orderRepository.save(order);
 
             purchaseEventPublisher.publishPurchaseConfirmed(
-                    order.getId(), order.getMemberId(), order.getTotalAmount());
+                    order.getId(), order.getMemberId(), order.getTotalAmount(), order.getConfirmedAt());
 
             log.info("자동 구매확정 완료: orderId={}", order.getId());
         }

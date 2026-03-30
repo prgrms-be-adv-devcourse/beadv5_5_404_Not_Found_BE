@@ -56,7 +56,9 @@ public class GlobalExceptionHandler {
         if (code.contains("NOT_FOUND")) return HttpStatus.NOT_FOUND.value();
         if (code.contains("ACCESS_DENIED")) return HttpStatus.FORBIDDEN.value();
         if (code.contains("UNAUTHORIZED")) return HttpStatus.UNAUTHORIZED.value();
-        if (code.contains("CANNOT_BE") || code.contains("INSUFFICIENT_STOCK")) return HttpStatus.CONFLICT.value();
+        if (code.contains("CANNOT_BE") || code.contains("NOT_ALLOWED") || code.contains("INSUFFICIENT_STOCK")) {
+            return HttpStatus.CONFLICT.value();
+        }
         if (code.contains("INSUFFICIENT_DEPOSIT")) return HttpStatus.BAD_REQUEST.value();
         return HttpStatus.BAD_REQUEST.value();
     }

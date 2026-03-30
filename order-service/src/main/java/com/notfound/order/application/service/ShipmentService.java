@@ -6,7 +6,11 @@ import com.notfound.order.application.port.out.OrderItemRepository;
 import com.notfound.order.application.port.out.OrderRepository;
 import com.notfound.order.application.port.out.ShipmentRepository;
 import com.notfound.order.domain.exception.OrderException;
-import com.notfound.order.domain.model.*;
+import com.notfound.order.domain.model.Order;
+import com.notfound.order.domain.model.OrderItem;
+import com.notfound.order.domain.model.OrderStatus;
+import com.notfound.order.domain.model.Shipment;
+import com.notfound.order.domain.model.ShipmentStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +38,12 @@ public class ShipmentService implements UpdateShipmentUseCase, RequestReturnUseC
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(OrderException::orderNotFound);
 
-        // 판매자 본인 주문의 상품이어야 하지만, 현재는 단순화하여 주문 존재 여부만 확인
+        boolean isSellerOfOrder = orderItemRepository.findByOrderId(orderId).stream()
+                .anyMatch(item -> memberId.equals(item.getSellerId()));
+        if (!isSellerOfOrder) {
+            throw OrderException.shipmentAccessDenied();
+        }
+
         Shipment shipment = shipmentRepository.findByOrderId(orderId)
                 .orElseGet(() -> Shipment.builder()
                         .orderId(orderId)
@@ -43,7 +52,6 @@ public class ShipmentService implements UpdateShipmentUseCase, RequestReturnUseC
 
         shipment.update(carrier, trackingNumber, status);
 
-        // 배송 상태에 따라 주문 상태 연동
         if (status == ShipmentStatus.SHIPPED || status == ShipmentStatus.IN_TRANSIT) {
             if (order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.CONFIRMED) {
                 order = Order.builder()
@@ -83,7 +91,6 @@ public class ShipmentService implements UpdateShipmentUseCase, RequestReturnUseC
             throw OrderException.orderCannotBeReturned();
         }
 
-        // 반품 대상 항목의 상태를 REFUNDED로 변경
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
         List<UUID> returnedIds = items.stream()
                 .filter(item -> orderItemIds.contains(item.getId()))

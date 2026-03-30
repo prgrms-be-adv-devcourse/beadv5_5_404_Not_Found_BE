@@ -5,6 +5,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -19,11 +20,12 @@ public class PurchaseEventKafkaPublisher implements PurchaseEventPublisher {
     }
 
     @Override
-    public void publishPurchaseConfirmed(UUID orderId, UUID memberId, int totalAmount) {
+    public void publishPurchaseConfirmed(UUID orderId, UUID memberId, int totalAmount, LocalDateTime confirmedAt) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("orderId", orderId.toString());
         payload.put("memberId", memberId.toString());
         payload.put("totalAmount", totalAmount);
+        payload.put("confirmedAt", confirmedAt != null ? confirmedAt.toString() : null);
 
         Map<String, Object> event = new LinkedHashMap<>();
         event.put("eventId", UUID.randomUUID().toString());

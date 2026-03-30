@@ -55,7 +55,9 @@ public class InternalSecretFilter extends OncePerRequestFilter {
         }
 
         String secret = request.getHeader(HEADER_INTERNAL_SECRET);
-        if (secret == null || !secret.equals(internalSecret)) {
+        if (secret == null || !java.security.MessageDigest.isEqual(
+                secret.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                internalSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
             // 감사 로그: 잘못된 내부 호출 기록 (시크릿 값은 마스킹)
             String maskedSecret = secret == null ? "null" : "***" + secret.substring(Math.max(0, secret.length() - 4));
             String callerIp = resolveCallerIp(request);

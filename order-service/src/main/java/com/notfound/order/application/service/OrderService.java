@@ -29,7 +29,6 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
     private final CartItemRepository cartItemRepository;
     private final MemberServicePort memberServicePort;
     private final ProductServicePort productServicePort;
-    private final StockEventPublisher stockEventPublisher;
     private final PurchaseEventPublisher purchaseEventPublisher;
 
     public OrderService(OrderRepository orderRepository,
@@ -38,7 +37,6 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
                         CartItemRepository cartItemRepository,
                         MemberServicePort memberServicePort,
                         ProductServicePort productServicePort,
-                        StockEventPublisher stockEventPublisher,
                         PurchaseEventPublisher purchaseEventPublisher) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -46,7 +44,6 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
         this.cartItemRepository = cartItemRepository;
         this.memberServicePort = memberServicePort;
         this.productServicePort = productServicePort;
-        this.stockEventPublisher = stockEventPublisher;
         this.purchaseEventPublisher = purchaseEventPublisher;
     }
 
@@ -130,11 +127,14 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
     @Override
     @Transactional
     public CreateOrderResult createOrder(UUID memberId, CreateOrderCommand command) {
-        // 1. Idempotency check
+        // 1. Idempotency check — (memberId + idempotencyKey) 스코프
         String idempotencyKey = command.idempotencyKey();
         Optional<Order> existingOrder = orderRepository.findByIdempotencyKey(idempotencyKey);
         if (existingOrder.isPresent()) {
             Order existing = existingOrder.get();
+            if (!existing.getMemberId().equals(memberId)) {
+                throw OrderException.orderAccessDenied();
+            }
             List<OrderItem> existingItems = orderItemRepository.findByOrderId(existing.getId());
             return new CreateOrderResult(existing, existingItems);
         }
@@ -250,6 +250,11 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
     @Override
     @Transactional
     public CancelOrderUseCase.CancelOrderResult cancelOrder(UUID memberId, UUID orderId, List<UUID> orderItemIds) {
+        // TODO: 부분취소 재구현 시 이 차단 제거
+        if (orderItemIds != null && !orderItemIds.isEmpty()) {
+            throw OrderException.partialCancelNotSupported();
+        }
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(OrderException::orderNotFound);
 
@@ -282,7 +287,7 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
             for (OrderItem item : items) {
                 item.cancel();
                 orderItemRepository.save(item);
-                stockEventPublisher.publishStockRestored(orderId, item.getProductId(), item.getQuantity());
+                productServicePort.restoreStock(item.getProductId(), item.getQuantity());
             }
             if (refundAmount > 0) {
                 memberServicePort.chargeDeposit(memberId, refundAmount);
@@ -311,7 +316,7 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
         Order saved = orderRepository.save(order);
 
         purchaseEventPublisher.publishPurchaseConfirmed(
-                saved.getId(), saved.getMemberId(), saved.getTotalAmount());
+                saved.getId(), saved.getMemberId(), saved.getTotalAmount(), saved.getConfirmedAt());
 
         return saved;
     }
