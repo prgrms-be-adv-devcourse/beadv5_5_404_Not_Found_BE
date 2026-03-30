@@ -64,16 +64,16 @@ class AddressIntegrationTest {
     void createAddress_success() throws Exception {
         String body = """
                 {
-                    "label": "집",
                     "recipient": "홍길동",
                     "phone": "010-1111-2222",
                     "zipcode": "12345",
                     "address1": "서울시 강남구 테헤란로 1",
-                    "address2": "101호"
+                    "address2": "101호",
+                    "isDefault": true
                 }
                 """;
 
-        MvcResult result = mockMvc.perform(post("/member/addresses")
+        MvcResult result = mockMvc.perform(post("/member/address")
                         .header("X-User-Id", memberId)
                         .header("X-Role", "USER")
                         .header("X-Email-Verified", "true")
@@ -98,7 +98,6 @@ class AddressIntegrationTest {
     void createAddress_validation() throws Exception {
         String body = """
                 {
-                    "label": "회사",
                     "recipient": "",
                     "phone": "",
                     "zipcode": "",
@@ -106,7 +105,7 @@ class AddressIntegrationTest {
                 }
                 """;
 
-        mockMvc.perform(post("/member/addresses")
+        mockMvc.perform(post("/member/address")
                         .header("X-User-Id", memberId)
                         .header("X-Role", "USER")
                         .header("X-Email-Verified", "true")
@@ -125,7 +124,7 @@ class AddressIntegrationTest {
     @Order(3)
     @DisplayName("배송지 삭제 성공 (소프트 삭제)")
     void deleteAddress_success() throws Exception {
-        mockMvc.perform(delete("/member/addresses/{addressId}", addressId)
+        mockMvc.perform(delete("/member/address/{addressId}", addressId)
                         .header("X-User-Id", memberId)
                         .header("X-Role", "USER")
                         .header("X-Email-Verified", "true"))
@@ -138,7 +137,7 @@ class AddressIntegrationTest {
     @Order(4)
     @DisplayName("배송지 삭제 실패 - 존재하지 않는 배송지")
     void deleteAddress_notFound() throws Exception {
-        mockMvc.perform(delete("/member/addresses/00000000-0000-0000-0000-000000000000")
+        mockMvc.perform(delete("/member/address/00000000-0000-0000-0000-000000000000")
                         .header("X-User-Id", memberId)
                         .header("X-Role", "USER")
                         .header("X-Email-Verified", "true"))

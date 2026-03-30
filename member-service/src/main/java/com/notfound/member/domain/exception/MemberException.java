@@ -14,7 +14,7 @@ public class MemberException extends RuntimeException {
     }
 
     public static MemberException duplicateEmail() {
-        return new MemberException("MEMBER_DUPLICATE_EMAIL", "이미 사용 중인 이메일입니다.");
+        return new MemberException("EMAIL_ALREADY_EXISTS", "이미 사용 중인 이메일입니다.");
     }
 
     public static MemberException notFound() {
@@ -22,19 +22,19 @@ public class MemberException extends RuntimeException {
     }
 
     public static MemberException invalidPassword() {
-        return new MemberException("MEMBER_INVALID_PASSWORD", "비밀번호가 일치하지 않습니다.");
+        return new MemberException("INVALID_PASSWORD", "비밀번호가 일치하지 않습니다.");
     }
 
     public static MemberException invalidCredentials() {
-        return new MemberException("MEMBER_INVALID_CREDENTIALS", "이메일 또는 비밀번호가 일치하지 않습니다.");
+        return new MemberException("INVALID_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다.");
     }
 
     public static MemberException inactiveAccount() {
-        return new MemberException("MEMBER_INACTIVE_ACCOUNT", "비활성화된 계정입니다.");
+        return new MemberException("MEMBER_INACTIVE", "비활성화된 계정입니다.");
     }
 
     public static MemberException invalidRefreshToken() {
-        return new MemberException("MEMBER_INVALID_REFRESH_TOKEN", "유효하지 않은 리프레시 토큰입니다.");
+        return new MemberException("INVALID_REFRESH_TOKEN", "유효하지 않은 리프레시 토큰입니다.");
     }
 
     public static MemberException tokenHijacked() {
@@ -65,6 +65,10 @@ public class MemberException extends RuntimeException {
         return new MemberException("SELLER_NOT_FOUND", "판매자 정보를 찾을 수 없습니다.");
     }
 
+    public static MemberException sellerApplicationNotFound() {
+        return new MemberException("SELLER_APPLICATION_NOT_FOUND", "판매자 신청 정보를 찾을 수 없습니다.");
+    }
+
     public static MemberException insufficientDeposit() {
         return new MemberException("MEMBER_INSUFFICIENT_DEPOSIT", "예치금 잔액이 부족합니다.");
     }
@@ -73,15 +77,19 @@ public class MemberException extends RuntimeException {
         return new MemberException("MEMBER_INVALID_DEPOSIT_AMOUNT", "유효하지 않은 금액입니다.");
     }
 
+    public static MemberException addressLimitExceeded() {
+        return new MemberException("ADDRESS_LIMIT_EXCEEDED", "배송지는 최대 10개까지 등록할 수 있습니다.");
+    }
+
     public static MemberException addressNotFound() {
         return new MemberException("ADDRESS_NOT_FOUND", "배송지를 찾을 수 없습니다.");
     }
 
     public static MemberException sellerAlreadyRegistered() {
-        return new MemberException("SELLER_ALREADY_REGISTERED", "이미 판매자로 등록된 회원입니다.");
+        return new MemberException("SELLER_APPLICATION_ALREADY_EXISTS", "이미 판매자 신청이 존재합니다.");
     }
 
     public static MemberException sellerNotPending() {
-        return new MemberException("SELLER_NOT_PENDING", "대기 상태의 판매자만 승인할 수 있습니다.");
+        return new MemberException("INVALID_SELLER_STATUS", "유효하지 않은 판매자 상태값입니다. (허용값: APPROVED, SUSPENDED)");
     }
 }

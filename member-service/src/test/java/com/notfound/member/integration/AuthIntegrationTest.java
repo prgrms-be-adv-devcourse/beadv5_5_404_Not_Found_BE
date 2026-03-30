@@ -81,7 +81,7 @@ class AuthIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("MEMBER_DUPLICATE_EMAIL"));
+                .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_EXISTS"));
     }
 
     @Test
@@ -143,7 +143,7 @@ class AuthIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("MEMBER_LOGIN_SUCCESS"))
+                .andExpect(jsonPath("$.code").value("LOGIN_SUCCESS"))
                 .andExpect(jsonPath("$.data.accessToken").exists())
                 .andExpect(jsonPath("$.data.refreshToken").exists())
                 .andReturn();
@@ -168,7 +168,7 @@ class AuthIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("MEMBER_INVALID_CREDENTIALS"));
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
     }
 
     @Test
@@ -186,7 +186,7 @@ class AuthIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("MEMBER_INVALID_CREDENTIALS"));
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
     }
 
     // ===== 토큰 갱신 =====
@@ -203,7 +203,7 @@ class AuthIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("MEMBER_TOKEN_REFRESH_SUCCESS"))
+                .andExpect(jsonPath("$.code").value("TOKEN_REFRESH_SUCCESS"))
                 .andExpect(jsonPath("$.data.accessToken").exists())
                 .andExpect(jsonPath("$.data.refreshToken").exists())
                 .andReturn();
@@ -290,6 +290,6 @@ class AuthIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(logoutBody))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("MEMBER_LOGOUT_SUCCESS"));
+                .andExpect(jsonPath("$.code").value("LOGOUT_SUCCESS"));
     }
 }
