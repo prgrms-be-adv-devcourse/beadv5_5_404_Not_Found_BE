@@ -17,7 +17,6 @@ import java.util.Map;
 @Slf4j
 public class TossPayClient implements PgPort {
 
-    private static final String TOSS_CONFIRM_URL = "https://api.tosspayments.com/v1/payments/confirm";
     private static final String TOSS_CANCEL_URL_TEMPLATE = "https://api.tosspayments.com/v1/payments/%s/cancel";
 
     private final RestClient restClient;
@@ -43,7 +42,7 @@ public class TossPayClient implements PgPort {
 
         try {
             TossConfirmResponse response = restClient.post()
-                    .uri(TOSS_CONFIRM_URL)
+                    .uri(tossProperties.confirmUrl())
                     .header("Authorization", authorization)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of(

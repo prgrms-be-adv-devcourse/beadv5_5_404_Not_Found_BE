@@ -14,17 +14,21 @@ public class MemberClientAdapter implements MemberPort {
 
     @Override
     public boolean existsActiveMember(UUID memberId) {
-        return memberFeignClient.getMemberActive(memberId).active();
+        return memberFeignClient.getMemberActive(memberId).data().active();
     }
 
     @Override
     public int getDepositBalance(UUID memberId) {
-        return memberFeignClient.getDepositBalance(memberId).depositBalance();
+        return memberFeignClient.getDepositBalance(memberId).data().depositBalance();
     }
 
     @Override
-    public void updateDepositBalance(UUID memberId, int newBalance) {
-        memberFeignClient.updateDepositBalance(memberId,
-                new MemberFeignClient.UpdateDepositBalanceRequest(newBalance));
+    public void deductDeposit(UUID memberId, int amount) {
+        memberFeignClient.deductDeposit(memberId, new MemberFeignClient.AmountRequest(amount));
+    }
+
+    @Override
+    public void chargeDeposit(UUID memberId, int amount) {
+        memberFeignClient.chargeDeposit(memberId, new MemberFeignClient.AmountRequest(amount));
     }
 }

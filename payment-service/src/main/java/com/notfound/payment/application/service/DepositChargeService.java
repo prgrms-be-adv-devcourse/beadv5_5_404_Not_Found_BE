@@ -2,15 +2,10 @@ package com.notfound.payment.application.service;
 
 import com.notfound.payment.application.port.in.ConfirmDepositChargeUseCase;
 import com.notfound.payment.application.port.in.PrepareDepositChargeUseCase;
-import com.notfound.payment.application.port.out.DepositEventPublisher;
-import com.notfound.payment.application.port.out.DepositPort;
 import com.notfound.payment.application.port.out.MemberPort;
 import com.notfound.payment.application.port.out.PaymentPort;
 import com.notfound.payment.application.port.out.PgPort;
-import com.notfound.payment.domain.event.DepositChargedEvent;
 import com.notfound.payment.domain.exception.PaymentException;
-import com.notfound.payment.domain.model.Deposit;
-import com.notfound.payment.domain.model.DepositType;
 import com.notfound.payment.domain.model.Payment;
 import com.notfound.payment.domain.model.PaymentMethodType;
 import com.notfound.payment.domain.model.PaymentPurpose;
@@ -33,11 +28,10 @@ public class DepositChargeService implements PrepareDepositChargeUseCase, Confir
     private static final int DEPOSIT_MAX_BALANCE = 1000000;
 
     private final PaymentPort paymentPort;
-    private final DepositPort depositPort;
     private final MemberPort memberPort;
     private final PgPort pgPort;
     private final PaymentStatusUpdater paymentStatusUpdater;
-    private final DepositEventPublisher depositEventPublisher;
+    private final DepositChargeRecorder depositChargeRecorder;
 
     @Override
     @Transactional
@@ -82,8 +76,8 @@ public class DepositChargeService implements PrepareDepositChargeUseCase, Confir
     }
 
     @Override
-    @Transactional
     public ConfirmResult confirm(ConfirmCommand command) {
+        // 1. 조회 + 상태/금액 검증 (트랜잭션 밖)
         Payment payment = paymentPort.findByIdempotencyKey(command.orderId())
                 .orElseThrow(PaymentException::paymentReadyNotFound);
 
@@ -97,6 +91,7 @@ public class DepositChargeService implements PrepareDepositChargeUseCase, Confir
             throw PaymentException.amountMismatch();
         }
 
+        // 2. Toss 승인 API 호출 (외부 HTTP — 트랜잭션 밖)
         PgPort.PgConfirmResult pgResult;
         try {
             pgResult = pgPort.confirm(new PgPort.PgConfirmCommand(
@@ -112,33 +107,8 @@ public class DepositChargeService implements PrepareDepositChargeUseCase, Confir
             throw PaymentException.pgConfirmFailed(e);
         }
 
-        payment.complete(pgResult.pgTransactionId(), pgResult.paymentKey(), pgResult.approvedAt());
-        paymentPort.save(payment);
-
-        int currentBalance = memberPort.getDepositBalance(command.memberId());
-        int balanceAfter = currentBalance + payment.getAmount();
-
-        Deposit deposit = Deposit.create(
-                command.memberId(),
-                payment.getId(),
-                null,
-                DepositType.CHARGE,
-                payment.getAmount(),
-                balanceAfter,
-                "예치금 충전"
-        );
-        depositPort.save(deposit);
-        depositEventPublisher.publishDepositCharged(
-                new DepositChargedEvent(command.memberId(), payment.getAmount(), balanceAfter));
-
-        return new ConfirmResult(
-                payment.getId(),
-                payment.getAmount(),
-                balanceAfter,
-                pgResult.pgTransactionId(),
-                pgResult.method(),
-                pgResult.approvedAt()
-        );
+        // 3. 성공: Payment COMPLETED + Deposit 이력 + DepositChargedEvent (@Transactional)
+        return depositChargeRecorder.record(payment, command.memberId(), pgResult);
     }
 
     private void validateChargeAmount(int amount) {

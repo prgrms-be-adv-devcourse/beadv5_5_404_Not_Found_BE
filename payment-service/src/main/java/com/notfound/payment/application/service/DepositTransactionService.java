@@ -37,7 +37,7 @@ public class DepositTransactionService implements DeductDepositUseCase, RefundDe
                 command.description()
         );
         Deposit saved = depositPort.save(deposit);
-        memberPort.updateDepositBalance(command.memberId(), balanceAfter);
+        memberPort.deductDeposit(command.memberId(), command.amount());
 
         return new DeductResult(saved.getId(), balanceAfter);
     }
@@ -58,7 +58,7 @@ public class DepositTransactionService implements DeductDepositUseCase, RefundDe
                 command.description()
         );
         Deposit saved = depositPort.save(deposit);
-        memberPort.updateDepositBalance(command.memberId(), balanceAfter);
+        memberPort.chargeDeposit(command.memberId(), command.amount());
 
         return new RefundResult(saved.getId(), balanceAfter);
     }

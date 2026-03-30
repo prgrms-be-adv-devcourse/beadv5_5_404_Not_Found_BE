@@ -17,7 +17,7 @@ public class DepositChargedEventHandler {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(DepositChargedEvent event) {
-        memberPort.updateDepositBalance(event.memberId(), event.balanceAfter());
+        memberPort.chargeDeposit(event.memberId(), event.chargedAmount());
         log.debug("예치금 충전 완료 — memberId={}, balanceAfter={}", event.memberId(), event.balanceAfter());
     }
 }
