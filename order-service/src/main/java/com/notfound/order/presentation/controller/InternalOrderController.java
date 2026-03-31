@@ -1,10 +1,12 @@
 package com.notfound.order.presentation.controller;
 
 import com.notfound.order.application.port.in.ClearCartUseCase;
+import com.notfound.order.application.port.in.GetInternalOrderUseCase;
 import com.notfound.order.application.port.in.UpdateOrderStatusUseCase;
 import com.notfound.order.domain.model.Order;
 import com.notfound.order.domain.model.OrderStatus;
 import com.notfound.order.presentation.dto.ApiResponse;
+import com.notfound.order.presentation.dto.InternalOrderResponse;
 import com.notfound.order.presentation.dto.UpdateOrderStatusRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,13 +22,27 @@ import java.util.UUID;
 @RequestMapping("/internal/order")
 public class InternalOrderController {
 
+    private final GetInternalOrderUseCase getInternalOrderUseCase;
     private final UpdateOrderStatusUseCase updateOrderStatusUseCase;
     private final ClearCartUseCase clearCartUseCase;
 
-    public InternalOrderController(UpdateOrderStatusUseCase updateOrderStatusUseCase,
+    public InternalOrderController(GetInternalOrderUseCase getInternalOrderUseCase,
+                                   UpdateOrderStatusUseCase updateOrderStatusUseCase,
                                    ClearCartUseCase clearCartUseCase) {
+        this.getInternalOrderUseCase = getInternalOrderUseCase;
         this.updateOrderStatusUseCase = updateOrderStatusUseCase;
         this.clearCartUseCase = clearCartUseCase;
+    }
+
+    @Operation(summary = "주문 조회", description = "payment-service가 결제 전 주문 정보(총액, 상품 목록) 조회")
+    @GetMapping("/{orderId}")
+    public ResponseEntity<ApiResponse<InternalOrderResponse>> getOrder(@PathVariable UUID orderId) {
+        var detail = getInternalOrderUseCase.getOrder(orderId);
+        var response = InternalOrderResponse.from(detail.order(), detail.orderItems());
+
+        return ResponseEntity.ok(
+                ApiResponse.success(200, "ORDER_FOUND",
+                        "주문 정보를 조회했습니다.", response));
     }
 
     @Operation(summary = "주문 상태 변경", description = "payment-service가 결제 완료 후 PENDING → PAID 전환")
