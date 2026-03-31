@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -18,7 +19,7 @@ import java.util.stream.Collectors;
 @Service
 public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
         GetOrderListUseCase, GetOrderDetailUseCase, GetInternalOrderUseCase,
-        CancelOrderUseCase, ConfirmPurchaseUseCase, UpdateOrderStatusUseCase {
+        CancelOrderUseCase, UpdateOrderStatusUseCase {
 
     private static final int FREE_SHIPPING_THRESHOLD = 15000;
     private static final int SHIPPING_FEE = 2500;
@@ -29,22 +30,19 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
     private final CartItemRepository cartItemRepository;
     private final MemberServicePort memberServicePort;
     private final ProductServicePort productServicePort;
-    private final PurchaseEventPublisher purchaseEventPublisher;
 
     public OrderService(OrderRepository orderRepository,
                         OrderItemRepository orderItemRepository,
                         CartRepository cartRepository,
                         CartItemRepository cartItemRepository,
                         MemberServicePort memberServicePort,
-                        ProductServicePort productServicePort,
-                        PurchaseEventPublisher purchaseEventPublisher) {
+                        ProductServicePort productServicePort) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.memberServicePort = memberServicePort;
         this.productServicePort = productServicePort;
-        this.purchaseEventPublisher = purchaseEventPublisher;
     }
 
     @Override
@@ -322,29 +320,6 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
         return new CancelOrderUseCase.CancelOrderResult(updatedOrder, refundAmount, cancelledIds);
     }
 
-    @Override
-    @Transactional
-    public Order confirmPurchase(UUID memberId, UUID orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(OrderException::orderNotFound);
-
-        if (!order.getMemberId().equals(memberId)) {
-            throw OrderException.orderAccessDenied();
-        }
-
-        if (order.getStatus() != OrderStatus.DELIVERED) {
-            throw OrderException.orderCannotBeConfirmed();
-        }
-
-        order.confirmPurchase();
-        Order saved = orderRepository.save(order);
-
-        purchaseEventPublisher.publishPurchaseConfirmed(
-                saved.getId(), saved.getMemberId(), saved.getTotalAmount(), saved.getConfirmedAt());
-
-        return saved;
-    }
-
     /**
      * Internal API: payment-service가 결제 완료 후 호출.
      *
@@ -358,7 +333,7 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
      */
     @Override
     @Transactional
-    public Order updateStatus(UUID orderId, OrderStatus status, int depositUsed) {
+    public Order updateStatus(UUID orderId, OrderStatus status, int depositUsed, LocalDateTime confirmedAt) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(OrderException::orderNotFound);
 
@@ -378,6 +353,10 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
             order.parseCartItemIds().forEach(cartItemRepository::deleteById);
         } else {
             throw new IllegalStateException("지원하지 않는 상태 전이입니다: " + status);
+        }
+
+        if (confirmedAt != null) {
+            order.setConfirmedAt(confirmedAt);
         }
 
         return orderRepository.save(order);
