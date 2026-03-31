@@ -26,6 +26,9 @@ public class PaymentJpaEntity {
     @Column(columnDefinition = "uuid", nullable = false, updatable = false)
     private UUID id;
 
+    @Column(name = "member_id", columnDefinition = "uuid", nullable = false)
+    private UUID memberId;
+
     @Column(name = "order_id", columnDefinition = "uuid")
     private UUID orderId;
 
@@ -63,6 +66,7 @@ public class PaymentJpaEntity {
     public static PaymentJpaEntity fromModel(Payment payment) {
         PaymentJpaEntity entity = new PaymentJpaEntity();
         entity.id = payment.getId();
+        entity.memberId = payment.getMemberId();
         entity.orderId = payment.getOrderId();
         entity.pgProvider = payment.getPgProvider();
         entity.amount = payment.getAmount();
@@ -79,6 +83,7 @@ public class PaymentJpaEntity {
     public Payment toModel() {
         return Payment.of(
                 id,
+                memberId,
                 orderId,
                 pgProvider,
                 amount,

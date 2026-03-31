@@ -2,8 +2,9 @@ package com.notfound.payment.application.port.out;
 
 import com.notfound.payment.domain.model.Deposit;
 import com.notfound.payment.domain.model.DepositType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,9 +14,9 @@ public interface DepositPort {
 
     Optional<Deposit> findById(UUID id);
 
-    List<Deposit> findByMemberId(UUID memberId);
+    Page<Deposit> findByMemberId(UUID memberId, Pageable pageable);
 
-    List<Deposit> findByMemberIdAndType(UUID memberId, DepositType type);
+    Page<Deposit> findByMemberIdAndType(UUID memberId, DepositType type, Pageable pageable);
 
     Optional<Deposit> findByPaymentId(UUID paymentId);
 }

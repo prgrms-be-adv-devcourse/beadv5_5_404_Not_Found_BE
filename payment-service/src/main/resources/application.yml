@@ -4,9 +4,6 @@ server:
 spring:
   application:
     name: payment-service
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
@@ -20,18 +17,18 @@ spring:
       hibernate:
         format_sql: true
 
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    consumer:
-      group-id: ${spring.application.name}
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
-
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+internal:
+  secret-key: ${INTERNAL_SECRET_KEY}
+
+toss:
+  payments:
+    client-key: ${TOSS_CLIENT_KEY}
+    secret-key: ${TOSS_SECRET_KEY}
+    confirm-url: https://api.tosspayments.com/v1/payments/confirm
+    success-url: ${TOSS_SUCCESS_URL:http://localhost:8084/success.html}
+    fail-url: ${TOSS_FAIL_URL:http://localhost:8084/fail.html}

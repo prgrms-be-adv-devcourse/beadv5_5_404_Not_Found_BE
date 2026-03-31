@@ -4,9 +4,10 @@ import com.notfound.payment.application.port.out.DepositPort;
 import com.notfound.payment.domain.model.Deposit;
 import com.notfound.payment.domain.model.DepositType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,17 +28,15 @@ public class DepositRepositoryAdapter implements DepositPort {
     }
 
     @Override
-    public List<Deposit> findByMemberId(UUID memberId) {
-        return depositJpaRepository.findByMemberIdOrderByCreatedAtDesc(memberId).stream()
-                .map(DepositJpaEntity::toModel)
-                .toList();
+    public Page<Deposit> findByMemberId(UUID memberId, Pageable pageable) {
+        return depositJpaRepository.findByMemberIdOrderByCreatedAtDesc(memberId, pageable)
+                .map(DepositJpaEntity::toModel);
     }
 
     @Override
-    public List<Deposit> findByMemberIdAndType(UUID memberId, DepositType type) {
-        return depositJpaRepository.findByMemberIdAndTypeOrderByCreatedAtDesc(memberId, type).stream()
-                .map(DepositJpaEntity::toModel)
-                .toList();
+    public Page<Deposit> findByMemberIdAndType(UUID memberId, DepositType type, Pageable pageable) {
+        return depositJpaRepository.findByMemberIdAndTypeOrderByCreatedAtDesc(memberId, type, pageable)
+                .map(DepositJpaEntity::toModel);
     }
 
     @Override

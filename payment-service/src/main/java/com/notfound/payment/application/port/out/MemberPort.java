@@ -1,6 +1,5 @@
 package com.notfound.payment.application.port.out;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 public interface MemberPort {
@@ -9,13 +8,7 @@ public interface MemberPort {
 
     int getDepositBalance(UUID memberId);
 
-    SellerAccountInfo getSellerAccount(UUID sellerId);
+    void deductDeposit(UUID memberId, int amount);
 
-    record SellerAccountInfo(
-            UUID sellerId,
-            String bankCode,
-            String bankAccount,
-            String accountHolder,
-            BigDecimal commissionRate
-    ) {}
+    void chargeDeposit(UUID memberId, int amount);
 }

@@ -93,4 +93,28 @@ public class PaymentException extends RuntimeException {
     public static PaymentException pgCancelFailed(Throwable cause) {
         return new PaymentException("PG_CANCEL_FAILED", "PG 결제 취소에 실패했습니다.", cause);
     }
+
+    public static PaymentException invalidChargeAmount() {
+        return new PaymentException("INVALID_CHARGE_AMOUNT", "충전 금액은 1,000원 이상 500,000원 이하이어야 합니다.");
+    }
+
+    public static PaymentException amountMismatch() {
+        return new PaymentException("AMOUNT_MISMATCH", "결제 금액이 요청 금액과 일치하지 않습니다.");
+    }
+
+    public static PaymentException paymentReadyNotFound() {
+        return new PaymentException("PAYMENT_READY_NOT_FOUND", "결제 준비 정보를 찾을 수 없습니다.");
+    }
+
+    public static PaymentException paymentAlreadyConfirmed() {
+        return new PaymentException("PAYMENT_ALREADY_CONFIRMED", "이미 승인 처리된 결제입니다.");
+    }
+
+    public static PaymentException memberNotActive() {
+        return new PaymentException("MEMBER_NOT_ACTIVE", "활성 상태의 회원만 예치금 충전이 가능합니다.");
+    }
+
+    public static PaymentException emailNotVerified() {
+        return new PaymentException("EMAIL_NOT_VERIFIED", "이메일 인증이 완료된 회원만 이용 가능합니다.");
+    }
 }

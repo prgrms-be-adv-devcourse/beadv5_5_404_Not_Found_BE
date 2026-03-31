@@ -1,0 +1,123 @@
+@baseUrl = http://localhost:8080
+
+### =========================================
+### STEP 0. 테스트 계정 정보
+### =========================================
+
+@email = test02@example.com
+@password = Password123!
+@name = 테스트유저
+@phone = 01012345678
+@chargeAmount = 10000
+# STEP 5 실행 후 Toss 결제창 완료 시 리디렉션 URL의 paymentKey를 아래에 입력
+@paymentKey =
+
+
+### =========================================
+### STEP 1. 회원가입
+### 최초 1회만 성공, 이미 있으면 409는 무시
+### =========================================
+POST {{baseUrl}}/api/member/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "{{name}}",
+  "phone": "{{phone}}"
+}
+
+
+### =========================================
+### STEP 2. 로그인 → 토큰 자동 저장
+### =========================================
+POST {{baseUrl}}/api/member/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+> {%
+  client.global.set("accessToken", response.body.data.accessToken);
+  client.global.set("refreshToken", response.body.data.refreshToken);
+  client.global.set("memberId", response.body.data.memberId);
+%}
+
+
+### =========================================
+### STEP 3. 내 정보 조회
+### 로그인/토큰 정상 여부 확인
+### =========================================
+GET {{baseUrl}}/api/member/member/me
+Authorization: Bearer {{accessToken}}
+
+
+### =========================================
+### STEP 4. 예치금 잔액 조회
+### =========================================
+GET {{baseUrl}}/api/member/member/me/deposit
+Authorization: Bearer {{accessToken}}
+
+
+### =========================================
+### STEP 5. 예치금 충전 준비
+### 성공 시 paymentId, depositOrderId 자동 저장
+### =========================================
+POST {{baseUrl}}/api/payment/payment/deposit/charge/ready
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "amount": {{chargeAmount}}
+}
+
+> {%
+  if (response.status === 200 && response.body && response.body.data) {
+    client.global.set("paymentId", response.body.data.paymentId);
+    client.global.set("depositOrderId", response.body.data.pgData.orderId);
+  }
+%}
+
+
+### =========================================
+### STEP 6. 예치금 내역 조회
+### =========================================
+GET {{baseUrl}}/api/payment/payment/deposit/history
+Authorization: Bearer {{accessToken}}
+
+
+### =========================================
+### STEP 7. 예치금 내역 조회 - CHARGE만
+### =========================================
+GET {{baseUrl}}/api/payment/payment/deposit/history?type=CHARGE
+Authorization: Bearer {{accessToken}}
+
+
+### =========================================
+### STEP 8. 예치금 충전 승인(confirm)
+### =========================================
+POST {{baseUrl}}/api/payment/payment/deposit/charge/confirm
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "orderId": "{{depositOrderId}}",
+  "amount": {{chargeAmount}},
+  "paymentKey": "{{paymentKey}}"
+}
+
+
+### =========================================
+### STEP 9. confirm 이후 예치금 잔액 재조회
+### =========================================
+GET {{baseUrl}}/api/member/member/me/deposit
+Authorization: Bearer {{accessToken}}
+
+
+### =========================================
+### STEP 10. confirm 이후 예치금 내역 재조회
+### =========================================
+GET {{baseUrl}}/api/payment/payment/deposit/history
+Authorization: Bearer {{accessToken}}
