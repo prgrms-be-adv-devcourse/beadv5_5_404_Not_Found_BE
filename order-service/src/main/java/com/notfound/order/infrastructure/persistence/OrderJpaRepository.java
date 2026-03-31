@@ -16,4 +16,5 @@ public interface OrderJpaRepository extends JpaRepository<OrderJpaEntity, UUID> 
     Page<OrderJpaEntity> findByMemberId(UUID memberId, Pageable pageable);
     Page<OrderJpaEntity> findByMemberIdAndStatus(UUID memberId, OrderStatus status, Pageable pageable);
     List<OrderJpaEntity> findByStatusAndDeliveredAtBefore(OrderStatus status, LocalDateTime before);
+    List<OrderJpaEntity> findByStatusAndCreatedAtBefore(OrderStatus status, LocalDateTime before);
 }

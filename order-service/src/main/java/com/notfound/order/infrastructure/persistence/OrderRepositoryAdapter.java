@@ -59,4 +59,11 @@ public class OrderRepositoryAdapter implements OrderRepository {
                 .map(OrderJpaEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Order> findByStatusAndCreatedBefore(OrderStatus status, LocalDateTime before) {
+        return orderJpaRepository.findByStatusAndCreatedAtBefore(status, before).stream()
+                .map(OrderJpaEntity::toDomain)
+                .toList();
+    }
 }

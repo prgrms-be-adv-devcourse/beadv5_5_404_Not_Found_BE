@@ -3,6 +3,7 @@ package com.notfound.order.presentation.controller;
 import com.notfound.order.application.port.in.ClearCartUseCase;
 import com.notfound.order.application.port.in.GetInternalOrderUseCase;
 import com.notfound.order.application.port.in.UpdateOrderStatusUseCase;
+import com.notfound.order.application.service.PendingOrderCleanupScheduler;
 import com.notfound.order.domain.model.Order;
 import com.notfound.order.domain.model.OrderStatus;
 import com.notfound.order.presentation.dto.ApiResponse;
@@ -25,13 +26,16 @@ public class InternalOrderController {
     private final GetInternalOrderUseCase getInternalOrderUseCase;
     private final UpdateOrderStatusUseCase updateOrderStatusUseCase;
     private final ClearCartUseCase clearCartUseCase;
+    private final PendingOrderCleanupScheduler pendingOrderCleanupScheduler;
 
     public InternalOrderController(GetInternalOrderUseCase getInternalOrderUseCase,
                                    UpdateOrderStatusUseCase updateOrderStatusUseCase,
-                                   ClearCartUseCase clearCartUseCase) {
+                                   ClearCartUseCase clearCartUseCase,
+                                   PendingOrderCleanupScheduler pendingOrderCleanupScheduler) {
         this.getInternalOrderUseCase = getInternalOrderUseCase;
         this.updateOrderStatusUseCase = updateOrderStatusUseCase;
         this.clearCartUseCase = clearCartUseCase;
+        this.pendingOrderCleanupScheduler = pendingOrderCleanupScheduler;
     }
 
     @Operation(summary = "주문 조회", description = "payment-service가 결제 전 주문 정보(총액, 상품 목록) 조회")
@@ -59,6 +63,16 @@ public class InternalOrderController {
                         "주문 상태가 변경되었습니다.",
                         Map.of("orderId", order.getId(),
                                 "orderStatus", order.getStatus().name())));
+    }
+
+    @Operation(summary = "만료 PENDING 주문 정리", description = "30분 경과한 미결제 주문을 CANCELLED로 수동 전환")
+    @PostMapping("/cleanup")
+    public ResponseEntity<ApiResponse<Void>> cleanupExpiredOrders() {
+        pendingOrderCleanupScheduler.cleanupExpiredPendingOrders();
+
+        return ResponseEntity.ok(
+                ApiResponse.success(200, "CLEANUP_SUCCESS",
+                        "만료 주문 정리가 완료되었습니다.", null));
     }
 
     @Operation(summary = "장바구니 전체 삭제", description = "payment-service가 결제 완료 후 해당 회원 장바구니 전체 삭제")
