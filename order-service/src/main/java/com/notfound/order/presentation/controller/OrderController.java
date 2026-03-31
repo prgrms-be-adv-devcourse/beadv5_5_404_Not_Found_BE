@@ -193,7 +193,8 @@ public class OrderController {
             @PathVariable UUID orderId,
             @Valid @RequestBody UpdateShipmentRequest request) {
 
-        if (!"SELLER".equalsIgnoreCase(user.role())) {
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(user.role());
+        if (!isAdmin && !"SELLER".equalsIgnoreCase(user.role())) {
             throw com.notfound.order.domain.exception.OrderException.shipmentAccessDenied();
         }
 
@@ -208,7 +209,7 @@ public class OrderController {
         }
 
         var shipment = updateShipmentUseCase.updateShipment(
-                memberId, orderId, request.carrier(), request.trackingNumber(), status);
+                memberId, orderId, request.carrier(), request.trackingNumber(), status, isAdmin);
 
         return ResponseEntity.ok(
                 ApiResponse.success(200, "SHIPMENT_UPDATE_SUCCESS",

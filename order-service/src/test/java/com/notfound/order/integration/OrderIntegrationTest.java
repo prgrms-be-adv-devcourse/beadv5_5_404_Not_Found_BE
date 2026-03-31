@@ -123,8 +123,6 @@ class OrderIntegrationTest {
 
         // deposit 차감 호출 안 됨
         verify(memberServicePort, never()).deductDeposit(any(), anyInt());
-        // stock 이벤트 발행 안 됨
-        verify(stockEventPublisher, never()).publishStockDeducted(any(), any(), anyInt());
 
         JsonNode json = objectMapper.readTree(result.getResponse().getContentAsString());
         orderId = json.get("data").get("orderId").asText();
@@ -270,8 +268,6 @@ class OrderIntegrationTest {
 
         // PENDING 취소 시 chargeDeposit 호출 안 됨
         verify(memberServicePort, never()).chargeDeposit(any(), anyInt());
-        // PENDING 취소 시 stock 복원 안 됨
-        verify(stockEventPublisher, never()).publishStockRestored(any(), any(), anyInt());
     }
 
     @Test

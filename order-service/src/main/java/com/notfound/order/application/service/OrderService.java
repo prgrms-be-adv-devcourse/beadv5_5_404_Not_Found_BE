@@ -17,8 +17,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
-        GetOrderListUseCase, GetOrderDetailUseCase, CancelOrderUseCase, ConfirmPurchaseUseCase,
-        UpdateOrderStatusUseCase {
+        GetOrderListUseCase, GetOrderDetailUseCase, GetInternalOrderUseCase,
+        CancelOrderUseCase, ConfirmPurchaseUseCase, UpdateOrderStatusUseCase {
 
     private static final int FREE_SHIPPING_THRESHOLD = 15000;
     private static final int SHIPPING_FEE = 2500;
@@ -246,6 +246,15 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
             return orderRepository.findByMemberIdAndStatus(memberId, status, pageable);
         }
         return orderRepository.findByMemberId(memberId, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InternalOrderDetail getOrder(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(OrderException::orderNotFound);
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        return new InternalOrderDetail(order, items);
     }
 
     @Override
