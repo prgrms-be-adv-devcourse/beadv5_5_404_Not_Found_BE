@@ -209,7 +209,15 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
                 .cartItemIds(cartItemIdsStr)
                 .build();
 
-        Order savedOrder = orderRepository.save(order);
+        Order savedOrder;
+        try {
+            savedOrder = orderRepository.save(order);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 동시 요청으로 unique 충돌 시 기존 주문 재조회
+            return orderRepository.findByIdempotencyKey(idempotencyKey)
+                    .map(existing -> new CreateOrderResult(existing, orderItemRepository.findByOrderId(existing.getId())))
+                    .orElseThrow(() -> e);
+        }
 
         // 6. OrderItem 저장
         List<OrderItem> savedItems = new ArrayList<>();
