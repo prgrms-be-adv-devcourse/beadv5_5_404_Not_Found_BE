@@ -1,6 +1,8 @@
 package com.notfound.order.infrastructure.client;
 
 import com.notfound.order.application.port.out.ProductServicePort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -11,6 +13,8 @@ import java.util.*;
  */
 @Component
 public class ProductServiceStub implements ProductServicePort {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductServiceStub.class);
 
     @Override
     public List<Map<String, Object>> getProducts(List<UUID> productIds) {
@@ -24,5 +28,11 @@ public class ProductServiceStub implements ProductServicePort {
             product.put("imageUrl", null);
             return product;
         }).toList();
+    }
+
+    @Override
+    public void restoreStock(UUID productId, int quantity) {
+        // TODO: product-service에 POST /internal/products/stock/restore API 추가 후 RestClient로 교체
+        log.info("[STUB] 재고 복원 요청: productId={}, quantity={}", productId, quantity);
     }
 }

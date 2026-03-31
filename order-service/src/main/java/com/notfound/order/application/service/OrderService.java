@@ -1,11 +1,12 @@
 package com.notfound.order.application.service;
 
-import com.notfound.order.application.port.in.CheckoutUseCase;
-import com.notfound.order.application.port.in.CreateOrderUseCase;
+import com.notfound.order.application.port.in.*;
 import com.notfound.order.application.port.in.command.CreateOrderCommand;
 import com.notfound.order.application.port.out.*;
 import com.notfound.order.domain.exception.OrderException;
 import com.notfound.order.domain.model.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,7 +16,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
+public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
+        GetOrderListUseCase, GetOrderDetailUseCase, CancelOrderUseCase, ConfirmPurchaseUseCase,
+        UpdateOrderStatusUseCase {
 
     private static final int FREE_SHIPPING_THRESHOLD = 15000;
     private static final int SHIPPING_FEE = 2500;
@@ -26,7 +29,7 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
     private final CartItemRepository cartItemRepository;
     private final MemberServicePort memberServicePort;
     private final ProductServicePort productServicePort;
-    private final StockEventPublisher stockEventPublisher;
+    private final PurchaseEventPublisher purchaseEventPublisher;
 
     public OrderService(OrderRepository orderRepository,
                         OrderItemRepository orderItemRepository,
@@ -34,14 +37,14 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
                         CartItemRepository cartItemRepository,
                         MemberServicePort memberServicePort,
                         ProductServicePort productServicePort,
-                        StockEventPublisher stockEventPublisher) {
+                        PurchaseEventPublisher purchaseEventPublisher) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.memberServicePort = memberServicePort;
         this.productServicePort = productServicePort;
-        this.stockEventPublisher = stockEventPublisher;
+        this.purchaseEventPublisher = purchaseEventPublisher;
     }
 
     @Override
@@ -70,17 +73,24 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
                             p -> UUID.fromString(p.get("productId").toString()),
                             p -> p));
 
+            // 상품 정보 누락 검증
+            for (var ci : cartItems) {
+                if (!productMap.containsKey(ci.getProductId())) {
+                    throw OrderException.productNotFound();
+                }
+            }
+
             items = cartItems.stream().map(ci -> {
                 var product = productMap.get(ci.getProductId());
+                int price = ((Number) product.get("price")).intValue();
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("cartItemId", ci.getId());
                 item.put("productId", ci.getProductId());
-                item.put("productName", product != null ? product.get("productName") : "Unknown");
-                int price = product != null ? ((Number) product.get("price")).intValue() : 0;
+                item.put("productName", product.get("productName"));
                 item.put("price", price);
                 item.put("quantity", ci.getQuantity());
                 item.put("subtotal", price * ci.getQuantity());
-                item.put("imageUrl", product != null ? product.get("imageUrl") : null);
+                item.put("imageUrl", product.get("imageUrl"));
                 return item;
             }).toList();
         } else if (productId != null && quantity != null) {
@@ -124,14 +134,23 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
     @Override
     @Transactional
     public CreateOrderResult createOrder(UUID memberId, CreateOrderCommand command) {
-        // Idempotency check
-        String idempotencyKey = memberId + "-" + System.currentTimeMillis();
+        // 1. Idempotency check — (memberId + idempotencyKey) 스코프
+        String idempotencyKey = command.idempotencyKey();
+        Optional<Order> existingOrder = orderRepository.findByIdempotencyKey(idempotencyKey);
+        if (existingOrder.isPresent()) {
+            Order existing = existingOrder.get();
+            if (!existing.getMemberId().equals(memberId)) {
+                throw OrderException.orderAccessDenied();
+            }
+            List<OrderItem> existingItems = orderItemRepository.findByOrderId(existing.getId());
+            return new CreateOrderResult(existing, existingItems);
+        }
 
         if (command.items() == null || command.items().isEmpty()) {
             throw OrderException.emptyOrder();
         }
 
-        // 1. Fetch product info and calculate server-side total
+        // 2. 상품 정보 조회 + 서버 금액 계산
         List<UUID> productIds = command.items().stream()
                 .map(CreateOrderCommand.OrderItemCommand::productId)
                 .toList();
@@ -141,23 +160,13 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
                         p -> UUID.fromString(p.get("productId").toString()),
                         p -> p));
 
-        // Validate all products exist
         for (var item : command.items()) {
             if (!productMap.containsKey(item.productId())) {
                 throw OrderException.productNotFound();
             }
         }
 
-        // 2. Stock validation
-        for (var item : command.items()) {
-            var product = productMap.get(item.productId());
-            int stock = ((Number) product.get("stock")).intValue();
-            if (stock < item.quantity()) {
-                throw OrderException.insufficientStock();
-            }
-        }
-
-        // Calculate total
+        // 3. 금액 계산 + OrderItem 생성 (상태: PENDING)
         int totalAmount = 0;
         List<OrderItem> orderItems = new ArrayList<>();
         for (var item : command.items()) {
@@ -178,36 +187,31 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
         }
 
         int shippingFee = totalAmount >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
-        int depositUsed = totalAmount + shippingFee;
 
-        // 3. Deduct deposit
-        memberServicePort.deductDeposit(memberId, depositUsed);
+        // 4. cartItemIds 직렬화 (콤마 구분 UUID 문자열)
+        List<UUID> cartIds = command.items().stream()
+                .map(CreateOrderCommand.OrderItemCommand::cartItemId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        String cartItemIdsStr = Order.serializeCartItemIds(cartIds);
 
-        // 4. Publish stock deduction events
-        for (var item : command.items()) {
-            stockEventPublisher.publishStockDeducted(null, item.productId(), item.quantity());
-        }
-
-        // 5. Create order
-        String orderNumber = generateOrderNumber();
-
-        // Build shipping snapshot from addressId
-        String shippingSnapshot = "{}"; // Will be populated from member service address
-
+        // 5. 주문 생성 (PENDING, depositUsed=0, snapshot 없음)
         Order order = Order.builder()
-                .orderNumber(orderNumber)
+                .orderNumber(generateOrderNumber())
                 .memberId(memberId)
-                .status(OrderStatus.PAID)
+                .status(OrderStatus.PENDING)
                 .totalAmount(totalAmount)
                 .shippingFee(shippingFee)
-                .depositUsed(depositUsed)
-                .shippingSnapshot(shippingSnapshot)
+                .depositUsed(0)
+                .shippingSnapshot(null)
                 .idempotencyKey(idempotencyKey)
+                .addressId(command.addressId())
+                .cartItemIds(cartItemIdsStr)
                 .build();
 
         Order savedOrder = orderRepository.save(order);
 
-        // 6. Save order items
+        // 6. OrderItem 저장
         List<OrderItem> savedItems = new ArrayList<>();
         for (var item : orderItems) {
             savedItems.add(orderItemRepository.save(
@@ -223,19 +227,163 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase {
                             .build()));
         }
 
-        // Update orderId in stock events (re-publish with correct orderId)
-        for (var item : command.items()) {
-            // orderId is now known
+        // 예치금 차감, 재고 차감, 장바구니 삭제, 배송지 스냅샷은 payment-service 결제 완료 후 처리
+        return new CreateOrderResult(savedOrder, savedItems);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Order> getOrders(UUID memberId, OrderStatus status, Pageable pageable) {
+        if (status != null) {
+            return orderRepository.findByMemberIdAndStatus(memberId, status, pageable);
+        }
+        return orderRepository.findByMemberId(memberId, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GetOrderDetailUseCase.OrderDetail getOrderDetail(UUID memberId, UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(OrderException::orderNotFound);
+
+        if (!order.getMemberId().equals(memberId)) {
+            throw OrderException.orderAccessDenied();
         }
 
-        // 7. Remove cart items if from cart
-        for (var item : command.items()) {
-            if (item.cartItemId() != null) {
-                cartItemRepository.deleteById(item.cartItemId());
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        return new GetOrderDetailUseCase.OrderDetail(order, items);
+    }
+
+    @Override
+    @Transactional
+    public CancelOrderUseCase.CancelOrderResult cancelOrder(UUID memberId, UUID orderId, List<UUID> orderItemIds) {
+        // TODO: 부분취소 재구현 시 이 차단 제거
+        if (orderItemIds != null && !orderItemIds.isEmpty()) {
+            throw OrderException.partialCancelNotSupported();
+        }
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(OrderException::orderNotFound);
+
+        if (!order.getMemberId().equals(memberId)) {
+            throw OrderException.orderAccessDenied();
+        }
+
+        // PENDING, PAID, CONFIRMED에서만 취소 가능
+        if (order.getStatus() != OrderStatus.PENDING
+                && order.getStatus() != OrderStatus.PAID
+                && order.getStatus() != OrderStatus.CONFIRMED) {
+            throw OrderException.orderCannotBeCancelled();
+        }
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        List<UUID> cancelledIds = items.stream().map(OrderItem::getId).toList();
+        int refundAmount;
+
+        if (order.getStatus() == OrderStatus.PENDING) {
+            // PENDING 취소: 예치금/재고 처리 없음 — 아직 결제 전
+            order.cancel();
+            orderRepository.save(order);
+            refundAmount = 0;
+        } else {
+            // PAID/CONFIRMED 취소: 예치금 환급 + 재고 복원
+            order.cancel();
+            orderRepository.save(order);
+            refundAmount = order.getDepositUsed();
+
+            for (OrderItem item : items) {
+                item.cancel();
+                orderItemRepository.save(item);
+                productServicePort.restoreStock(item.getProductId(), item.getQuantity());
+            }
+            if (refundAmount > 0) {
+                memberServicePort.chargeDeposit(memberId, refundAmount);
             }
         }
 
-        return new CreateOrderResult(savedOrder, savedItems);
+        Order updatedOrder = orderRepository.findById(orderId).orElse(order);
+        return new CancelOrderUseCase.CancelOrderResult(updatedOrder, refundAmount, cancelledIds);
+    }
+
+    @Override
+    @Transactional
+    public Order confirmPurchase(UUID memberId, UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(OrderException::orderNotFound);
+
+        if (!order.getMemberId().equals(memberId)) {
+            throw OrderException.orderAccessDenied();
+        }
+
+        if (order.getStatus() != OrderStatus.DELIVERED) {
+            throw OrderException.orderCannotBeConfirmed();
+        }
+
+        order.confirmPurchase();
+        Order saved = orderRepository.save(order);
+
+        purchaseEventPublisher.publishPurchaseConfirmed(
+                saved.getId(), saved.getMemberId(), saved.getTotalAmount(), saved.getConfirmedAt());
+
+        return saved;
+    }
+
+    /**
+     * Internal API: payment-service가 결제 완료 후 호출.
+     *
+     * 멱등 정책:
+     * - PENDING → PAID: 정상 처리 (스냅샷 저장 + 장바구니 삭제 + depositUsed 저장)
+     * - 이미 PAID → PAID 재요청: 200 반환, 부작용 없음 (payment 재시도 안전)
+     * - 그 외 전이: 409 Conflict
+     *
+     * 동시성: @Version 낙관적 락으로 cancel/pay 경합 방어
+     * 트랜잭션: 외부 호출(member address) 실패 시 롤백 — PAID로 잘못 남지 않음
+     */
+    @Override
+    @Transactional
+    public Order updateStatus(UUID orderId, OrderStatus status, int depositUsed) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(OrderException::orderNotFound);
+
+        if (status == OrderStatus.PAID) {
+            // 1. 배송지 스냅샷 조회 (외부 호출 — 실패 시 트랜잭션 롤백)
+            String shippingSnapshot = resolveShippingSnapshot(order);
+
+            // 2. 상태 전이 (멱등: 이미 PAID면 바로 반환)
+            boolean alreadyPaid = order.pay(depositUsed, shippingSnapshot);
+            if (alreadyPaid) {
+                return order;
+            }
+
+            // 3. 장바구니 항목 삭제
+            order.parseCartItemIds().forEach(cartItemRepository::deleteById);
+        } else {
+            throw new IllegalStateException("지원하지 않는 상태 전이입니다: " + status);
+        }
+
+        return orderRepository.save(order);
+    }
+
+    private String resolveShippingSnapshot(Order order) {
+        var addresses = memberServicePort.getAddresses(order.getMemberId());
+        return addresses.stream()
+                .filter(addr -> order.getAddressId() != null
+                        && order.getAddressId().toString().equals(String.valueOf(addr.get("addressId"))))
+                .findFirst()
+                .map(addr -> {
+                    try {
+                        Map<String, Object> snapshot = new LinkedHashMap<>();
+                        snapshot.put("recipient", addr.get("recipient"));
+                        snapshot.put("phone", addr.get("phone"));
+                        snapshot.put("zipcode", addr.get("zipcode"));
+                        snapshot.put("address1", addr.get("address1"));
+                        snapshot.put("address2", addr.get("address2"));
+                        return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(snapshot);
+                    } catch (Exception e) {
+                        throw new RuntimeException("배송지 스냅샷 직렬화 실패", e);
+                    }
+                })
+                .orElse("{}");
     }
 
     private String generateOrderNumber() {

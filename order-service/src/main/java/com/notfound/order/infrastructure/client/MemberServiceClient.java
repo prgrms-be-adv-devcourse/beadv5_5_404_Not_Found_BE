@@ -51,7 +51,7 @@ public class MemberServiceClient implements MemberServicePort {
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getAddresses(UUID memberId) {
         var response = restClient.get()
-                .uri("/internal/member/{memberId}/addresses", memberId)
+                .uri("/internal/member/{memberId}/address", memberId)
                 .retrieve()
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {});
         if (response == null || response.get("data") == null) return List.of();
