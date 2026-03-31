@@ -15,7 +15,6 @@ public interface OrderRepository {
     Optional<Order> findById(UUID orderId);
     Optional<Order> findByIdempotencyKey(String idempotencyKey);
     boolean existsByIdempotencyKey(String idempotencyKey);
-    List<Order> findByMemberId(UUID memberId);
     Page<Order> findByMemberIdAndStatus(UUID memberId, OrderStatus status, Pageable pageable);
     Page<Order> findByMemberId(UUID memberId, Pageable pageable);
     List<Order> findByStatusAndDeliveredBefore(OrderStatus status, LocalDateTime before);

@@ -1,5 +1,6 @@
 package com.notfound.order.presentation.controller;
 
+import com.notfound.order.domain.exception.InvalidStateTransitionException;
 import com.notfound.order.domain.exception.OrderException;
 import com.notfound.order.presentation.dto.ApiResponse;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -39,8 +40,8 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(400, "INVALID_INPUT_VALUE", e.getMessage()));
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ApiResponse<Void>> handleIllegalState(IllegalStateException e) {
+    @ExceptionHandler(InvalidStateTransitionException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidStateTransition(InvalidStateTransitionException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(409, "INVALID_STATE_TRANSITION", e.getMessage()));
     }

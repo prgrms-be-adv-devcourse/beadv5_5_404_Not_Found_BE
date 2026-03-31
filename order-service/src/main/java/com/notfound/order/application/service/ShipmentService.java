@@ -91,6 +91,10 @@ public class ShipmentService implements UpdateShipmentUseCase, RequestReturnUseC
             throw OrderException.orderCannotBeReturned();
         }
 
+        if (orderItemIds == null || orderItemIds.isEmpty()) {
+            throw new IllegalArgumentException("반품 대상 항목을 선택해주세요.");
+        }
+
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
         List<UUID> returnedIds = items.stream()
                 .filter(item -> orderItemIds.contains(item.getId()))

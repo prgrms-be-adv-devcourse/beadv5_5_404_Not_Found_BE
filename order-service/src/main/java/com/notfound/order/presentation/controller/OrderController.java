@@ -198,9 +198,14 @@ public class OrderController {
         }
 
         UUID memberId = UUID.fromString(user.userId());
-        com.notfound.order.domain.model.ShipmentStatus status = request.shipmentStatus() != null
-                ? com.notfound.order.domain.model.ShipmentStatus.valueOf(request.shipmentStatus())
-                : null;
+        com.notfound.order.domain.model.ShipmentStatus status = null;
+        if (request.shipmentStatus() != null) {
+            try {
+                status = com.notfound.order.domain.model.ShipmentStatus.valueOf(request.shipmentStatus());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("유효하지 않은 배송 상태값입니다: " + request.shipmentStatus());
+            }
+        }
 
         var shipment = updateShipmentUseCase.updateShipment(
                 memberId, orderId, request.carrier(), request.trackingNumber(), status);

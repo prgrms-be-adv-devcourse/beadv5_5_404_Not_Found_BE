@@ -358,7 +358,7 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
             // 3. 장바구니 항목 삭제
             order.parseCartItemIds().forEach(cartItemRepository::deleteById);
         } else {
-            throw new IllegalStateException("지원하지 않는 상태 전이입니다: " + status);
+            throw new com.notfound.order.domain.exception.InvalidStateTransitionException("지원하지 않는 상태 전이입니다: " + status);
         }
 
         return orderRepository.save(order);
