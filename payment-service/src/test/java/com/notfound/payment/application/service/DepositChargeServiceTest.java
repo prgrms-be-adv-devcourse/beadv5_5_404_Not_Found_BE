@@ -116,6 +116,19 @@ class DepositChargeServiceTest {
     }
 
     @Test
+    void confirm_다른_회원의_결제이면_예외() {
+        UUID paymentOwner = UUID.randomUUID();
+        UUID requester = UUID.randomUUID();
+        Payment payment = Payment.of(UUID.randomUUID(), paymentOwner, null, PgProvider.TOSS, 10000,
+                PaymentStatus.PENDING, null, null, PaymentMethodType.PG, PaymentPurpose.DEPOSIT_CHARGE, null, "DEPOSIT-orderId");
+        given(paymentPort.findByIdempotencyKey("DEPOSIT-orderId")).willReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> depositChargeService.confirm(new ConfirmCommand(requester, "pk", "DEPOSIT-orderId", 10000)))
+                .isInstanceOf(PaymentException.class)
+                .hasMessageContaining("결제 준비 정보");
+    }
+
+    @Test
     void confirm_이미_COMPLETED이면_예외() {
         UUID memberId = UUID.randomUUID();
         Payment payment = Payment.of(UUID.randomUUID(), memberId, null, PgProvider.TOSS, 10000,

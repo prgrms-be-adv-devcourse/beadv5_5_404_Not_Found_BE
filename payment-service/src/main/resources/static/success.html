@@ -47,14 +47,25 @@
                 const r   = body.data;
                 const div = document.getElementById('result');
                 div.style.display = 'block';
-                div.innerHTML = `
-                    <strong>✅ 예치금 충전 완료</strong><br><br>
-                    충전 금액 : <b>${r.chargedAmount.toLocaleString()}원</b><br>
-                    충전 후 잔액 : <b>${r.balanceAfter.toLocaleString()}원</b><br>
-                    결제 방법 : ${r.method}<br>
-                    결제 시각 : ${r.paidAt}<br>
-                    PG 거래 ID : ${r.pgTransactionId}
-                `;
+
+                const lines = [
+                    ['충전 금액', r.chargedAmount.toLocaleString() + '원'],
+                    ['충전 후 잔액', r.balanceAfter.toLocaleString() + '원'],
+                    ['결제 방법', r.method],
+                    ['결제 시각', r.paidAt],
+                    ['PG 거래 ID', r.pgTransactionId],
+                ];
+                const title = document.createElement('strong');
+                title.textContent = '✅ 예치금 충전 완료';
+                div.appendChild(title);
+                div.appendChild(document.createElement('br'));
+                div.appendChild(document.createElement('br'));
+                lines.forEach(([label, value]) => {
+                    const span = document.createElement('span');
+                    span.textContent = label + ' : ' + value;
+                    div.appendChild(span);
+                    div.appendChild(document.createElement('br'));
+                });
                 document.querySelector('h2').textContent = '충전 완료';
             } catch (e) {
                 errEl.textContent = e.message;

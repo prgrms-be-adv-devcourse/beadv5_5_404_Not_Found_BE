@@ -5,9 +5,12 @@ import com.notfound.payment.application.port.out.PgPort;
 import com.notfound.payment.domain.exception.PaymentException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Base64;
@@ -24,7 +27,14 @@ public class TossPayClient implements PgPort {
 
     public TossPayClient(TossProperties tossProperties) {
         this.tossProperties = tossProperties;
-        this.restClient = RestClient.builder().build();
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .build();
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
+        factory.setReadTimeout(Duration.ofSeconds(10));
+        this.restClient = RestClient.builder()
+                .requestFactory(factory)
+                .build();
     }
 
     @Override
@@ -93,7 +103,9 @@ public class TossPayClient implements PgPort {
                     })
                     .body(TossCancelResponse.class);
 
-            assert response != null;
+            if (response == null || response.cancels() == null || response.cancels().isEmpty()) {
+                throw PaymentException.pgCancelFailed();
+            }
             TossCancelResponse.CancelDetail lastCancel = response.cancels().get(response.cancels().size() - 1);
             return new PgCancelResult(
                     lastCancel.transactionKey(),

@@ -4,10 +4,14 @@ import com.notfound.payment.domain.exception.PaymentException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,6 +34,18 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.toMap(FieldError::getField, FieldError::getDefaultMessage, (a, b) -> a));
         return ResponseEntity.badRequest()
                 .body(ApiResponse.of(400, "INVALID_INPUT_VALUE", "입력값이 올바르지 않습니다.", errors));
+    }
+
+    @ExceptionHandler({
+            MissingRequestHeaderException.class,
+            MissingServletRequestParameterException.class,
+            MethodArgumentTypeMismatchException.class,
+            HttpMessageNotReadableException.class
+    })
+    public ResponseEntity<ApiResponse<Void>> handleBadRequestException(Exception e) {
+        log.warn("잘못된 요청: {}", e.getMessage());
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(400, "BAD_REQUEST", "잘못된 요청입니다."));
     }
 
     @ExceptionHandler(Exception.class)

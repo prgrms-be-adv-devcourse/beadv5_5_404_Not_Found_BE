@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +23,7 @@ public class DepositHistoryService implements GetDepositHistoryUseCase {
     @Override
     @Transactional(readOnly = true)
     public HistoryResult getHistory(UUID memberId, DepositType type, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
         Page<Deposit> result = (type == null)
                 ? depositPort.findByMemberId(memberId, pageable)
                 : depositPort.findByMemberIdAndType(memberId, type, pageable);

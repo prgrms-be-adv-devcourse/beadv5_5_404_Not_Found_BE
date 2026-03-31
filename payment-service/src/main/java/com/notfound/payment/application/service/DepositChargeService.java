@@ -90,6 +90,9 @@ public class DepositChargeService implements PrepareDepositChargeUseCase, Confir
         if (payment.getAmount() != command.amount()) {
             throw PaymentException.amountMismatch();
         }
+        if (!payment.getMemberId().equals(command.memberId())) {
+            throw PaymentException.paymentReadyNotFound();
+        }
 
         // 2. Toss 승인 API 호출 (외부 HTTP — 트랜잭션 밖)
         PgPort.PgConfirmResult pgResult;
@@ -108,7 +111,7 @@ public class DepositChargeService implements PrepareDepositChargeUseCase, Confir
         }
 
         // 3. 성공: Payment COMPLETED + Deposit 이력 + DepositChargedEvent (@Transactional)
-        return depositChargeRecorder.record(payment, command.memberId(), pgResult);
+        return depositChargeRecorder.record(payment, payment.getMemberId(), pgResult);
     }
 
     private void validateChargeAmount(int amount) {
