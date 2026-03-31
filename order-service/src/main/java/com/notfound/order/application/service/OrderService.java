@@ -166,7 +166,7 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
             }
         }
 
-        // 3. 금액 계산 + OrderItem 생성 (상태: PENDING)
+        // 3. 금액 계산 + OrderItem 생성 (상태: PAID — 주문 항목은 결제 완료 기준)
         int totalAmount = 0;
         List<OrderItem> orderItems = new ArrayList<>();
         for (var item : command.items()) {
@@ -209,7 +209,15 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
                 .cartItemIds(cartItemIdsStr)
                 .build();
 
-        Order savedOrder = orderRepository.save(order);
+        Order savedOrder;
+        try {
+            savedOrder = orderRepository.save(order);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 동시 요청으로 unique 충돌 시 기존 주문 재조회
+            return orderRepository.findByIdempotencyKey(idempotencyKey)
+                    .map(existing -> new CreateOrderResult(existing, orderItemRepository.findByOrderId(existing.getId())))
+                    .orElseThrow(() -> e);
+        }
 
         // 6. OrderItem 저장
         List<OrderItem> savedItems = new ArrayList<>();
@@ -346,19 +354,21 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
                 .orElseThrow(OrderException::orderNotFound);
 
         if (status == OrderStatus.PAID) {
+            // 멱등: 이미 PAID면 외부 호출 없이 바로 반환
+            if (order.getStatus() == OrderStatus.PAID) {
+                return order;
+            }
+
             // 1. 배송지 스냅샷 조회 (외부 호출 — 실패 시 트랜잭션 롤백)
             String shippingSnapshot = resolveShippingSnapshot(order);
 
-            // 2. 상태 전이 (멱등: 이미 PAID면 바로 반환)
-            boolean alreadyPaid = order.pay(depositUsed, shippingSnapshot);
-            if (alreadyPaid) {
-                return order;
-            }
+            // 2. 상태 전이
+            order.pay(depositUsed, shippingSnapshot);
 
             // 3. 장바구니 항목 삭제
             order.parseCartItemIds().forEach(cartItemRepository::deleteById);
         } else {
-            throw new com.notfound.order.domain.exception.InvalidStateTransitionException("지원하지 않는 상태 전이입니다: " + status);
+            throw new IllegalStateException("지원하지 않는 상태 전이입니다: " + status);
         }
 
         return orderRepository.save(order);
@@ -387,8 +397,9 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
     }
 
     private String generateOrderNumber() {
+        // 날짜 + UUID 앞 8자리로 충돌 방지 (최대 30자)
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String seq = String.format("%06d", (int) (Math.random() * 999999) + 1);
-        return dateStr + "-" + seq;
+        String uniquePart = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        return dateStr + "-" + uniquePart;
     }
 }

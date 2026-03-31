@@ -1,0 +1,405 @@
+@baseUrl = http://localhost:8083
+@memberBaseUrl = http://localhost:8081
+@internalSecret = your_internal_service_secret_key_here
+@productId = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+
+
+### ════════════════════════════════════════
+###  사전 준비 (member-service 필요)
+###
+###  member-service(8081) + order-service(8083) 동시 기동 필수
+###  Kafka(29092) 기동 필수
+### ════════════════════════════════════════
+
+### STEP 0-1. 회원가입
+POST {{memberBaseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "order-test@example.com",
+  "password": "Test1234!@",
+  "name": "주문테스트",
+  "phone": "01012345678"
+}
+
+> {%
+  client.global.set("memberId", response.body.data.memberId);
+%}
+
+
+### STEP 0-2. 예치금 충전 (100,000원)
+POST {{memberBaseUrl}}/internal/member/{{memberId}}/deposit/charge
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "amount": 100000
+}
+
+
+### STEP 0-3. 배송지 등록
+POST {{memberBaseUrl}}/member/addresses
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "recipient": "홍길동",
+  "phone": "01012345678",
+  "zipcode": "06236",
+  "address1": "서울시 강남구",
+  "address2": "101호",
+  "isDefault": true
+}
+
+> {%
+  client.global.set("addressId", response.body.data.addressId);
+%}
+
+
+### STEP 0-4. 장바구니에 상품 추가
+POST {{baseUrl}}/order/cart/item
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "productId": "{{productId}}",
+  "quantity": 2
+}
+
+> {%
+  client.global.set("cartItemId", response.body.data.cartItemId);
+%}
+
+
+### ════════════════════════════════════════
+###  STEP 1. 결제 페이지 조회 (Checkout)
+### ════════════════════════════════════════
+
+### STEP 1-1. 장바구니 경유 checkout
+GET {{baseUrl}}/order/checkout?cartItemIds={{cartItemId}}
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 1-2. 바로구매 checkout
+GET {{baseUrl}}/order/checkout?productId={{productId}}&quantity=1
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### ════════════════════════════════════════
+###  STEP 2. 주문 생성
+### ════════════════════════════════════════
+
+### STEP 2-1. 장바구니 경유 주문 생성
+POST {{baseUrl}}/order
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "items": [
+    {
+      "productId": "{{productId}}",
+      "quantity": 2,
+      "cartItemId": "{{cartItemId}}"
+    }
+  ],
+  "addressId": "{{addressId}}"
+}
+
+> {%
+  client.global.set("orderId", response.body.data.orderId);
+%}
+
+
+### STEP 2-2. 바로구매 주문 생성
+POST {{baseUrl}}/order
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "items": [
+    {
+      "productId": "{{productId}}",
+      "quantity": 1
+    }
+  ],
+  "addressId": "{{addressId}}"
+}
+
+
+### ════════════════════════════════════════
+###  STEP 3. 주문 후 검증
+### ════════════════════════════════════════
+
+### STEP 3-1. 예치금 잔액 확인 (100000 - 30000 - 15000 = 55000)
+GET {{memberBaseUrl}}/internal/member/{{memberId}}/deposit
+X-Internal-Secret: {{internalSecret}}
+
+
+### STEP 3-2. 장바구니 비어있는지 확인 (주문 후 자동 삭제)
+GET {{baseUrl}}/order/cart
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### ════════════════════════════════════════
+###  STEP 4. 주문 조회 (3순위)
+### ════════════════════════════════════════
+
+### STEP 4-1. 주문 목록 조회
+GET {{baseUrl}}/order
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 4-2. 주문 목록 - 상태 필터
+GET {{baseUrl}}/order?status=PAID
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 4-3. 주문 목록 - 페이징
+GET {{baseUrl}}/order?page=0&size=1
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 4-4. 주문 상세 조회
+GET {{baseUrl}}/order/{{orderId}}
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### ════════════════════════════════════════
+###  STEP 5. 주문 취소 (3순위)
+### ════════════════════════════════════════
+
+### STEP 5-1. 주문 취소
+POST {{baseUrl}}/order/{{orderId}}/cancel
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 5-2. 취소 후 상태 확인 (CANCELLED)
+GET {{baseUrl}}/order/{{orderId}}
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 5-3. 취소 후 예치금 복원 확인
+GET {{memberBaseUrl}}/internal/member/{{memberId}}/deposit
+X-Internal-Secret: {{internalSecret}}
+
+
+### ════════════════════════════════════════
+###  STEP 6. 구매확정 (4순위)
+###
+###  주의: 구매확정은 DELIVERED 상태에서만 가능.
+###  테스트 전 DB에서 상태를 변경하세요:
+###  UPDATE orders SET status = 'DELIVERED', delivered_at = NOW() WHERE id = '<orderId>';
+###  UPDATE order_item SET status = 'DELIVERED' WHERE order_id = '<orderId>';
+### ════════════════════════════════════════
+
+### STEP 6-1. 구매확정
+POST {{baseUrl}}/order/{{orderId}}/confirm
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 6-2. 구매확정 후 상태 확인 (PURCHASE_CONFIRMED)
+GET {{baseUrl}}/order/{{orderId}}
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### ════════════════════════════════════════
+###  STEP 7. 배송 관리 (5순위)
+###
+###  STEP 2에서 생성한 2번째 주문 사용.
+###  DB에서 DELIVERED 상태로 변경 후 테스트.
+### ════════════════════════════════════════
+
+### STEP 7-1. 송장 등록
+PATCH {{baseUrl}}/order/{{orderId2}}/shipment
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "carrier": "CJ대한통운",
+  "trackingNumber": "1234567890",
+  "shipmentStatus": "SHIPPED"
+}
+
+
+### STEP 7-2. 배송 상태 변경 → IN_TRANSIT
+PATCH {{baseUrl}}/order/{{orderId2}}/shipment
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "carrier": "CJ대한통운",
+  "trackingNumber": "1234567890",
+  "shipmentStatus": "IN_TRANSIT"
+}
+
+
+### STEP 7-3. 배송 상태 변경 → DELIVERED
+PATCH {{baseUrl}}/order/{{orderId2}}/shipment
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "carrier": "CJ대한통운",
+  "trackingNumber": "1234567890",
+  "shipmentStatus": "DELIVERED"
+}
+
+
+### ════════════════════════════════════════
+###  STEP 8. 반품 신청 (5순위)
+### ════════════════════════════════════════
+
+### STEP 8-1. 반품 신청 (DELIVERED 상태에서)
+POST {{baseUrl}}/order/{{orderId2}}/return
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "reason": "상품 불량",
+  "orderItemIds": ["{{orderItemId2}}"]
+}
+
+
+### ════════════════════════════════════════
+###  실패 케이스
+### ════════════════════════════════════════
+
+### [실패] 인증 없이 checkout → 401
+GET {{baseUrl}}/order/checkout?productId={{productId}}&quantity=1
+
+
+### [실패] 인증 없이 주문 생성 → 401
+POST {{baseUrl}}/order
+Content-Type: application/json
+
+{
+  "items": [{"productId": "{{productId}}", "quantity": 1}],
+  "addressId": "{{addressId}}"
+}
+
+
+### [실패] 예치금 부족 주문 → 400
+POST {{baseUrl}}/order
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "items": [{"productId": "{{productId}}", "quantity": 100}],
+  "addressId": "{{addressId}}"
+}
+
+
+### [실패] 빈 주문 항목 → 400
+POST {{baseUrl}}/order
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "items": [],
+  "addressId": "{{addressId}}"
+}
+
+
+### [실패] 인증 없이 주문 목록 → 401
+GET {{baseUrl}}/order
+
+
+### [실패] 존재하지 않는 주문 상세 → 404
+GET {{baseUrl}}/order/00000000-0000-0000-0000-000000000000
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### [실패] 이미 취소된 주문 재취소 → 400
+POST {{baseUrl}}/order/{{orderId}}/cancel
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### [실패] 다른 회원의 주문 조회 → 403
+GET {{baseUrl}}/order/{{orderId}}
+X-User-Id: 99999999-9999-9999-9999-999999999999
+X-Role: USER
+
+
+### [실패] CANCELLED 필터 조회 (취소 건 1개 확인)
+GET {{baseUrl}}/order?status=CANCELLED
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### [실패] PAID 상태에서 구매확정 → 409
+POST {{baseUrl}}/order/{{orderId}}/confirm
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### [실패] 이미 구매확정된 주문 재확정 → 409
+POST {{baseUrl}}/order/{{orderId}}/confirm
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### [실패] 다른 회원이 구매확정 → 403
+POST {{baseUrl}}/order/{{orderId}}/confirm
+X-User-Id: 99999999-9999-9999-9999-999999999999
+X-Role: USER
+
+
+### [실패] PAID 상태에서 반품 신청 → 409
+POST {{baseUrl}}/order/{{orderId}}/return
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "reason": "테스트",
+  "orderItemIds": ["{{orderItemId2}}"]
+}
+
+
+### [실패] 배송 필수값 누락 → 400
+PATCH {{baseUrl}}/order/{{orderId2}}/shipment
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "carrier": "",
+  "trackingNumber": ""
+}
+
+
+### [실패] 반품 사유 누락 → 400
+POST {{baseUrl}}/order/{{orderId2}}/return
+Content-Type: application/json
+X-User-Id: {{memberId}}
+X-Role: USER
+
+{
+  "reason": "",
+  "orderItemIds": []
+}
