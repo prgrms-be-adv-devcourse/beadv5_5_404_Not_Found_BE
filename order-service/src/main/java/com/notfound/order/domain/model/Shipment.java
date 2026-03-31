@@ -29,6 +29,13 @@ public class Shipment {
         if (carrier != null) this.carrier = carrier;
         if (trackingNumber != null) this.trackingNumber = trackingNumber;
         if (status != null) {
+            // 역전이 방지: RETURNED 제외하고 순방향만 허용
+            if (status != ShipmentStatus.RETURNED
+                    && this.status != null
+                    && status.ordinal() <= this.status.ordinal()) {
+                throw new IllegalArgumentException(
+                        "배송 상태를 역방향으로 변경할 수 없습니다: " + this.status + " → " + status);
+            }
             this.status = status;
             if (status == ShipmentStatus.SHIPPED && this.shippedAt == null) {
                 this.shippedAt = LocalDateTime.now();

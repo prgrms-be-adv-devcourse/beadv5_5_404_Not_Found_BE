@@ -346,14 +346,16 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
                 .orElseThrow(OrderException::orderNotFound);
 
         if (status == OrderStatus.PAID) {
+            // 멱등: 이미 PAID면 외부 호출 없이 바로 반환
+            if (order.getStatus() == OrderStatus.PAID) {
+                return order;
+            }
+
             // 1. 배송지 스냅샷 조회 (외부 호출 — 실패 시 트랜잭션 롤백)
             String shippingSnapshot = resolveShippingSnapshot(order);
 
-            // 2. 상태 전이 (멱등: 이미 PAID면 바로 반환)
-            boolean alreadyPaid = order.pay(depositUsed, shippingSnapshot);
-            if (alreadyPaid) {
-                return order;
-            }
+            // 2. 상태 전이
+            order.pay(depositUsed, shippingSnapshot);
 
             // 3. 장바구니 항목 삭제
             order.parseCartItemIds().forEach(cartItemRepository::deleteById);
@@ -387,8 +389,9 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
     }
 
     private String generateOrderNumber() {
+        // 날짜 + UUID 앞 8자리로 충돌 방지 (최대 30자)
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String seq = String.format("%06d", (int) (Math.random() * 999999) + 1);
-        return dateStr + "-" + seq;
+        String uniquePart = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        return dateStr + "-" + uniquePart;
     }
 }

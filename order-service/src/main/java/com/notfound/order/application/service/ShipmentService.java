@@ -82,6 +82,10 @@ public class ShipmentService implements UpdateShipmentUseCase, RequestReturnUseC
             throw OrderException.orderCannotBeReturned();
         }
 
+        if (orderItemIds == null || orderItemIds.isEmpty()) {
+            throw new IllegalArgumentException("반품 대상 항목을 선택해주세요.");
+        }
+
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
         List<UUID> returnedIds = items.stream()
                 .filter(item -> orderItemIds.contains(item.getId()))
@@ -91,6 +95,10 @@ public class ShipmentService implements UpdateShipmentUseCase, RequestReturnUseC
                 })
                 .map(OrderItem::getId)
                 .toList();
+
+        if (returnedIds.isEmpty()) {
+            throw new IllegalArgumentException("유효한 반품 대상 항목이 없습니다.");
+        }
 
         return new ReturnResult(orderId, "PENDING", returnedIds);
     }
