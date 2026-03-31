@@ -76,4 +76,9 @@ public class OrderException extends RuntimeException {
     public static OrderException shipmentAccessDenied() {
         return new OrderException("SHIPMENT_ACCESS_DENIED", "배송 정보에 접근할 권한이 없습니다.");
     }
+
+    // TODO: 부분취소 재구현 시 제거
+    public static OrderException partialCancelNotSupported() {
+        return new OrderException("PARTIAL_CANCEL_NOT_SUPPORTED", "부분 취소는 지원하지 않습니다.");
+    }
 }

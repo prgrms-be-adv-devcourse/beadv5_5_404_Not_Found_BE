@@ -104,6 +104,13 @@ public class Order {
         this.confirmedAt = LocalDateTime.now();
     }
 
+    public void markShipping() {
+        if (this.status != OrderStatus.PAID && this.status != OrderStatus.CONFIRMED) {
+            throw new IllegalStateException("배송 시작 가능 상태가 아닙니다: " + this.status);
+        }
+        this.status = OrderStatus.SHIPPING;
+    }
+
     public void markDelivered() {
         if (this.status != OrderStatus.SHIPPING) {
             throw new IllegalStateException("배송 완료 처리 가능 상태가 아닙니다: " + this.status);

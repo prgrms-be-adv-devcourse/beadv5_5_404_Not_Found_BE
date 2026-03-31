@@ -6,5 +6,5 @@ import com.notfound.order.domain.model.ShipmentStatus;
 import java.util.UUID;
 
 public interface UpdateShipmentUseCase {
-    Shipment updateShipment(UUID memberId, UUID orderId, String carrier, String trackingNumber, ShipmentStatus status);
+    Shipment updateShipment(UUID memberId, UUID orderId, String carrier, String trackingNumber, ShipmentStatus status, boolean isAdmin);
 }

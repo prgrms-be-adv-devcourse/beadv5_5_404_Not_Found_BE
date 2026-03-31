@@ -73,17 +73,24 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
                             p -> UUID.fromString(p.get("productId").toString()),
                             p -> p));
 
+            // 상품 정보 누락 검증
+            for (var ci : cartItems) {
+                if (!productMap.containsKey(ci.getProductId())) {
+                    throw OrderException.productNotFound();
+                }
+            }
+
             items = cartItems.stream().map(ci -> {
                 var product = productMap.get(ci.getProductId());
+                int price = ((Number) product.get("price")).intValue();
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("cartItemId", ci.getId());
                 item.put("productId", ci.getProductId());
-                item.put("productName", product != null ? product.get("productName") : "Unknown");
-                int price = product != null ? ((Number) product.get("price")).intValue() : 0;
+                item.put("productName", product.get("productName"));
                 item.put("price", price);
                 item.put("quantity", ci.getQuantity());
                 item.put("subtotal", price * ci.getQuantity());
-                item.put("imageUrl", product != null ? product.get("imageUrl") : null);
+                item.put("imageUrl", product.get("imageUrl"));
                 return item;
             }).toList();
         } else if (productId != null && quantity != null) {
@@ -159,7 +166,7 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
             }
         }
 
-        // 3. 금액 계산 + OrderItem 생성 (상태: PENDING)
+        // 3. 금액 계산 + OrderItem 생성 (상태: PAID — 주문 항목은 결제 완료 기준)
         int totalAmount = 0;
         List<OrderItem> orderItems = new ArrayList<>();
         for (var item : command.items()) {

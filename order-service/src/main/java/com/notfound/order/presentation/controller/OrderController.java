@@ -67,7 +67,7 @@ public class OrderController {
                         "결제 페이지 정보를 조회했습니다.", result));
     }
 
-    @Operation(summary = "주문 생성", description = "주문 생성 + 예치금 결제")
+    @Operation(summary = "주문 생성", description = "주문 정보 생성 (PENDING). 결제는 payment-service에서 처리")
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             @AuthUser AuthenticatedUser user,
@@ -137,12 +137,8 @@ public class OrderController {
 
         var result = cancelOrderUseCase.cancelOrder(memberId, orderId, orderItemIds);
 
-        boolean isPartial = orderItemIds != null && !orderItemIds.isEmpty();
-        String code = isPartial ? "ORDER_PARTIAL_CANCEL_SUCCESS" : "ORDER_CANCEL_SUCCESS";
-        String message = isPartial ? "선택한 항목이 취소되었습니다." : "주문이 취소되었습니다.";
-
         return ResponseEntity.ok(
-                ApiResponse.success(200, code, message,
+                ApiResponse.success(200, "ORDER_CANCEL_SUCCESS", "주문이 취소되었습니다.",
                         new CancelOrderResponse(
                                 result.order().getId(),
                                 result.order().getStatus().name(),
@@ -166,7 +162,7 @@ public class OrderController {
                         new ConfirmPurchaseResponse(
                                 order.getId(),
                                 order.getStatus().name(),
-                                LocalDateTime.now())));
+                                order.getConfirmedAt())));
     }
 
     @Operation(summary = "반품 신청", description = "DELIVERED 상태에서만 가능")
@@ -193,7 +189,7 @@ public class OrderController {
             @PathVariable UUID orderId,
             @Valid @RequestBody UpdateShipmentRequest request) {
 
-        if (!"SELLER".equalsIgnoreCase(user.role())) {
+        if (!"SELLER".equalsIgnoreCase(user.role()) && !"ADMIN".equalsIgnoreCase(user.role())) {
             throw com.notfound.order.domain.exception.OrderException.shipmentAccessDenied();
         }
 
@@ -202,8 +198,9 @@ public class OrderController {
                 ? com.notfound.order.domain.model.ShipmentStatus.valueOf(request.shipmentStatus())
                 : null;
 
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(user.role());
         var shipment = updateShipmentUseCase.updateShipment(
-                memberId, orderId, request.carrier(), request.trackingNumber(), status);
+                memberId, orderId, request.carrier(), request.trackingNumber(), status, isAdmin);
 
         return ResponseEntity.ok(
                 ApiResponse.success(200, "SHIPMENT_UPDATE_SUCCESS",

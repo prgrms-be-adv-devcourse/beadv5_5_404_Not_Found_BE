@@ -34,14 +34,17 @@ public class ShipmentService implements UpdateShipmentUseCase, RequestReturnUseC
 
     @Override
     @Transactional
-    public Shipment updateShipment(UUID memberId, UUID orderId, String carrier, String trackingNumber, ShipmentStatus status) {
+    public Shipment updateShipment(UUID memberId, UUID orderId, String carrier, String trackingNumber, ShipmentStatus status, boolean isAdmin) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(OrderException::orderNotFound);
 
-        boolean isSellerOfOrder = orderItemRepository.findByOrderId(orderId).stream()
-                .anyMatch(item -> memberId.equals(item.getSellerId()));
-        if (!isSellerOfOrder) {
-            throw OrderException.shipmentAccessDenied();
+        // ADMIN은 sellerId 검증 바이패스
+        if (!isAdmin) {
+            boolean isSellerOfOrder = orderItemRepository.findByOrderId(orderId).stream()
+                    .anyMatch(item -> memberId.equals(item.getSellerId()));
+            if (!isSellerOfOrder) {
+                throw OrderException.shipmentAccessDenied();
+            }
         }
 
         Shipment shipment = shipmentRepository.findByOrderId(orderId)
@@ -54,19 +57,7 @@ public class ShipmentService implements UpdateShipmentUseCase, RequestReturnUseC
 
         if (status == ShipmentStatus.SHIPPED || status == ShipmentStatus.IN_TRANSIT) {
             if (order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.CONFIRMED) {
-                order = Order.builder()
-                        .id(order.getId())
-                        .orderNumber(order.getOrderNumber())
-                        .memberId(order.getMemberId())
-                        .status(OrderStatus.SHIPPING)
-                        .totalAmount(order.getTotalAmount())
-                        .shippingFee(order.getShippingFee())
-                        .depositUsed(order.getDepositUsed())
-                        .shippingSnapshot(order.getShippingSnapshot())
-                        .idempotencyKey(order.getIdempotencyKey())
-                        .createdAt(order.getCreatedAt())
-                        .deliveredAt(order.getDeliveredAt())
-                        .build();
+                order.markShipping();
                 orderRepository.save(order);
             }
         } else if (status == ShipmentStatus.DELIVERED) {
