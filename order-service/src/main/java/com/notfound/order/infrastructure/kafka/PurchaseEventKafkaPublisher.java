@@ -1,8 +1,6 @@
 package com.notfound.order.infrastructure.kafka;
 
 import com.notfound.order.application.port.out.PurchaseEventPublisher;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -14,8 +12,6 @@ import java.util.UUID;
 
 @Component
 public class PurchaseEventKafkaPublisher implements PurchaseEventPublisher {
-
-    private static final Logger log = LoggerFactory.getLogger(PurchaseEventKafkaPublisher.class);
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
@@ -37,11 +33,6 @@ public class PurchaseEventKafkaPublisher implements PurchaseEventPublisher {
         event.put("timestamp", Instant.now().toString());
         event.put("payload", payload);
 
-        kafkaTemplate.send("order.purchase-confirmed", orderId.toString(), event)
-                .whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        log.error("[Kafka] PurchaseConfirmedEvent 발행 실패: orderId={}, cause={}", orderId, ex.getMessage(), ex);
-                    }
-                });
+        kafkaTemplate.send("order.purchase-confirmed", orderId.toString(), event);
     }
 }

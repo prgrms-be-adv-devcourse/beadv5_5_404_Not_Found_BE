@@ -11,4 +11,4 @@ spring:
       ddl-auto: validate
 
 internal:
-  secret-key: test-internal-secret-key-for-testing
+  secret-key: ${INTERNAL_SECRET_KEY}

@@ -1,5 +1,7 @@
 package com.notfound.order.domain.model;
 
+import com.notfound.order.domain.exception.InvalidStateTransitionException;
+
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
@@ -81,7 +83,7 @@ public class Order {
             return true; // 멱등: 이미 결제 완료
         }
         if (this.status != OrderStatus.PENDING) {
-            throw new IllegalStateException("PENDING 상태에서만 결제 가능합니다: " + this.status);
+            throw new InvalidStateTransitionException("PENDING 상태에서만 결제 가능합니다: " + this.status);
         }
         this.status = OrderStatus.PAID;
         this.depositUsed = depositUsed;
@@ -91,14 +93,14 @@ public class Order {
 
     public void cancel() {
         if (this.status != OrderStatus.PENDING && this.status != OrderStatus.PAID && this.status != OrderStatus.CONFIRMED) {
-            throw new IllegalStateException("취소 가능 상태가 아닙니다: " + this.status);
+            throw new InvalidStateTransitionException("취소 가능 상태가 아닙니다: " + this.status);
         }
         this.status = OrderStatus.CANCELLED;
     }
 
     public void confirmPurchase() {
         if (this.status != OrderStatus.DELIVERED) {
-            throw new IllegalStateException("구매확정 가능 상태가 아닙니다: " + this.status);
+            throw new InvalidStateTransitionException("구매확정 가능 상태가 아닙니다: " + this.status);
         }
         this.status = OrderStatus.PURCHASE_CONFIRMED;
         this.confirmedAt = LocalDateTime.now();
@@ -106,14 +108,14 @@ public class Order {
 
     public void markShipping() {
         if (this.status != OrderStatus.PAID && this.status != OrderStatus.CONFIRMED) {
-            throw new IllegalStateException("배송 시작 가능 상태가 아닙니다: " + this.status);
+            throw new InvalidStateTransitionException("배송 시작 가능 상태가 아닙니다: " + this.status);
         }
         this.status = OrderStatus.SHIPPING;
     }
 
     public void markDelivered() {
         if (this.status != OrderStatus.SHIPPING) {
-            throw new IllegalStateException("배송 완료 처리 가능 상태가 아닙니다: " + this.status);
+            throw new InvalidStateTransitionException("배송 완료 처리 가능 상태가 아닙니다: " + this.status);
         }
         this.status = OrderStatus.DELIVERED;
         this.deliveredAt = LocalDateTime.now();

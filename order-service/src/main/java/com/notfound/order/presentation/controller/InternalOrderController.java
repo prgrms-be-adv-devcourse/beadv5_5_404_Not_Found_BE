@@ -1,5 +1,6 @@
 package com.notfound.order.presentation.controller;
 
+import com.notfound.order.application.port.in.ClearCartUseCase;
 import com.notfound.order.application.port.in.UpdateOrderStatusUseCase;
 import com.notfound.order.domain.model.Order;
 import com.notfound.order.domain.model.OrderStatus;
@@ -20,9 +21,12 @@ import java.util.UUID;
 public class InternalOrderController {
 
     private final UpdateOrderStatusUseCase updateOrderStatusUseCase;
+    private final ClearCartUseCase clearCartUseCase;
 
-    public InternalOrderController(UpdateOrderStatusUseCase updateOrderStatusUseCase) {
+    public InternalOrderController(UpdateOrderStatusUseCase updateOrderStatusUseCase,
+                                   ClearCartUseCase clearCartUseCase) {
         this.updateOrderStatusUseCase = updateOrderStatusUseCase;
+        this.clearCartUseCase = clearCartUseCase;
     }
 
     @Operation(summary = "주문 상태 변경", description = "payment-service가 결제 완료 후 PENDING → PAID 전환")
@@ -39,5 +43,15 @@ public class InternalOrderController {
                         "주문 상태가 변경되었습니다.",
                         Map.of("orderId", order.getId(),
                                 "orderStatus", order.getStatus().name())));
+    }
+
+    @Operation(summary = "장바구니 전체 삭제", description = "payment-service가 결제 완료 후 해당 회원 장바구니 전체 삭제")
+    @DeleteMapping("/cart/{memberId}")
+    public ResponseEntity<ApiResponse<Void>> clearCart(@PathVariable UUID memberId) {
+        clearCartUseCase.clearCart(memberId);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(200, "CART_CLEAR_SUCCESS",
+                        "장바구니가 삭제되었습니다.", null));
     }
 }

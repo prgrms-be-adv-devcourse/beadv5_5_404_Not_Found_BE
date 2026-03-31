@@ -42,13 +42,6 @@ public class OrderRepositoryAdapter implements OrderRepository {
     }
 
     @Override
-    public List<Order> findByMemberId(UUID memberId) {
-        return orderJpaRepository.findByMemberId(memberId, Pageable.unpaged())
-                .map(OrderJpaEntity::toDomain)
-                .getContent();
-    }
-
-    @Override
     public Page<Order> findByMemberIdAndStatus(UUID memberId, OrderStatus status, Pageable pageable) {
         return orderJpaRepository.findByMemberIdAndStatus(memberId, status, pageable)
                 .map(OrderJpaEntity::toDomain);

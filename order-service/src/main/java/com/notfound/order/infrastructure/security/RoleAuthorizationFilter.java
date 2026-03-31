@@ -40,7 +40,7 @@ public class RoleAuthorizationFilter extends OncePerRequestFilter {
 
         if (isShipmentUpdateRequest(request)) {
             String role = request.getHeader(HEADER_ROLE);
-            if (!"SELLER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
+            if (!"SELLER".equalsIgnoreCase(role)) {
                 sendError(response, HttpStatus.FORBIDDEN, "SHIPMENT_ACCESS_DENIED", "배송 정보 수정 권한이 없습니다.");
                 return;
             }
