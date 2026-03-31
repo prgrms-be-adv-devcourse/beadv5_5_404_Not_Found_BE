@@ -92,6 +92,11 @@ public class Member {
         this.depositBalance += amount;
     }
 
+    public void changeRole(MemberRole role) {
+        this.role = role;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void changePassword(String newPasswordHash) {
         this.passwordHash = newPasswordHash;
         this.updatedAt = LocalDateTime.now();

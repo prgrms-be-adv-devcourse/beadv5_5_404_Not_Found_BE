@@ -27,5 +27,9 @@ eureka:
     service-url:
       defaultZone: http://localhost:8761/eureka/
 
+admin:
+  email: ${ADMIN_EMAIL:admin@bookcommerce.com}
+  password: ${ADMIN_PASSWORD:}
+
 internal:
   secret: ${INTERNAL_SECRET_KEY}
