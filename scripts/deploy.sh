@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-cd /home/ubuntu/app
+cd /home/ec2-user/app
 
 echo "Pulling latest source..."
 git pull origin main
