@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 
-cd /home/ubuntu/app
+cd /home/ec2-user/app
 
-echo "Pulling latest images..."
-docker compose -f docker/docker-compose.prod.yml pull
+echo "Pulling latest source..."
+git pull origin main
 
-echo "Starting services..."
-docker compose -f docker/docker-compose.prod.yml up -d --remove-orphans
+echo "Building and starting services..."
+docker compose -f docker/docker-compose.prod.yml --env-file .env up --build -d --remove-orphans
 
 echo "Removing unused images..."
 docker image prune -f
