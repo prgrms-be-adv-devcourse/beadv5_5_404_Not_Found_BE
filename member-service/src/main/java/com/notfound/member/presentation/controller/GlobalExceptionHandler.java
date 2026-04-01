@@ -3,6 +3,7 @@ package com.notfound.member.presentation.controller;
 import com.notfound.member.domain.exception.MemberException;
 import com.notfound.member.presentation.dto.ApiResponse;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -21,6 +22,13 @@ public class GlobalExceptionHandler {
         int status = resolveStatus(e.getCode());
         return ResponseEntity.status(status)
                 .body(ApiResponse.error(status, e.getCode(), e.getMessage()));
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(ObjectOptimisticLockingFailureException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(409, "CONCURRENT_MODIFICATION",
+                        "동시 요청 충돌이 발생했습니다. 다시 시도해주세요."));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

@@ -10,6 +10,9 @@ import com.notfound.member.application.port.in.WithdrawMemberUseCase;
 import com.notfound.member.application.port.in.command.UpdateMemberCommand;
 import com.notfound.member.application.port.out.MemberRepository;
 import com.notfound.member.application.port.out.TokenBlacklistRepository;
+import com.notfound.member.infrastructure.persistence.ProcessedDepositTransactionEntity;
+import com.notfound.member.infrastructure.persistence.ProcessedDepositTransactionEntity.TransactionType;
+import com.notfound.member.infrastructure.persistence.ProcessedDepositTransactionRepository;
 import com.notfound.member.domain.exception.MemberException;
 import com.notfound.member.domain.model.Member;
 import com.notfound.member.domain.model.MemberStatus;
@@ -28,17 +31,20 @@ public class MemberService implements CheckMemberActiveUseCase, GetDepositBalanc
 
     private final MemberRepository memberRepository;
     private final TokenBlacklistRepository tokenBlacklistRepository;
+    private final ProcessedDepositTransactionRepository transactionRepository;
     private final TokenRevokeService tokenRevokeService;
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
 
     public MemberService(MemberRepository memberRepository,
                          TokenBlacklistRepository tokenBlacklistRepository,
+                         ProcessedDepositTransactionRepository transactionRepository,
                          TokenRevokeService tokenRevokeService,
                          JwtProvider jwtProvider,
                          PasswordEncoder passwordEncoder) {
         this.memberRepository = memberRepository;
         this.tokenBlacklistRepository = tokenBlacklistRepository;
+        this.transactionRepository = transactionRepository;
         this.tokenRevokeService = tokenRevokeService;
         this.jwtProvider = jwtProvider;
         this.passwordEncoder = passwordEncoder;
@@ -62,21 +68,39 @@ public class MemberService implements CheckMemberActiveUseCase, GetDepositBalanc
 
     @Override
     @Transactional
-    public int deductDeposit(UUID memberId, int amount) {
+    public int deductDeposit(UUID memberId, int amount, String transactionId) {
+        var existing = transactionRepository.findByTransactionId(transactionId);
+        if (existing.isPresent()) {
+            return existing.get().getRemainingBalance();
+        }
+
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(MemberException::notFound);
         member.deductDeposit(amount);
         memberRepository.save(member);
+
+        transactionRepository.save(new ProcessedDepositTransactionEntity(
+                transactionId, memberId, TransactionType.DEDUCT, amount, member.getDepositBalance()));
+
         return member.getDepositBalance();
     }
 
     @Override
     @Transactional
-    public int chargeDeposit(UUID memberId, int amount) {
+    public int chargeDeposit(UUID memberId, int amount, String transactionId) {
+        var existing = transactionRepository.findByTransactionId(transactionId);
+        if (existing.isPresent()) {
+            return existing.get().getRemainingBalance();
+        }
+
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(MemberException::notFound);
         member.chargeDeposit(amount);
         memberRepository.save(member);
+
+        transactionRepository.save(new ProcessedDepositTransactionEntity(
+                transactionId, memberId, TransactionType.CHARGE, amount, member.getDepositBalance()));
+
         return member.getDepositBalance();
     }
 

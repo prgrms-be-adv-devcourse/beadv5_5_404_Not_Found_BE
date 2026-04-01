@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
 @Component
 public class DepositChangedEventListener {
 
@@ -27,9 +29,10 @@ public class DepositChangedEventListener {
         log.info("예치금 변경 이벤트 수신: memberId={}, type={}, amount={}",
                 event.memberId(), event.type(), event.amount());
 
+        String transactionId = UUID.randomUUID().toString();
         switch (event.type()) {
-            case CHARGE -> chargeDepositUseCase.chargeDeposit(event.memberId(), event.amount());
-            case DEDUCT -> deductDepositUseCase.deductDeposit(event.memberId(), event.amount());
+            case CHARGE -> chargeDepositUseCase.chargeDeposit(event.memberId(), event.amount(), transactionId);
+            case DEDUCT -> deductDepositUseCase.deductDeposit(event.memberId(), event.amount(), transactionId);
         }
     }
 }

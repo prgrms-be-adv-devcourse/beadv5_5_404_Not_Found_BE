@@ -14,6 +14,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -63,6 +64,9 @@ public class MemberJpaEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Version
+    private Long version;
+
     @OneToMany(mappedBy = "member")
     private List<AddressJpaEntity> addresses = new ArrayList<>();
 
@@ -101,6 +105,7 @@ public class MemberJpaEntity {
         entity.emailVerified = member.isEmailVerified();
         entity.createdAt = member.getCreatedAt();
         entity.updatedAt = member.getUpdatedAt();
+        entity.version = member.getVersion();
         return entity;
     }
 
@@ -118,6 +123,7 @@ public class MemberJpaEntity {
                 .emailVerified(this.emailVerified)
                 .createdAt(this.createdAt)
                 .updatedAt(this.updatedAt)
+                .version(this.version)
                 .build();
     }
 }
