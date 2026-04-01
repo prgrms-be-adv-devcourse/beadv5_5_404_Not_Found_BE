@@ -1,11 +1,17 @@
 @baseUrl = http://localhost:8083
-@memberId = 11111111-1111-1111-1111-111111111111
-@productId = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
-@productId2 = bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+
+### ── 수동 변수 설정 (응답 핸들러 안 될 때 복사해서 붙여넣기) ──
+@memberId =
+@productId =
+@productId2 =
+@cartItemId =
+@cartItemId2 =
 
 
 ### ════════════════════════════════════════
 ###  STEP 1. 장바구니 상품 추가
+###
+###  ※ productId는 product-service에서 상품 등록 후 설정
 ### ════════════════════════════════════════
 
 ### STEP 1-1. 상품 추가

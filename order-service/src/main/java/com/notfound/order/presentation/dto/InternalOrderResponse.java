@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public record InternalOrderResponse(
         UUID orderId,
+        String status,
         int totalAmount,
         List<Item> items
 ) {
@@ -17,6 +18,6 @@ public record InternalOrderResponse(
         var items = orderItems.stream()
                 .map(i -> new Item(i.getProductId(), i.getQuantity()))
                 .toList();
-        return new InternalOrderResponse(order.getId(), order.getTotalAmount(), items);
+        return new InternalOrderResponse(order.getId(), order.getStatus().name(), order.getTotalAmount(), items);
     }
 }

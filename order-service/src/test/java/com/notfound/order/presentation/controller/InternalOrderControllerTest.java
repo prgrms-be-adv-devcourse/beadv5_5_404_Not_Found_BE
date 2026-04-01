@@ -4,6 +4,7 @@ import com.notfound.order.application.port.in.ClearCartUseCase;
 import com.notfound.order.application.port.in.GetInternalOrderUseCase;
 import com.notfound.order.application.port.in.GetInternalOrderUseCase.InternalOrderDetail;
 import com.notfound.order.application.port.in.UpdateOrderStatusUseCase;
+import com.notfound.order.application.service.PendingOrderCleanupScheduler;
 import com.notfound.order.domain.exception.OrderException;
 import com.notfound.order.domain.model.Order;
 import com.notfound.order.domain.model.OrderItem;
@@ -45,6 +46,9 @@ class InternalOrderControllerTest {
 
     @MockitoBean
     private ClearCartUseCase clearCartUseCase;
+
+    @MockitoBean
+    private PendingOrderCleanupScheduler pendingOrderCleanupScheduler;
 
     private static final String INTERNAL_SECRET = "test-internal-secret-key-for-testing";
     private static final UUID ORDER_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
@@ -99,12 +103,34 @@ class InternalOrderControllerTest {
                     .andExpect(jsonPath("$.status").value(200))
                     .andExpect(jsonPath("$.code").value("ORDER_FOUND"))
                     .andExpect(jsonPath("$.data.orderId").value(ORDER_ID.toString()))
+                    .andExpect(jsonPath("$.data.status").value("PENDING"))
                     .andExpect(jsonPath("$.data.totalAmount").value(30000))
                     .andExpect(jsonPath("$.data.items.length()").value(2))
                     .andExpect(jsonPath("$.data.items[0].productId").value(PRODUCT_ID_1.toString()))
                     .andExpect(jsonPath("$.data.items[0].quantity").value(2))
                     .andExpect(jsonPath("$.data.items[1].productId").value(PRODUCT_ID_2.toString()))
                     .andExpect(jsonPath("$.data.items[1].quantity").value(1));
+        }
+
+        @Test
+        @DisplayName("CANCELLED 상태 주문 조회 → status: CANCELLED 반환")
+        void getOrder_cancelledStatus() throws Exception {
+            Order order = Order.builder()
+                    .id(ORDER_ID)
+                    .orderNumber("20260401-abc123def456")
+                    .memberId(UUID.randomUUID())
+                    .status(OrderStatus.CANCELLED)
+                    .totalAmount(30000)
+                    .shippingFee(0)
+                    .depositUsed(0)
+                    .build();
+            when(getInternalOrderUseCase.getOrder(ORDER_ID))
+                    .thenReturn(new InternalOrderDetail(order, List.of()));
+
+            mockMvc.perform(get("/internal/order/{orderId}", ORDER_ID)
+                            .header("X-Internal-Secret", INTERNAL_SECRET))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("CANCELLED"));
         }
 
         @Test
@@ -117,6 +143,7 @@ class InternalOrderControllerTest {
             mockMvc.perform(get("/internal/order/{orderId}", ORDER_ID)
                             .header("X-Internal-Secret", INTERNAL_SECRET))
                     .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("PENDING"))
                     .andExpect(jsonPath("$.data.items").isArray())
                     .andExpect(jsonPath("$.data.items.length()").value(0));
         }
