@@ -27,9 +27,9 @@ spring:
 
 service:
   member:
-    url: ${MEMBER_SERVICE_URL}
+    url: ${MEMBER_SERVICE_URL:http://member-service:8081}
   product:
-    url: ${PRODUCT_SERVICE_URL}
+    url: ${PRODUCT_SERVICE_URL:http://product-service:8082}
 
 order:
   pending:
