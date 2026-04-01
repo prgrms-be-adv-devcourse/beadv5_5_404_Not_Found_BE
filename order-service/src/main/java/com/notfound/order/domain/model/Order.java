@@ -91,15 +91,38 @@ public class Order {
         return false;
     }
 
-    public void setConfirmedAt(LocalDateTime confirmedAt) {
-        this.confirmedAt = confirmedAt;
-    }
-
     public void cancel() {
         if (this.status != OrderStatus.PENDING && this.status != OrderStatus.PAID && this.status != OrderStatus.CONFIRMED) {
             throw new InvalidStateTransitionException("취소 가능 상태가 아닙니다: " + this.status);
         }
         this.status = OrderStatus.CANCELLED;
+    }
+
+    public boolean confirmPurchase() {
+        if (this.status == OrderStatus.PURCHASE_CONFIRMED) {
+            return true;
+        }
+        if (this.status != OrderStatus.DELIVERED) {
+            throw new InvalidStateTransitionException("구매확정 가능 상태가 아닙니다: " + this.status);
+        }
+        this.status = OrderStatus.PURCHASE_CONFIRMED;
+        this.confirmedAt = LocalDateTime.now();
+        return false;
+    }
+
+    public void markShipping() {
+        if (this.status != OrderStatus.PAID && this.status != OrderStatus.CONFIRMED) {
+            throw new InvalidStateTransitionException("배송 시작 가능 상태가 아닙니다: " + this.status);
+        }
+        this.status = OrderStatus.SHIPPING;
+    }
+
+    public void markDelivered() {
+        if (this.status != OrderStatus.SHIPPING) {
+            throw new InvalidStateTransitionException("배송 완료 처리 가능 상태가 아닙니다: " + this.status);
+        }
+        this.status = OrderStatus.DELIVERED;
+        this.deliveredAt = LocalDateTime.now();
     }
 
     public static class Builder {
