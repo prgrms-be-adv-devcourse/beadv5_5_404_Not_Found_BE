@@ -33,6 +33,28 @@ spring:
                 - Path=/api/payment/**
               filters:
                 - StripPrefix=2
+            - id: member-swagger
+              uri: lb://member-service
+              predicates:
+                - Path=/member/swagger-ui/**, /member/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+            - id: order-swagger
+              uri: lb://order-service
+              predicates:
+                - Path=/order/swagger-ui/**, /order/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+            - id: payment-swagger
+              uri: lb://payment-service
+              predicates:
+                - Path=/payment/swagger-ui/**, /payment/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+            - id: webjars
+              uri: lb://member-service
+              predicates:
+                - Path=/webjars/**
 
 eureka:
   client:
