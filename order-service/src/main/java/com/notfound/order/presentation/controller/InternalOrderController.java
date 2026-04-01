@@ -56,7 +56,7 @@ public class InternalOrderController {
             @Valid @RequestBody UpdateOrderStatusRequest request) {
 
         OrderStatus status = OrderStatus.valueOf(request.status());
-        Order order = updateOrderStatusUseCase.updateStatus(orderId, status, request.depositUsed(), request.confirmedAt());
+        Order order = updateOrderStatusUseCase.updateStatus(orderId, status, request.depositUsed());
 
         return ResponseEntity.ok(
                 ApiResponse.success(200, "ORDER_STATUS_UPDATE_SUCCESS",

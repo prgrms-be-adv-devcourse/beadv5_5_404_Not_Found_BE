@@ -40,7 +40,8 @@ class GetInternalOrderUseCaseTest {
                 mock(CartRepository.class),
                 mock(CartItemRepository.class),
                 mock(MemberServicePort.class),
-                mock(ProductServicePort.class)
+                mock(ProductServicePort.class),
+                mock(PurchaseEventPublisher.class)
         );
     }
 

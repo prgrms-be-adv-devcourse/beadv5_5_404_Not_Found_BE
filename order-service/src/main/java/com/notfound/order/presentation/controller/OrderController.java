@@ -29,17 +29,26 @@ public class OrderController {
     private final GetOrderListUseCase getOrderListUseCase;
     private final GetOrderDetailUseCase getOrderDetailUseCase;
     private final CancelOrderUseCase cancelOrderUseCase;
+    private final ConfirmPurchaseUseCase confirmPurchaseUseCase;
+    private final UpdateShipmentUseCase updateShipmentUseCase;
+    private final RequestReturnUseCase requestReturnUseCase;
 
     public OrderController(CheckoutUseCase checkoutUseCase,
                            CreateOrderUseCase createOrderUseCase,
                            GetOrderListUseCase getOrderListUseCase,
                            GetOrderDetailUseCase getOrderDetailUseCase,
-                           CancelOrderUseCase cancelOrderUseCase) {
+                           CancelOrderUseCase cancelOrderUseCase,
+                           ConfirmPurchaseUseCase confirmPurchaseUseCase,
+                           UpdateShipmentUseCase updateShipmentUseCase,
+                           RequestReturnUseCase requestReturnUseCase) {
         this.checkoutUseCase = checkoutUseCase;
         this.createOrderUseCase = createOrderUseCase;
         this.getOrderListUseCase = getOrderListUseCase;
         this.getOrderDetailUseCase = getOrderDetailUseCase;
         this.cancelOrderUseCase = cancelOrderUseCase;
+        this.confirmPurchaseUseCase = confirmPurchaseUseCase;
+        this.updateShipmentUseCase = updateShipmentUseCase;
+        this.requestReturnUseCase = requestReturnUseCase;
     }
 
     @Operation(summary = "결제 페이지 정보 조회", description = "상품, 배송지, 예치금 잔액 조회")
@@ -140,5 +149,70 @@ public class OrderController {
                                 result.refundAmount(),
                                 result.cancelledItemIds(),
                                 LocalDateTime.now())));
+    }
+
+    @Operation(summary = "구매확정", description = "DELIVERED 상태 → PURCHASE_CONFIRMED 전환")
+    @PostMapping("/{orderId}/confirm")
+    public ResponseEntity<ApiResponse<ConfirmPurchaseResponse>> confirmPurchase(
+            @AuthUser AuthenticatedUser user,
+            @PathVariable UUID orderId) {
+
+        UUID memberId = UUID.fromString(user.userId());
+        var order = confirmPurchaseUseCase.confirmPurchase(memberId, orderId);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(200, "PURCHASE_CONFIRM_SUCCESS",
+                        "구매확정이 완료되었습니다.",
+                        new ConfirmPurchaseResponse(
+                                order.getId(),
+                                order.getStatus().name(),
+                                LocalDateTime.now())));
+    }
+
+    @Operation(summary = "반품 신청", description = "DELIVERED 상태에서만 가능")
+    @PostMapping("/{orderId}/return")
+    public ResponseEntity<ApiResponse<ReturnResponse>> requestReturn(
+            @AuthUser AuthenticatedUser user,
+            @PathVariable UUID orderId,
+            @Valid @RequestBody ReturnRequest request) {
+
+        UUID memberId = UUID.fromString(user.userId());
+        var result = requestReturnUseCase.requestReturn(
+                memberId, orderId, request.reason(), request.orderItemIds());
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(201, "RETURN_REQUEST_SUCCESS",
+                        "반품 신청이 접수되었습니다.",
+                        new ReturnResponse(result.orderId(), result.returnStatus(), result.orderItemIds())));
+    }
+
+    @Operation(summary = "송장 등록/배송 정보 수정", description = "택배사, 송장번호, 배송 상태 수정")
+    @PatchMapping("/{orderId}/shipment")
+    public ResponseEntity<ApiResponse<ShipmentResponse>> updateShipment(
+            @AuthUser AuthenticatedUser user,
+            @PathVariable UUID orderId,
+            @Valid @RequestBody UpdateShipmentRequest request) {
+
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(user.role());
+        if (!isAdmin && !"SELLER".equalsIgnoreCase(user.role())) {
+            throw com.notfound.order.domain.exception.OrderException.shipmentAccessDenied();
+        }
+
+        UUID memberId = UUID.fromString(user.userId());
+        com.notfound.order.domain.model.ShipmentStatus status = null;
+        if (request.shipmentStatus() != null) {
+            try {
+                status = com.notfound.order.domain.model.ShipmentStatus.valueOf(request.shipmentStatus());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("유효하지 않은 배송 상태값입니다: " + request.shipmentStatus());
+            }
+        }
+
+        var shipment = updateShipmentUseCase.updateShipment(
+                memberId, orderId, request.carrier(), request.trackingNumber(), status, isAdmin);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(200, "SHIPMENT_UPDATE_SUCCESS",
+                        "배송 정보가 수정되었습니다.", ShipmentResponse.from(shipment)));
     }
 }
