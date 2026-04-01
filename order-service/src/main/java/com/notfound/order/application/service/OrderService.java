@@ -348,13 +348,12 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
     /**
      * Internal API: payment-service가 결제 완료 후 호출.
      *
-     * 멱등 정책:
-     * - PENDING → PAID: 정상 처리 (스냅샷 저장 + 장바구니 삭제 + depositUsed 저장)
-     * - 이미 PAID → PAID 재요청: 200 반환, 부작용 없음 (payment 재시도 안전)
-     * - 그 외 전이: 409 Conflict
+     * PAID 요청 시 한 트랜잭션 내에서 전체 흐름 처리:
+     * PENDING → PAID → DELIVERED → PURCHASE_CONFIRMED
      *
+     * 멱등: 이미 PURCHASE_CONFIRMED이면 바로 반환
      * 동시성: @Version 낙관적 락으로 cancel/pay 경합 방어
-     * 트랜잭션: 외부 호출(member address) 실패 시 롤백 — PAID로 잘못 남지 않음
+     * Kafka 발행: 트랜잭션 커밋 후 실행
      */
     @Override
     @Transactional
@@ -363,24 +362,40 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
                 .orElseThrow(OrderException::orderNotFound);
 
         if (status == OrderStatus.PAID) {
-            // 멱등: 이미 PAID면 외부 호출 없이 바로 반환
-            if (order.getStatus() == OrderStatus.PAID) {
+            // 멱등: 이미 최종 상태면 바로 반환
+            if (order.getStatus() == OrderStatus.PURCHASE_CONFIRMED) {
                 return order;
             }
 
-            // 1. 배송지 스냅샷 조회 (외부 호출 — 실패 시 트랜잭션 롤백)
+            // 1. PENDING 검증 + 배송지 스냅샷 조회
             String shippingSnapshot = resolveShippingSnapshot(order);
 
-            // 2. 상태 전이
+            // 2. PENDING → PAID
             order.pay(depositUsed, shippingSnapshot);
 
             // 3. 장바구니 항목 삭제
             order.parseCartItemIds().forEach(cartItemRepository::deleteById);
+
+            // 4. PAID → DELIVERED
+            order.markShipping();
+            order.markDelivered();
+
+            // 5. DELIVERED → PURCHASE_CONFIRMED
+            order.confirmPurchase();
+
+            // 6. DB 저장
+            Order saved = orderRepository.save(order);
+
+            // 7. Kafka 발행 (sellerId: 첫 번째 orderItem)
+            List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+            UUID sellerId = items.get(0).getSellerId();
+            purchaseEventPublisher.publishPurchaseConfirmed(
+                    saved.getId(), sellerId, saved.getTotalAmount(), saved.getConfirmedAt());
+
+            return saved;
         } else {
             throw new IllegalStateException("지원하지 않는 상태 전이입니다: " + status);
         }
-
-        return orderRepository.save(order);
     }
 
     private String resolveShippingSnapshot(Order order) {

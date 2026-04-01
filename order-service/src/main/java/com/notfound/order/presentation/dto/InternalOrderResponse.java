@@ -10,6 +10,7 @@ public record InternalOrderResponse(
         UUID orderId,
         String status,
         int totalAmount,
+        int shippingFee,
         List<Item> items
 ) {
     public record Item(UUID productId, int quantity) {}
@@ -18,6 +19,8 @@ public record InternalOrderResponse(
         var items = orderItems.stream()
                 .map(i -> new Item(i.getProductId(), i.getQuantity()))
                 .toList();
-        return new InternalOrderResponse(order.getId(), order.getStatus().name(), order.getTotalAmount(), items);
+        return new InternalOrderResponse(
+                order.getId(), order.getStatus().name(),
+                order.getTotalAmount(), order.getShippingFee(), items);
     }
 }
