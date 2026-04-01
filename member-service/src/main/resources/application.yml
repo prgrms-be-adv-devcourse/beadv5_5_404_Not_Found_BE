@@ -33,3 +33,9 @@ admin:
 
 internal:
   secret: ${INTERNAL_SECRET_KEY}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui/index.html
+  api-docs:
+    path: /v3/api-docs
