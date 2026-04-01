@@ -84,9 +84,15 @@ class InternalSellerIntegrationTest {
         sellerId = sellerJson.get("data").get("sellerId").asText();
 
         // 판매자 승인
-        mockMvc.perform(patch("/admin/seller/{sellerId}/approve", sellerId)
+        String approveBody = """
+                { "status": "APPROVED" }
+                """;
+
+        mockMvc.perform(patch("/member/admin/seller/{memberId}", memberId)
                         .header("X-User-Id", memberId)
-                        .header("X-Role", "ADMIN"))
+                        .header("X-Role", "ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(approveBody))
                 .andExpect(status().isOk());
     }
 

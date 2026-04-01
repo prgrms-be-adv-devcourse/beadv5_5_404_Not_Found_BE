@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.UUID;
 
+import com.notfound.order.domain.exception.InvalidStateTransitionException;
+
 import static org.assertj.core.api.Assertions.*;
 
 class OrderTest {
@@ -90,7 +92,7 @@ class OrderTest {
     void pay_fromCancelled() {
         Order order = Order.builder().status(OrderStatus.CANCELLED).build();
         assertThatThrownBy(() -> order.pay(50000, "{}"))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(InvalidStateTransitionException.class);
     }
 
     @Test
@@ -98,6 +100,6 @@ class OrderTest {
     void cancel_fromCancelled() {
         Order order = Order.builder().status(OrderStatus.CANCELLED).build();
         assertThatThrownBy(order::cancel)
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(InvalidStateTransitionException.class);
     }
 }

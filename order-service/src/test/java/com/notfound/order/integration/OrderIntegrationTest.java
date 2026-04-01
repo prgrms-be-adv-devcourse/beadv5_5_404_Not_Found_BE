@@ -3,8 +3,9 @@ package com.notfound.order.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notfound.order.application.port.out.MemberServicePort;
-import com.notfound.order.application.port.out.PurchaseEventPublisher;
+import com.notfound.order.application.port.out.ProductServicePort;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -45,12 +46,12 @@ class OrderIntegrationTest {
     private MemberServicePort memberServicePort;
 
     @MockitoBean
-    private PurchaseEventPublisher purchaseEventPublisher;
+    private ProductServicePort productServicePort;
 
     private static final String MEMBER_ID = "11111111-1111-1111-1111-111111111111";
     private static final String PRODUCT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
     private static final UUID ADDRESS_ID = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
-    private static final String INTERNAL_SECRET = "test-internal-secret-key-for-testing";
+    private static final String INTERNAL_SECRET = "test-internal-secret";
     private static final String IDEMPOTENCY_KEY_1 = "test-order-key-001";
     private static final String IDEMPOTENCY_KEY_2 = "test-order-key-002";
 
@@ -59,9 +60,14 @@ class OrderIntegrationTest {
     private String orderItemId;
     private String cartItemId;
 
+    @BeforeEach
+    void resetMocks() {
+        setupMocks();
+    }
+
     @BeforeAll
     void setUp() throws Exception {
-        setupMemberMocks();
+        setupMocks();
 
         String body = """
                 { "productId": "%s", "quantity": 2 }
@@ -79,7 +85,7 @@ class OrderIntegrationTest {
         cartItemId = json.get("data").get("cartItemId").asText();
     }
 
-    private void setupMemberMocks() {
+    private void setupMocks() {
         when(memberServicePort.isActiveMember(any())).thenReturn(true);
         when(memberServicePort.getDepositBalance(any())).thenReturn(500000);
         when(memberServicePort.deductDeposit(any(), anyInt())).thenAnswer(inv -> 500000 - (int) inv.getArgument(1));
@@ -93,13 +99,21 @@ class OrderIntegrationTest {
                         "address2", "101호",
                         "isDefault", true)
         ));
+
+        when(productServicePort.getProducts(any())).thenReturn(List.of(
+                Map.of("productId", PRODUCT_ID,
+                        "productName", "테스트 도서",
+                        "price", 15000,
+                        "stock", 100,
+                        "sellerId", UUID.randomUUID().toString())
+        ));
     }
 
     // ===== 주문 생성 (PENDING) =====
 
     @Test
     @Order(1)
-    @DisplayName("주문 생성 — 상태 PENDING, depositUsed=0, deposit 차감 안 함, stock 이벤트 안 함")
+    @DisplayName("주문 생성 — 상태 PENDING, depositUsed=0, deposit 차감 안 함")
     void createOrder_pending() throws Exception {
         String body = """
                 {
@@ -121,7 +135,6 @@ class OrderIntegrationTest {
                 .andExpect(jsonPath("$.data.depositUsed").value(0))
                 .andReturn();
 
-        // deposit 차감 호출 안 됨
         verify(memberServicePort, never()).deductDeposit(any(), anyInt());
 
         JsonNode json = objectMapper.readTree(result.getResponse().getContentAsString());
@@ -182,11 +195,11 @@ class OrderIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    // ===== Internal API: PENDING → PAID =====
+    // ===== Internal API: PENDING → PURCHASE_CONFIRMED (자동 전이) =====
 
     @Test
     @Order(10)
-    @DisplayName("Internal status PAID — depositUsed 저장, 스냅샷 저장, 장바구니 삭제")
+    @DisplayName("Internal status PAID — PENDING→PURCHASE_CONFIRMED 자동 전이")
     void internalStatus_paid() throws Exception {
         String body = """
                 { "status": "PAID", "depositUsed": 32500 }
@@ -199,20 +212,20 @@ class OrderIntegrationTest {
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("ORDER_STATUS_UPDATE_SUCCESS"))
-                .andExpect(jsonPath("$.data.orderStatus").value("PAID"));
+                .andExpect(jsonPath("$.data.orderStatus").value("PURCHASE_CONFIRMED"));
 
         // 주문 상세 조회로 검증
         mockMvc.perform(get("/order/{orderId}", orderId)
                         .header("X-User-Id", MEMBER_ID)
                         .header("X-Role", "USER"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.orderStatus").value("PAID"))
+                .andExpect(jsonPath("$.data.orderStatus").value("PURCHASE_CONFIRMED"))
                 .andExpect(jsonPath("$.data.depositUsed").value(32500));
     }
 
     @Test
     @Order(11)
-    @DisplayName("Internal status 멱등 — PAID→PAID 재호출은 200 (부작용 없음)")
+    @DisplayName("Internal status 멱등 — 이미 PURCHASE_CONFIRMED이면 부작용 없이 반환")
     void internalStatus_idempotent() throws Exception {
         mockMvc.perform(post("/internal/order/{orderId}/status", orderId)
                         .header("X-Internal-Secret", INTERNAL_SECRET)
@@ -221,7 +234,7 @@ class OrderIntegrationTest {
                                 { "status": "PAID", "depositUsed": 32500 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.orderStatus").value("PAID"));
+                .andExpect(jsonPath("$.data.orderStatus").value("PURCHASE_CONFIRMED"));
     }
 
     @Test
@@ -266,23 +279,21 @@ class OrderIntegrationTest {
                 .andExpect(jsonPath("$.data.orderStatus").value("CANCELLED"))
                 .andExpect(jsonPath("$.data.refundAmount").value(0));
 
-        // PENDING 취소 시 chargeDeposit 호출 안 됨
         verify(memberServicePort, never()).chargeDeposit(any(), anyInt());
     }
 
     @Test
     @Order(21)
-    @DisplayName("PAID 주문 취소 — 환불 + 재고 복원")
-    void cancelOrder_paid() throws Exception {
+    @DisplayName("PURCHASE_CONFIRMED 주문 취소 실패 — 취소 불가 상태")
+    void cancelOrder_purchaseConfirmed() throws Exception {
+        // orderId는 PURCHASE_CONFIRMED 상태 (자동 전이)
         mockMvc.perform(post("/order/{orderId}/cancel", orderId)
                         .header("X-User-Id", MEMBER_ID)
                         .header("X-Role", "USER")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andDo(print())
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("ORDER_CANCEL_SUCCESS"))
-                .andExpect(jsonPath("$.data.orderStatus").value("CANCELLED"))
-                .andExpect(jsonPath("$.data.refundAmount").value(32500));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ORDER_CANNOT_BE_CANCELLED"));
     }
 
     @Test
@@ -301,7 +312,6 @@ class OrderIntegrationTest {
     @Order(23)
     @DisplayName("Internal status 실패 — CANCELLED→PAID 전이 409")
     void internalStatus_cancelledToPaid() throws Exception {
-        // orderId2는 CANCELLED 상태
         mockMvc.perform(post("/internal/order/{orderId}/status", orderId2)
                         .header("X-Internal-Secret", INTERNAL_SECRET)
                         .contentType(MediaType.APPLICATION_JSON)

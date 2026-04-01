@@ -5,9 +5,9 @@ spring:
   application:
     name: member-service-test
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/bookcommerce}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:test1234}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -18,7 +18,7 @@ spring:
         format_sql: true
 
 jwt:
-  secret: ${JWT_SECRET_KEY}
+  secret: ${JWT_SECRET_KEY:my-super-secret-jwt-key-that-is-at-least-32-bytes-long}
   access-expiration: 1800000
   refresh-expiration: 1209600000
 
@@ -27,5 +27,5 @@ eureka:
     enabled: false
 
 internal:
-  secret: ${INTERNAL_SECRET_KEY}
-  secret-key: ${INTERNAL_SECRET_KEY}
+  secret: test-internal-secret
+  secret-key: test-internal-secret
