@@ -24,13 +24,13 @@
 | `SUSPENDED` | 이용 정지 | 관리자 제재 |
 | `WITHDRAWN` | 탈퇴 | 회원 탈퇴 |
 
-### AuthProvider — 가입 경로
+### AuthProvider — 가입 경로 (미구현)
 
 | 값 | 설명 |
 |----|------|
 | `LOCAL` | 이메일 회원 가입 |
 
-> 최소한 `LOCAL`만 확정해두고, 추후 확장 시 `GOOGLE`, `KAKAO`, `NAVER` 등을 추가
+> 코드에 enum 미구현. 현재 LOCAL 가입만 지원하며 별도 enum 없이 처리 중.
 
 ### SellerStatus — 판매자 상태
 
@@ -53,13 +53,15 @@
 | `is_default` | `true` / `false` | 기본 배송지 여부 |
 | `is_deleted` | `true` / `false` | 소프트 삭제 여부 |
 
-### AddressLabelType — 배송지 라벨
+### AddressLabelType — 배송지 라벨 (미구현)
 
 | 값 | 설명 |
 |----|------|
 | `HOME` | 집 |
 | `OFFICE` | 회사 |
 | `ETC` | 기타 |
+
+> 코드에 enum 미구현. 현재 label은 String(VARCHAR_50)으로 자유 입력.
 
 ---
 
@@ -125,7 +127,8 @@
 
 | 값 | 설명 | 전이 조건 |
 |----|------|----------|
-| `PAID` | 결제 완료 | 주문 생성 시 기본값 |
+| `PENDING` | 결제 대기 | 주문 생성 시 기본값 |
+| `PAID` | 결제 완료 | payment-service 결제 완료 후 |
 | `CONFIRMED` | 주문 확정 | 판매자/시스템 확인 시 |
 | `SHIPPING` | 배송 중 | 배송 시작 시 |
 | `DELIVERED` | 배송 완료 | 배송 완료 시 |
@@ -212,13 +215,15 @@
 
 ## Refund 영역
 
-### RefundStatus
+### RefundStatus (미구현)
 
 | 값 | 설명 |
 |----|------|
 | `PENDING` | 환불 처리중 |
 | `COMPLETED` | 환불 완료 |
 | `FAILED` | 환불 실패 |
+
+> 코드에 enum 미구현. REFUND 테이블 및 환불 API 자체가 미구현 상태.
 
 ---
 

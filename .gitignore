@@ -29,3 +29,6 @@ Thumbs.db
 
 # Spring Boot
 spring-shell.log
+
+# docs
+ServiceOverview.md

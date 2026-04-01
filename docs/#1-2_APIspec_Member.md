@@ -7,19 +7,21 @@
 
 ## 📌 Member API
 
-| 기능 | Method | Endpoint | 설명 |
-|------|--------|----------|------|
-| 내 정보 조회 | GET | /member/me | 회원 정보 조회 |
-| 내 정보 수정 | PATCH | /member/me | 회원 정보 수정 |
-| 예치금 잔액 조회 | GET | /member/me/deposit | 보유 예치금 조회 |
-| 회원 탈퇴 | DELETE | /member/me | 계정 삭제 |
-| 배송지 목록 조회 | GET | /member/address | 배송지 리스트 |
-| 배송지 추가 | POST | /member/address | 배송지 등록 |
-| 배송지 수정 | PATCH | /member/address/{addressId} | 배송지 수정 |
-| 배송지 삭제 | DELETE | /member/address/{addressId} | 배송지 삭제 |
-| 판매자 등록 신청 | POST | /member/seller | 판매자 신청 |
-| 판매자 정보 조회 | GET | /member/seller/{memberId} | 판매자 정보 |
-| 판매자 승인/거절 | PATCH | /member/admin/seller/{memberId} | 관리자 승인 |
+> ★ = 상품선택 → 결제완료 → 정산완료 필수 플로우
+
+| 기능 | Method | Endpoint | 구현 | 필수 | 설명 |
+|------|--------|----------|:---:|:---:|------|
+| 내 정보 조회 | GET | /member/me | ✅ | | 회원 정보 조회 |
+| 내 정보 수정 | PATCH | /member/me | ✅ | | 회원 정보 수정 |
+| 예치금 잔액 조회 | GET | /member/me/deposit | ✅ | ★ | 보유 예치금 조회 |
+| 회원 탈퇴 | DELETE | /member/me | ✅ | | 계정 삭제 |
+| 배송지 목록 조회 | GET | /member/address | ✅ | | 배송지 리스트 |
+| 배송지 추가 | POST | /member/address | ✅ | ★ | 배송지 등록 |
+| 배송지 수정 | PATCH | /member/address/{addressId} | ✅ | | 배송지 수정 |
+| 배송지 삭제 | DELETE | /member/address/{addressId} | ✅ | | 배송지 삭제 |
+| 판매자 등록 신청 | POST | /member/seller | ✅ | ★ | 판매자 신청 |
+| 판매자 정보 조회 | GET | /member/seller/{memberId} | ✅ | | 판매자 정보 |
+| 판매자 승인/거절 | PATCH | /member/admin/seller/{memberId} | ✅ | ★ | 관리자 승인 |
 
 ### `GET /member/me` — 내 정보 조회
 

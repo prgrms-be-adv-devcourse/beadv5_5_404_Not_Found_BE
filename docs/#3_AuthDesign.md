@@ -44,7 +44,7 @@
 
 | 항목 | 값 |
 |------|-----|
-| 만료시간 | 15~30분 |
+| 만료시간 | 30분 (1800000ms) |
 | 저장 위치 | 클라이언트 메모리 (Authorization 헤더로 전송) |
 | 용도 | API 요청 시 인증 |
 
@@ -52,7 +52,7 @@
 
 | 항목 | 값 |
 |------|-----|
-| 만료시간 | 15~30일 |
+| 만료시간 | 14일 (1209600000ms) |
 | 저장 위치 | DB (`REFRESH_TOKEN` 테이블, Member DB) |
 | 용도 | Access Token 재발급 |
 
@@ -199,9 +199,9 @@ Client → Gateway → Member Service
 
 | 경로 | 라우팅 대상 | 설명 |
 |------|-----------|------|
-| `GET /product` | Product Service | 상품 목록 조회 |
-| `GET /product/{productId}` | Product Service | 상품 상세 조회 |
-| `GET /product/category/**` | Product Service | 카테고리 조회 |
+| `GET /products` | Product Service | 상품 목록 조회 |
+| `GET /products/{productId}` | Product Service | 상품 상세 조회 |
+| `GET /products/categories` | Product Service | 카테고리 조회 |
 | `POST /auth/register` | Member Service | 회원가입 |
 | `POST /auth/login` | Member Service | 로그인 |
 | `POST /auth/refresh` | Member Service | 토큰 재발급 |

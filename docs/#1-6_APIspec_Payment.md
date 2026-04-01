@@ -5,21 +5,37 @@
 
 ---
 
+> ★ = 상품선택 → 결제완료 → 정산완료 필수 플로우
+
 ## 📌 Payment API
 
-| 기능 | Method | Endpoint | 설명 |
-|------|--------|----------|------|
-| 환불 요청 | POST | /payment/{paymentId}/refund | 환불 처리 |
-| 예치금 충전 준비 | POST | /payment/deposit/charge/ready | 충전 요청 |
-| 예치금 충전 승인 | POST | /payment/deposit/charge/confirm | 충전 승인 |
-| 예치금 내역 조회 | GET | /payment/deposit/history | 사용 내역 |
-| PG 웹훅 수신 | POST | /payment/webhook/pg | 외부 결제 콜백 |
-| 내 정산 조회 | GET | /payment/settlement/me | 정산 조회 |
-| 정산 상세 조회 | GET | /payment/settlement/{settlementId} | 정산 상세 |
-| 출금 신청 | POST | /payment/settlement/payout | 출금 요청 |
-| 정산 요약 | GET | /payment/settlement/summary | 요약 |
-| 수수료 정책 등록 | POST | /payment/commission | 정책 등록 |
-| 수수료 정책 조회 | GET | /payment/commission | 정책 조회 |
+| 기능 | Method | Endpoint | 구현 | 필수 | 설명 |
+|------|--------|----------|:---:|:---:|------|
+| 예치금 결제 실행 | POST | /payment/orders/{orderId}/pay | ✅ | ★ | 예치금으로 주문 결제 |
+| 예치금 충전 준비 | POST | /payment/deposit/charge/ready | ✅ | | PG 결제창 URL 발급 |
+| 예치금 충전 승인 | POST | /payment/deposit/charge/confirm | ✅ | | PG 승인 + 예치금 충전 |
+| 예치금 내역 조회 | GET | /payment/deposit/history | ✅ | | 충전/사용/환불 내역 |
+| 환불 요청 | POST | /payment/{paymentId}/refund | ❌ | | 미구현 |
+| PG 웹훅 수신 | POST | /payment/webhook/pg | ❌ | | 미구현 |
+
+### Settlement Service API (정산 — 별도 서비스로 분리)
+
+| 기능 | Method | Endpoint | 구현 | 필수 | 설명 |
+|------|--------|----------|:---:|:---:|------|
+| 내 정산 조회 | GET | /api/settlements/me | ✅ | ★ | 판매자 정산 내역 조회 |
+| 월 정산 수동 실행 | POST | /internal/settlements/execute | ✅ | ★ | 관리자 수동 트리거 |
+| 정산 상세 조회 | GET | /payment/settlement/{settlementId} | ❌ | | 미구현 |
+| 출금 신청 | POST | /payment/settlement/payout | ❌ | | 미구현 |
+| 정산 요약 | GET | /payment/settlement/summary | ❌ | | 미구현 |
+| 수수료 정책 등록 | POST | /payment/commission | ❌ | | 미구현 |
+| 수수료 정책 조회 | GET | /payment/commission | ❌ | | 미구현 |
+
+### Payment Internal API
+
+| 기능 | Method | Endpoint | 구현 | 필수 | 설명 |
+|------|--------|----------|:---:|:---:|------|
+| 예치금 차감 | POST | /internal/deposit/deduct | ✅ | | order-service → payment (주문 취소 시) |
+| 예치금 환급 | POST | /internal/deposit/refund | ✅ | | order-service → payment (주문 취소 시) |
 
 ### Payment → Order Internal 호출
 
@@ -43,9 +59,9 @@ Request Body:
 - **Payment Purpose**: PaymentPurpose는 DEPOSIT_CHARGE만 지원합니다. ORDER_PAY는 제거되었습니다.
 - **Direct Order Payment**: 상품 주문은 예치금 전용입니다. PG 결제는 사용되지 않습니다.
 - **PG Usage**: PG는 오직 예치금 충전(POST /payment/deposit/charge/*)에만 사용됩니다.
-- **Stock Events**: 재고 차감/복원은 Kafka를 통해 처리됩니다. (StockDeductedEvent, StockRestoredEvent)
-- **Settlement Trigger**: 구매확정 시 Order 서비스가 `PurchaseConfirmedEvent`(Kafka)를 발행하면, Payment 서비스가 consume하여 `settlement_target`을 생성합니다. 정산은 스케줄러 배치(매월 25일)로 실행됩니다.
-- **Other Events**: 예치금 충전/환불 완료 등 내부 이벤트는 Spring Event로 처리됩니다.
+- **Stock Events**: 재고 차감은 REST 동기 호출로 처리됩니다 (payment-service → product-service). Kafka 미사용.
+- **Settlement Trigger**: 구매확정 시 Order 서비스가 `PurchaseConfirmedEvent`(Kafka)를 발행하면, Settlement 서비스가 consume하여 `settlement_target`을 생성합니다. 정산은 스케줄러 배치(매월 25일)로 실행됩니다.
+- **Deposit Events**: 예치금 충전/차감/환급 시 Spring Event(AFTER_COMMIT)로 member-service 잔액을 동기화합니다 (DepositChargedEvent, DepositDeductedEvent, DepositRefundedEvent).
 
 ---
 

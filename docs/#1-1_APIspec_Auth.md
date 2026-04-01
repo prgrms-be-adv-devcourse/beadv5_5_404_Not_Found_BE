@@ -9,12 +9,14 @@
 
 > Member Service 내부에서 처리하되, API 경로는 `/auth/*`로 독립 구분합니다.
 
-| 기능 | Method | Endpoint | 설명 |
-|------|--------|----------|------|
-| 회원가입 | POST | /auth/register | 신규 회원 생성 + 토큰 발급 |
-| 로그인 | POST | /auth/login | JWT 발급 |
-| 토큰 재발급 | POST | /auth/refresh | Access Token 재발급 |
-| 로그아웃 | POST | /auth/logout | 로그아웃 처리 |
+> ★ = 상품선택 → 결제완료 → 정산완료 필수 플로우
+
+| 기능 | Method | Endpoint | 구현 | 필수 | 설명 |
+|------|--------|----------|:---:|:---:|------|
+| 회원가입 | POST | /auth/register | ✅ | ★ | 신규 회원 생성 + 토큰 발급 |
+| 로그인 | POST | /auth/login | ✅ | ★ | JWT 발급 |
+| 토큰 재발급 | POST | /auth/refresh | ✅ | | Access Token 재발급 |
+| 로그아웃 | POST | /auth/logout | ✅ | | 로그아웃 처리 |
 
 ### `POST /auth/register` — 회원가입
 

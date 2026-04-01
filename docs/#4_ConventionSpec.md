@@ -21,10 +21,10 @@ bookstore/
 ├── eureka-server/         ← Eureka Service Discovery
 ├── gateway-service/       ← Spring Cloud Gateway (토큰 검증 + 라우팅)
 ├── member-service/        ← 회원 관리 + 인증(로그인/회원가입/토큰 발급)
-├── product-service/
-├── review-service/
-├── order-service/
-└── payment-service/
+├── product-service/       ← 상품 등록/조회/카테고리
+├── order-service/         ← 장바구니/주문/배송/구매확정
+├── payment-service/       ← 예치금 결제/충전(PG)/차감/환급
+└── settlement-service/    ← 정산 대상 생성(Kafka)/월별 정산 실행
 ```
 
 각 서비스 내부 패키지 구조:

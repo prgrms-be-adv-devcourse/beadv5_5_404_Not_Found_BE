@@ -7,17 +7,19 @@
 
 ## 📌 Product API
 
-| 기능 | Method | Endpoint | 설명 |
-|------|--------|----------|------|
-| 상품 목록 조회 | GET | /product | 상품 리스트 조회 (비회원 접근 가능) |
-| 상품 상세 조회 | GET | /product/{productId} | 상품 상세 (비회원 접근 가능) |
-| 상품 등록 | POST | /product | 상품 등록 |
-| 상품 수정 | PATCH | /product/{productId} | 상품 정보 수정 |
-| 상품 상태 변경 | PATCH | /product/{productId}/status | 판매 상태 변경 |
-| 재고 조회 | GET | /product/{productId}/inventory | 재고 확인 |
-| 재고 수정 | PATCH | /product/{productId}/inventory | 재고 변경 |
-| 카테고리 조회 | GET | /product/category | 카테고리 조회 |
-| 카테고리 추가 | POST | /product/category | 카테고리 등록 |
+> ★ = 상품선택 → 결제완료 → 정산완료 필수 플로우
+
+| 기능 | Method | Endpoint | 구현 | 필수 | 설명 |
+|------|--------|----------|:---:|:---:|------|
+| 상품 목록 조회 | GET | /products | ✅ | ★ | 상품 리스트 조회 (비인증 허용) |
+| 상품 상세 조회 | GET | /products/{productId} | ✅ | ★ | 상품 상세 (비인증 허용) |
+| 상품 등록 | POST | /products | ✅ | ★ | 상품 등록 (SELLER 전용) |
+| 상품 수정 | PATCH | /products/{productId} | ✅ | | 상품 정보 수정 (SELLER 전용) |
+| 상품 상태 변경 | PATCH | /products/{productId}/status | ✅ | ★ | ACTIVE 전환 (ADMIN 전용) |
+| 카테고리 조회 | GET | /products/categories | ✅ | | 카테고리 목록 |
+| 카테고리 추가 | POST | /products/categories | ✅ | | 카테고리 등록 |
+
+> 설계 변경: 재고 조회/수정 API는 별도 엔드포인트 없이 상품 등록/수정 시 quantity 필드로 관리. 재고 차감은 `POST /internal/products/stock/deduct` (payment-service 전용). 재고 복원 엔드포인트(`/internal/products/stock/restore`)는 미구현.
 
 ### `GET /product` — 상품 목록 조회
 

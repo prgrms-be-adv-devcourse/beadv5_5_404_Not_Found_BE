@@ -8,11 +8,11 @@
 
 ## 1. Kafka Events (서비스 간 비동기 통신)
 
-재고 차감/복원 및 정산 관련 이벤트를 Kafka를 통해 비동기로 처리됩니다.
+정산 관련 이벤트를 Kafka를 통해 비동기로 처리됩니다.
 
 | 이벤트명 | Producer | Consumer | Topic | 목적 |
 |---------|----------|----------|-------|------|
-| `PurchaseConfirmedEvent` | Order | Payment | `order.purchase-confirmed` | 구매확정 → 정산 대상 생성 트리거 |
+| `PurchaseConfirmedEvent` | Order | Settlement | `order.purchase-confirmed` | 구매확정 → 정산 대상 생성 트리거 |
 
 > **Kafka에서 제외된 이벤트:**
 > - ~~`StockDeductedEvent`~~, ~~`StockRestoredEvent`~~: REST 동기 호출로 대체 (payment-service/order-service → product-service)
@@ -31,20 +31,24 @@
 
 | 이벤트명 | 발행처 | 목적 |
 |---------|--------|------|
-| `OrderCancelledEvent` | Order Service | 주문 취소 완료, 배송 중단 처리 |
+| `PurchaseConfirmedEvent` | Order Service | 구매확정 시 Spring Event 발행 → `@TransactionalEventListener(AFTER_COMMIT)`에서 Kafka 전송 |
+
+> `OrderCancelledEvent`는 설계에 있었으나 코드에 미구현. 주문 취소는 OrderService 내부에서 직접 처리.
 
 ### Payment Service
 
 | 이벤트명 | 발행처 | 목적 |
 |---------|--------|------|
-| `DepositChargedEvent` | Payment Service | 예치금 충전 완료, 회원 잔액 반영 |
-| `RefundCompletedEvent` | Payment Service | 환불 완료, 예치금 복원 및 재고 복구 트리거 |
-| `SettlementCompletedEvent` | Payment Service | 정산 완료 반영 |
-| `SettlementFailedEvent` | Payment Service | 정산 실패 추적 |
+| `DepositChargedEvent` | Payment Service | 예치금 충전 완료, member-service 잔액 동기화 (AFTER_COMMIT) |
+| `DepositDeductedEvent` | Payment Service | 예치금 차감 완료, member-service 잔액 동기화 (AFTER_COMMIT) |
+| `DepositRefundedEvent` | Payment Service | 예치금 환급 완료, member-service 잔액 동기화 (AFTER_COMMIT) |
 
-### Review Service
+### Settlement Service
 
-> 리뷰 등록/수정/삭제 시 상품 평점 업데이트는 Review → Product REST 동기 호출로 처리. Spring Event/Kafka 사용하지 않음.
+| 이벤트명 | 발행처 | 목적 |
+|---------|--------|------|
+| `SettlementCompletedEvent` | Settlement Service | 정산 완료 반영 |
+| `SettlementFailedEvent` | Settlement Service | 정산 실패 추적 |
 
 ### Member Service
 
@@ -78,43 +82,11 @@
 }
 ```
 
-### Kafka Events 메시지 구조
-
-**StockDeductedEvent**
-```json
-{
-  "eventId": "UUID",
-  "eventType": "StockDeductedEvent",
-  "timestamp": "2026-03-23T12:00:00Z",
-  "payload": {
-    "orderId": "UUID",
-    "productId": "UUID",
-    "quantity": 2,
-    "reason": "ORDER_CREATED"
-  }
-}
-```
-
-**StockRestoredEvent**
-```json
-{
-  "eventId": "UUID",
-  "eventType": "StockRestoredEvent",
-  "timestamp": "2026-03-23T12:00:00Z",
-  "payload": {
-    "orderId": "UUID",
-    "productId": "UUID",
-    "quantity": 2,
-    "reason": "ORDER_CANCELLED"
-  }
-}
-```
-
 ### Spring Event 메시지 구조
 
 Spring Event는 내부 도메인 이벤트로 JSON 직렬화가 필요하지 않습니다.
 
-> `SettlementTargetCreatedEvent`는 Kafka 이벤트로 발행하지 않는다. Payment 서비스 내부에서 `PurchaseConfirmedEvent` 처리 시 `settlement_target`을 직접 생성한다.
+> `SettlementTargetCreatedEvent`는 Kafka 이벤트로 발행하지 않는다. Settlement 서비스 내부에서 `PurchaseConfirmedEvent` 처리 시 `settlement_target`을 직접 생성한다.
 
 각 서비스의 Kafka Producer/Consumer는 헥사고날 구조의 adapter 레이어에 위치합니다.
 
@@ -132,7 +104,7 @@ Spring Event는 별도의 adapter 없이 ApplicationEventPublisher와 EventListe
 
 - **Topic**: `order.purchase-confirmed`
 - **Producer**: Order
-- **Consumer**: Payment (정산 대상 생성)
+- **Consumer**: Settlement (정산 대상 생성)
 
 ```json
 {

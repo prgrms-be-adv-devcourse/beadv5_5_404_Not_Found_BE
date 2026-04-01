@@ -9,10 +9,9 @@
 - 가입 시 기본값
   - role: USER
   - status: ACTIVE
-  - email_verified: false
+  - email_verified: true (임시 — 이메일 인증 기능 미구현으로 가입 시 true 설정. TODO: 구현 시 false로 변경)
   - deposit_balance: 0
-- 가입 완료 후 이메일 인증 이벤트 발행
-- 이메일 모듈 / 외부 이메일 연동을 통해 인증 메일 발송
+- 가입 완료 후 MemberRegisteredEvent 발행 (Spring Event)
 
 ### 1-2. 로그인 / 인증
 - 이메일 + 비밀번호 기반 로그인
@@ -176,7 +175,7 @@
 
 ### 4-3. 주문 상태 관리
 - 주문 상태 흐름: `PENDING → PAID → CONFIRMED → SHIPPING → DELIVERED → PURCHASE_CONFIRMED`
-- PENDING: 결제 대기 (주문 생성 직후, 결제 실행 전)
+- PENDING: 결제 대기 (주문 생성 직후, 결제 실행 전. 30분 경과 시 PendingOrderCleanupScheduler가 자동 취소)
 - PAID: 결제 완료 (payment-service 결제 완료 후)
 - CONFIRMED: 주문 확정 (판매자 확인)
 - SHIPPING: 배송 중
@@ -188,16 +187,13 @@
 
 **재고 차감 실패 시나리오 (동시 주문)**
 
-주문 생성 시점에 재고를 검증하고(`GET /products?ids=`), 결제 완료 후 실제 차감한다.
-이 두 단계 사이에 동시 주문으로 재고가 소진되면 차감 실패가 발생할 수 있다.
+주문 생성 시점에 재고를 검증하고, 결제 실행 시 payment-service가 REST 동기 호출로 재고를 차감한다.
+동시 주문으로 재고가 소진되면 차감 실패가 발생할 수 있다.
 
 | 단계 | 처리 |
 |------|------|
-| 차감 실패 발생 | 상품 모듈이 `StockDeductFailedEvent` 발행 |
-| 주문 상태 전이 | `CONFIRMED → STOCK_FAILED` |
-| 환불 트리거 | 주문 모듈이 결제 모듈에 환불 요청 |
-| 환불 완료 | `STOCK_FAILED → REFUNDED`, 재고 복원 불필요 (차감 자체가 실패했으므로) |
-| 회원 알림 | 재고 부족으로 인한 자동 취소 안내 |
+| 차감 실패 발생 | product-service REST 호출 시 즉시 예외 반환 |
+| 결제 실패 | 예치금 차감 전이므로 롤백 불필요, 결제 실패 응답 |
 
 ### 4-4. 주문 취소
 - 취소 가능 상태: PENDING, PAID, CONFIRMED
@@ -228,8 +224,9 @@
 ## 5. 결제 모듈
 
 ### 5-1. 결제 처리
-- 상품 결제는 Order Service에서 예치금으로 직접 처리
-- Payment Service는 예치금 충전(PG 연동)과 정산만 담당
+- Payment Service가 결제 실행을 담당 (재고 차감 → 예치금 차감 → 주문 상태 PAID 변경)
+- Payment Service는 예치금 충전(PG 연동), 예치금 결제 실행, 예치금 차감/환급을 담당
+- 정산은 Settlement Service가 별도 담당
 - PG(토스페이먼츠)는 **예치금 충전 목적**으로만 사용
 - PG 클라이언트 인터페이스로 향후 PG사 확장 가능하도록 설계
 - 중복 결제 방지를 위해 `idempotency_key`로 결제 요청 식별
@@ -239,7 +236,7 @@
   - 결제 수단 유형
   - 결제 상태
   - 결제 승인 시각
-- 주문 결제는 Order Service에서 Spring Event로 별도 처리
+- 주문 결제는 Payment Service의 `POST /payment/orders/{orderId}/pay`에서 처리
 
 ### 5-2. 환불 처리
 - 주문 취소 시 예치금 복원으로 처리
@@ -252,12 +249,12 @@
   - 환불 완료 시각
 - 환불 상태: `PENDING / COMPLETED / FAILED`
 
-### 5-3. 정산 처리
-- **정산 트리거**: 구매확정(`PURCHASE_CONFIRMED`) 시 `PurchaseConfirmedEvent` consume → `settlement_target` 레코드 생성
-- 스케줄러 기반 배치 작업으로 정산 실행 (매월 25일)
+### 5-3. 정산 처리 (Settlement Service — 별도 서비스로 분리)
+- **정산 트리거**: 구매확정(`PURCHASE_CONFIRMED`) 시 Order Service가 `PurchaseConfirmedEvent` Kafka 발행 → Settlement Service가 consume → `settlement_target` 레코드 생성
+- 스케줄러 기반 배치 작업으로 정산 실행 (매월 25일, ShedLock 적용)
 - 집계 기간: 전월 1일 ~ 전월 말일 구매확정 건
 - 매출 금액에서 서비스 수수료(3%)를 차감하여 정산 금액 산출
-- 회원 모듈에서 판매자 계좌 정보 조회 (REST)
+- 회원 모듈에서 판매자 계좌 정보 조회 (REST — Settlement → Member)
 - 판매자별 정산 결과 저장 (`settlement` 레코드)
   - 총 매출 금액
   - 수수료 금액
@@ -278,7 +275,7 @@
 
 ## 서비스 간 통신
 
-> MSA 구조로 도메인별 서버가 분리되어 있으며, 동기 통신은 REST API, 비동기 통신은 Kafka 이벤트를 사용합니다.
+> MSA 5개 서비스 (Member / Product / Order / Payment / Settlement) 구조로 도메인별 서버가 분리되어 있으며, 동기 통신은 REST API, 비동기 통신은 Kafka 이벤트를 사용합니다.
 
 ### 동기 통신 (REST API)
 
@@ -286,12 +283,14 @@
 
 | 방향 | 목적 |
 |---|---|
-| Order → Product | 재고 및 가격 검증, 재고 차감 / 복원 |
+| Order → Product | 재고 및 가격 검증 |
 | Order → Member | 배송지 조회, 회원 상태 확인 |
-| Payment → Member | 예치금 잔액 확인, 판매자 계좌 정보 조회 |
+| Order → Payment | 예치금 차감/환급 (주문 취소 시) |
+| Payment → Product | 재고 차감 (결제 실행 시) |
+| Payment → Order | 주문 조회, 주문 상태 변경 (PENDING → PAID) |
+| Payment → Member | 회원 활성 확인, 예치금 잔액 조회/차감/충전 |
+| Settlement → Member | 판매자 계좌 정보 조회 (정산 시) |
 | Product → Member | 판매자 권한 및 상태 확인 |
-| Review → Order | 구매 이력 확인 |
-| Review → Product | 상품 존재 확인 |
 
 ### 비동기 통신 (Kafka Event)
 
@@ -299,8 +298,7 @@
 
 | 이벤트 | Producer | Consumer | 목적 |
 |--------|----------|----------|------|
-| PurchaseConfirmedEvent | Order | Payment | 구매확정 → 정산 대상 생성 |
-| SellerApprovedEvent | Member | Product | 판매자 승인 반영 |
+| PurchaseConfirmedEvent | Order | Settlement | 구매확정 → 정산 대상 생성 |
 
 > **Kafka에서 제외된 이벤트:**
 > - `StockDeductedEvent`, `StockRestoredEvent`: payment-service/order-service → product-service REST 동기 호출로 대체
@@ -314,8 +312,11 @@
 
 | 이벤트 | 발행 서비스 | 목적 |
 |--------|------------|------|
-| OrderCancelledEvent | Order | 주문 취소 완료, 배송 중단 처리 |
-| DepositChargedEvent | Payment | 예치금 충전 완료, 회원 잔액 반영 |
-| RefundCompletedEvent | Payment | 환불 완료, 예치금 복원 및 재고 복구 트리거 |
-| SettlementCompletedEvent | Payment | 정산 완료 반영 |
-| SettlementFailedEvent | Payment | 정산 실패 추적 |
+| PurchaseConfirmedEvent | Order | 구매확정 시 Spring Event 발행 → AFTER_COMMIT에서 Kafka 전송 |
+| DepositChargedEvent | Payment | 예치금 충전 완료, member-service 잔액 동기화 |
+| DepositDeductedEvent | Payment | 예치금 차감 완료, member-service 잔액 동기화 |
+| DepositRefundedEvent | Payment | 예치금 환급 완료, member-service 잔액 동기화 |
+| SettlementCompletedEvent | Settlement | 정산 완료 반영 |
+| SettlementFailedEvent | Settlement | 정산 실패 추적 |
+| MemberRegisteredEvent | Member | 회원가입 완료 후 처리 |
+| SellerApprovedEvent | Member | 판매자 승인 → role SELLER 변경 |

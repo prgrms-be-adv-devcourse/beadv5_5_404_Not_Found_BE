@@ -5,29 +5,30 @@
 ```mermaid
 erDiagram
     MEMBER {
-        UUID id PK
-        VARCHAR_255 email UK
-        VARCHAR_255 password_hash
-        VARCHAR_100 name
-        VARCHAR_20 phone
-        ENUM role
-        ENUM status
-        INT point_balance
-        INT deposit_balance "예치금 잔액 (이벤트로 동기화)"
-        BOOLEAN email_verified
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        UUID id PK "회원 고유 식별자"
+        VARCHAR_255 email UK "로그인 이메일"
+        VARCHAR_255 password_hash "BCrypt 해싱된 비밀번호"
+        VARCHAR_100 name "회원 이름"
+        VARCHAR_20 phone "연락처"
+        ENUM role "회원 권한 (USER | SELLER | ADMIN)"
+        ENUM status "회원 상태 (ACTIVE | SUSPENDED | WITHDRAWN)"
+        INT point_balance "포인트 잔액"
+        INT deposit_balance "예치금 잔액 (payment-service AFTER_COMMIT 이벤트로 동기화)"
+        BOOLEAN email_verified "이메일 인증 여부"
+        TIMESTAMP created_at "가입 일시"
+        TIMESTAMP updated_at "최종 수정 일시"
+        BIGINT version "낙관적 잠금 버전"
     }
     REFRESH_TOKEN {
-        UUID id PK
-        UUID member_id FK
-        VARCHAR_512 token_hash "저장 시 해싱 필수"
-        VARCHAR_255 user_agent
-        VARCHAR_45 ip_address
-        BOOLEAN is_revoked
-        TIMESTAMP expires_at
-        TIMESTAMP created_at
-        TIMESTAMP last_used_at
+        UUID id PK "토큰 고유 식별자"
+        UUID member_id FK "소유 회원"
+        VARCHAR_512 token_hash "해싱된 리프레시 토큰"
+        VARCHAR_255 user_agent "요청 브라우저/클라이언트 정보"
+        VARCHAR_45 ip_address "토큰 발급 IP"
+        BOOLEAN is_revoked "폐기 여부"
+        TIMESTAMP expires_at "토큰 만료 시각"
+        TIMESTAMP created_at "발급 일시"
+        TIMESTAMP last_used_at "마지막 사용 일시"
     }
     TOKEN_BLACKLIST {
         BIGINT id PK "AUTO_INCREMENT"
@@ -36,79 +37,70 @@ erDiagram
         TIMESTAMP created_at "블랙리스트 등록 시각"
     }
     ADDRESS {
-        UUID id PK
-        UUID member_id FK
-        VARCHAR_50 label
-        VARCHAR_100 recipient
-        VARCHAR_20 phone
-        VARCHAR_10 zipcode
-        VARCHAR_255 address1
-        VARCHAR_255 address2
-        BOOLEAN is_default
-        BOOLEAN is_deleted
+        UUID id PK "배송지 고유 식별자"
+        UUID member_id FK "소유 회원"
+        VARCHAR_50 label "배송지 라벨 (HOME | OFFICE | ETC)"
+        VARCHAR_100 recipient "수령인 이름"
+        VARCHAR_20 phone "수령인 연락처"
+        VARCHAR_10 zipcode "우편번호"
+        VARCHAR_255 address1 "기본 주소"
+        VARCHAR_255 address2 "상세 주소"
+        BOOLEAN is_default "기본 배송지 여부"
+        BOOLEAN is_deleted "소프트 삭제 여부"
     }
     SELLER {
-        UUID id PK
-        UUID member_id FK
-        VARCHAR_20 business_number UK
-        VARCHAR_100 shop_name
-        VARCHAR_10 bank_code
-        VARCHAR_50 bank_account
-        VARCHAR_100 account_holder
-        DECIMAL_5_2 commission_rate
-        ENUM status
-        TIMESTAMP approved_at
+        UUID id PK "판매자 고유 식별자"
+        UUID member_id FK "회원 FK"
+        VARCHAR_20 business_number UK "사업자등록번호"
+        VARCHAR_100 shop_name "상호명"
+        VARCHAR_255 bank_code "은행 코드 (AES 암호화 → 255byte)"
+        VARCHAR_255 bank_account "계좌번호 (AES 암호화 → 255byte)"
+        VARCHAR_255 account_holder "예금주명 (AES 암호화 → 255byte)"
+        DECIMAL_5_2 commission_rate "수수료율"
+        ENUM status "판매자 상태 (PENDING | APPROVED | SUSPENDED)"
+        TIMESTAMP approved_at "승인 일시"
     }
     CATEGORY {
-        UUID id PK
-        UUID parent_id FK
-        VARCHAR_100 name
-        VARCHAR_100 slug UK
-        INT depth
-        INT sort_order
-        BOOLEAN is_active
+        UUID id PK "카테고리 고유 식별자"
+        UUID parent_id FK "상위 카테고리 (계층형)"
+        VARCHAR_100 name "카테고리명"
+        VARCHAR_100 slug UK "URL 슬러그"
+        INT depth "계층 깊이"
+        INT sort_order "정렬 순서"
+        BOOLEAN is_active "활성 여부"
     }
     PROCESSED_EVENTS {
-        VARCHAR event_id PK "Kafka eventId (UUID 문자열), 중복 처리 방지"
+        VARCHAR event_id PK "Kafka eventId (UUID 문자열), 중복 처리 방지 — settlement_db"
         TIMESTAMP processed_at "처리 완료 시각"
     }
     PRODUCT {
-        UUID id PK
-        UUID seller_id FK
-        UUID category_id FK
-        VARCHAR_20 isbn UK
-        VARCHAR_300 title
-        VARCHAR_200 author
-        VARCHAR_100 publisher
-        INT price
-        INT quantity
-        BIGINT version
-        ENUM book_type
-        ENUM status
-        DECIMAL_3_2 avg_rating
-        INT review_count
-        TIMESTAMP created_at
-    }
-    REVIEW {
-        UUID id PK
-        UUID product_id FK
-        UUID member_id FK
-        UUID order_id FK
-        SMALLINT rating "1~5 별점"
-        TIMESTAMP created_at
+        UUID id PK "상품 고유 식별자"
+        UUID seller_id FK "등록 판매자"
+        UUID category_id FK "소속 카테고리"
+        VARCHAR_20 isbn UK "국제표준도서번호"
+        VARCHAR_300 title "도서 제목"
+        VARCHAR_200 author "저자"
+        VARCHAR_100 publisher "출판사"
+        INT price "판매 가격"
+        INT quantity "재고 수량"
+        BIGINT version "낙관적 잠금 버전"
+        ENUM book_type "도서 유형 (NEW | USED)"
+        ENUM status "상품 상태 (PENDING_REVIEW | ACTIVE | INACTIVE | SOLD_OUT)"
+        DECIMAL_3_2 avg_rating "평균 평점"
+        INT review_count "리뷰 수"
+        TIMESTAMP created_at "등록 일시"
     }
     CART {
-        UUID id PK
-        UUID member_id FK
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        UUID id PK "장바구니 고유 식별자"
+        UUID member_id FK "소유 회원 (회원당 1개)"
+        TIMESTAMP created_at "생성 일시"
     }
     CART_ITEM {
-        UUID id PK
-        UUID cart_id FK
-        UUID product_id FK
-        INT quantity
-        TIMESTAMP added_at
+        UUID id PK "장바구니 항목 고유 식별자"
+        UUID cart_id FK "소속 장바구니"
+        UUID product_id FK "담은 상품"
+        INT quantity "수량"
+        TIMESTAMP added_at "담은 일시"
     }
     DEPOSIT {
         UUID id PK
@@ -122,62 +114,68 @@ erDiagram
         TIMESTAMP created_at
     }
     ORDER {
-        UUID id PK
-        VARCHAR_30 order_number UK
-        UUID member_id FK
-        ENUM status "PENDING | PAID | CONFIRMED | SHIPPING | DELIVERED | PURCHASE_CONFIRMED | CANCELLED"
-        INT total_amount
+        UUID id PK "주문 고유 식별자"
+        VARCHAR_30 order_number UK "주문번호 (yyyyMMdd + UUID hex)"
+        UUID member_id FK "주문 회원"
+        ENUM status "주문 상태 (PENDING | PAID | CONFIRMED | SHIPPING | DELIVERED | PURCHASE_CONFIRMED | CANCELLED)"
+        INT total_amount "주문 총 금액 (서버 계산)"
+        INT shipping_fee "배송비"
         INT deposit_used "예치금 차감액"
-        JSONB shipping_snapshot
-        VARCHAR_100 idempotency_key UK
+        JSONB shipping_snapshot "주문 시점 배송지 스냅샷"
+        VARCHAR_100 idempotency_key UK "중복 주문 방지 멱등키"
+        UUID address_id FK "배송지 참조"
+        TEXT cart_item_ids "장바구니 항목 ID 목록 (콤마 구분)"
         TIMESTAMP confirmed_at "구매확정 시각 (PURCHASE_CONFIRMED 전환 시 기록, NULL 허용)"
-        TIMESTAMP created_at
+        TIMESTAMP delivered_at "배송 완료 일시"
+        TIMESTAMP created_at "주문 생성 일시"
+        BIGINT version "낙관적 잠금 버전"
     }
     ORDER_ITEM {
-        UUID id PK
-        UUID order_id FK
-        UUID product_id FK
-        UUID seller_id FK
-        VARCHAR_300 product_title
-        INT unit_price
-        INT quantity
-        INT subtotal
-        ENUM status
+        UUID id PK "주문 항목 고유 식별자"
+        UUID order_id FK "소속 주문"
+        UUID product_id FK "주문 상품"
+        UUID seller_id FK "판매자"
+        VARCHAR_300 product_title "주문 시점 상품명 스냅샷"
+        INT unit_price "주문 시점 단가 스냅샷"
+        INT quantity "주문 수량"
+        INT subtotal "소계 (unit_price x quantity)"
+        ENUM status "주문 항목 상태"
     }
     SHIPMENT {
-        UUID id PK
-        UUID order_id FK
-        VARCHAR_50 carrier
-        VARCHAR_50 tracking_number
-        ENUM status
-        TIMESTAMP shipped_at
-        TIMESTAMP delivered_at
+        UUID id PK "배송 고유 식별자"
+        UUID order_id FK "소속 주문"
+        VARCHAR_50 carrier "택배사"
+        VARCHAR_50 tracking_number "송장번호"
+        ENUM status "배송 상태 (PREPARING | SHIPPED | IN_TRANSIT | DELIVERED | RETURNED)"
+        TIMESTAMP shipped_at "발송 일시"
+        TIMESTAMP delivered_at "배송 완료 일시"
     }
     PAYMENT {
-        UUID id PK
+        UUID id PK "결제 고유 식별자"
         UUID member_id FK "예치금 충전을 수행하는 회원"
-        ENUM pg_provider
-        INT amount
-        ENUM status
-        VARCHAR_200 pg_transaction_id UK
-        VARCHAR_500 payment_key
-        ENUM method
-        ENUM purpose "DEPOSIT_CHARGE"
-        TIMESTAMP paid_at
-        VARCHAR_100 idempotency_key UK
+        UUID order_id FK "연관 주문 (UNIQUE)"
+        ENUM pg_provider "PG사 (TOSS)"
+        INT amount "결제 금액"
+        ENUM status "결제 상태 (PENDING | COMPLETED | FAILED | CANCELLED)"
+        VARCHAR_200 pg_transaction_id UK "PG 거래 식별자"
+        VARCHAR_500 payment_key "PG 결제키 (AES-256-GCM 암호화 저장)"
+        ENUM method "결제 방식 (PG | DEPOSIT)"
+        ENUM purpose "결제 목적 (DEPOSIT_CHARGE)"
+        TIMESTAMP paid_at "결제 승인 시각"
+        VARCHAR_100 idempotency_key UK "중복 결제 방지 멱등키"
     }
     REFUND {
-        UUID id PK
-        UUID payment_id FK
-        UUID order_item_id FK
-        INT amount
-        VARCHAR_255 reason
-        ENUM status
-        VARCHAR_200 pg_refund_id
-        TIMESTAMP refunded_at
+        UUID id PK "환불 고유 식별자"
+        UUID payment_id FK "원 결제 건"
+        UUID order_item_id FK "환불 대상 주문 항목"
+        INT amount "환불 금액"
+        VARCHAR_255 reason "환불 사유"
+        ENUM status "환불 상태 (PENDING | COMPLETED | FAILED)"
+        VARCHAR_200 pg_refund_id "PG 환불 식별자"
+        TIMESTAMP refunded_at "환불 완료 시각"
     }
     SETTLEMENT_TARGET {
-        UUID id PK
+        UUID id PK "settlement_db (Settlement Service)"
         UUID order_id FK
         UUID seller_id FK
         BIGINT total_amount "해당 주문에서 이 판매자 매출"
@@ -186,7 +184,7 @@ erDiagram
         ENUM status "PENDING | SETTLED"
     }
     SETTLEMENT {
-        UUID id PK
+        UUID id PK "settlement_db (Settlement Service)"
         UUID seller_id FK
         DATE period_start "집계 시작일"
         DATE period_end "집계 종료일"
@@ -207,7 +205,6 @@ erDiagram
     MEMBER ||--o| SELLER : becomes
     MEMBER ||--|| CART : owns
     MEMBER ||--o{ ORDER : places
-    MEMBER ||--o{ REVIEW : writes
     MEMBER ||--o{ DEPOSIT : "충전/사용 이력"
     MEMBER ||--o{ REFRESH_TOKEN : has
     MEMBER ||--o{ PAYMENT : "예치금 충전"
@@ -222,13 +219,11 @@ erDiagram
 
     PRODUCT ||--o{ CART_ITEM : added_as
     PRODUCT ||--o{ ORDER_ITEM : ordered_as
-    PRODUCT ||--o{ REVIEW : reviewed_for
 
     CART ||--o{ CART_ITEM : contains
 
     ORDER ||--o{ ORDER_ITEM : contains
     ORDER ||--|| SHIPMENT : ships_with
-    ORDER ||--o{ REVIEW : verified_by
     ORDER ||--o{ DEPOSIT : "예치금 사용 이력"
 
     PAYMENT ||--o{ REFUND : refunded_by
