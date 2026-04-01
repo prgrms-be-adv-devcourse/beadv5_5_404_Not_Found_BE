@@ -18,4 +18,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           command_timeout: 20m
           script: |
-            bash /home/ec2-user/app/scripts/deploy.sh
+            cd /home/ec2-user/app
+            git pull origin main
+            bash scripts/deploy.sh
