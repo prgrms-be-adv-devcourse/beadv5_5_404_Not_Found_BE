@@ -45,7 +45,9 @@ services:
       - bookcommerce-network
 
   eureka-server:
-    image: ghcr.io/${GHCR_OWNER}/eureka-server:${IMAGE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: eureka-server/Dockerfile
     container_name: bookcommerce-eureka
     ports:
       - "8761:8761"
@@ -58,7 +60,9 @@ services:
       - bookcommerce-network
 
   gateway-service:
-    image: ghcr.io/${GHCR_OWNER}/gateway-service:${IMAGE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: gateway-service/Dockerfile
     container_name: bookcommerce-gateway
     ports:
       - "80:8080"
@@ -72,7 +76,9 @@ services:
       - bookcommerce-network
 
   member-service:
-    image: ghcr.io/${GHCR_OWNER}/member-service:${IMAGE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: member-service/Dockerfile
     container_name: bookcommerce-member
     env_file:
       - ../.env
@@ -88,7 +94,9 @@ services:
       - bookcommerce-network
 
   product-service:
-    image: ghcr.io/${GHCR_OWNER}/product-service:${IMAGE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: product-service/Dockerfile
     container_name: bookcommerce-product
     env_file:
       - ../.env
@@ -104,7 +112,9 @@ services:
       - bookcommerce-network
 
   order-service:
-    image: ghcr.io/${GHCR_OWNER}/order-service:${IMAGE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: order-service/Dockerfile
     container_name: bookcommerce-order
     env_file:
       - ../.env
@@ -123,7 +133,9 @@ services:
       - bookcommerce-network
 
   payment-service:
-    image: ghcr.io/${GHCR_OWNER}/payment-service:${IMAGE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: payment-service/Dockerfile
     container_name: bookcommerce-payment
     env_file:
       - ../.env
@@ -139,7 +151,9 @@ services:
       - bookcommerce-network
 
   settlement-service:
-    image: ghcr.io/${GHCR_OWNER}/settlement-service:${IMAGE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: settlement-service/Dockerfile
     container_name: bookcommerce-settlement
     env_file:
       - ../.env
