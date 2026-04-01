@@ -2,7 +2,7 @@
 
 ## 개요
 
-7개 MSA 서비스를 Docker 이미지로 빌드하고, GitHub Actions를 통해 GHCR에 푸시 후 AWS EC2에 자동 배포하는 파이프라인 구성.
+7개 MSA 서비스를 AWS EC2에서 직접 빌드하여 배포하는 파이프라인 구성. GitHub Actions가 EC2에 SSH 접속 → git pull → docker-compose --build 방식으로 동작.
 
 ---
 
@@ -100,7 +100,7 @@ docker compose -f docker/docker-compose.yml --env-file .env up
 
 ### 프로덕션용 (`docker/docker-compose.prod.yml`)
 
-포함 서비스: 위 인프라 + 7개 Spring Boot 서비스 (GHCR 이미지)
+포함 서비스: 위 인프라 + 7개 Spring Boot 서비스 (EC2 직접 빌드)
 
 Docker 네트워크 내부 URL:
 
@@ -123,18 +123,14 @@ Docker 네트워크 내부 URL:
 
 - 트리거: push → `main`
 - 동작:
-  1. JAR 빌드 (테스트 제외)
-  2. GHCR 로그인 (`GITHUB_TOKEN` 자동 제공)
-  3. 이미지 빌드 & 푸시 (matrix 전략, 7개 병렬)
-     - `ghcr.io/{owner}/{service}:latest`
-     - `ghcr.io/{owner}/{service}:{sha}`
-  4. EC2 SSH 접속 → `scripts/deploy.sh` 실행
+  1. EC2 SSH 접속
+  2. `scripts/deploy.sh` 실행 (git pull → docker-compose --build → image prune)
 
 ### 배포 스크립트 (`scripts/deploy.sh`)
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml pull
-docker compose -f docker/docker-compose.prod.yml up -d --remove-orphans
+git pull origin main
+docker compose -f docker/docker-compose.prod.yml --env-file .env up --build -d --remove-orphans
 docker image prune -f
 ```
 
@@ -145,7 +141,7 @@ docker image prune -f
 | Secret | 설명 |
 |--------|------|
 | `EC2_HOST` | EC2 Elastic IP |
-| `EC2_USERNAME` | `ubuntu` |
+| `EC2_USERNAME` | `ec2-user` (Amazon Linux) |
 | `EC2_SSH_KEY` | PEM 키 |
 | `DB_USERNAME` | DB 계정 |
 | `DB_PASSWORD` | DB 비밀번호 |
@@ -163,19 +159,57 @@ docker image prune -f
 
 ## EC2 초기 설정 (1회)
 
+> Amazon Linux 2023 기준 (Ubuntu가 아닌 경우)
+
 ```bash
 # Docker 설치
-sudo apt update && sudo apt install -y docker.io docker-compose-plugin
-sudo usermod -aG docker ubuntu
+sudo yum update -y
+sudo yum install -y docker git
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker ec2-user
+newgrp docker
 
-# 재접속 후
-cd /home/ubuntu
-git clone {repo-url} app
+# docker-compose-plugin 설치
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+docker compose version
 
-# 환경변수 파일 작성
-vim /home/ubuntu/app/.env
-# GHCR_OWNER={github-org} 추가 필요
+# 레포 클론
+git clone {repo-url} /home/ec2-user/app
+cd /home/ec2-user/app
+
+# 환경변수 파일 작성 (운영 값으로 채울 것)
+cat > .env << EOF
+DB_USERNAME=...
+DB_PASSWORD=...
+JWT_SECRET_KEY=...
+INTERNAL_SECRET_KEY=...
+PAYMENT_ENCRYPTION_KEY=...
+TOSS_CLIENT_KEY=...
+TOSS_SECRET_KEY=...
+TOSS_SUCCESS_URL=...
+TOSS_FAIL_URL=...
+ADMIN_EMAIL=...
+ADMIN_PASSWORD=...
+EOF
 ```
+
+### 보안 그룹 인바운드 규칙
+
+| 유형 | 프로토콜 | 포트 | 소스 |
+|------|----------|------|------|
+| SSH | TCP | 22 | 내 IP |
+| HTTP | TCP | 80 | 0.0.0.0/0 |
+
+### GitHub Actions Secrets `EC2_USERNAME`
+
+| AMI 종류 | username |
+|----------|----------|
+| Amazon Linux | `ec2-user` |
+| Ubuntu | `ubuntu` |
 
 ---
 
@@ -191,16 +225,53 @@ vim /home/ubuntu/app/.env
 | payment-service Dockerfile 빌드 | ✅ 성공 (152MB) |
 | settlement-service Dockerfile 빌드 | ✅ 성공 (169MB) |
 | docker-compose 인프라 기동 (postgres, kafka, zookeeper, eureka) | ✅ 성공 |
-| CI 워크플로우 (GitHub Actions) | ⬜ PR 생성 후 확인 예정 |
+| CI 워크플로우 (GitHub Actions) | ✅ 성공 |
 | CD 워크플로우 (EC2 배포) | ⬜ EC2 설정 후 확인 예정 |
+
+---
+
+## CI 트러블슈팅
+
+### 문제 1: DB 없이 통합 테스트 실패
+- **증상**: `IllegalStateException` — Spring Context 로딩 실패
+- **원인**: CI 환경에 PostgreSQL 없음
+- **해결**: `ci.yml`에 PostgreSQL 서비스 컨테이너 추가
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    env:
+      POSTGRES_DB: bookcommerce
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    options: --health-cmd "pg_isready -U postgres" ...
+```
+
+### 문제 2: INTERNAL_SECRET_KEY 불일치
+- **증상**: `AssertionError` — 내부 API 인증 실패 (15개 테스트 실패)
+- **원인**: CI 환경변수 값이 테스트 코드 하드코딩 값과 다름
+  - CI 설정값: `test-internal-secret-key-for-ci`
+  - 테스트 코드: `test-internal-secret`
+- **해결**: CI 환경변수를 `test-internal-secret`으로 수정
+
+### 문제 3: Docker Compose --env-file 누락
+- **증상**: `DB_USERNAME`, `DB_PASSWORD` 변수 미인식
+- **원인**: `-f docker/docker-compose.yml` 옵션 사용 시 루트 `.env` 자동 로딩 안 됨
+- **해결**: `--env-file .env` 명시적 지정 필요
+```bash
+docker compose -f docker/docker-compose.yml --env-file .env up
+```
 
 ---
 
 ## 향후 작업
 
-- [ ] 나머지 5개 Dockerfile 빌드 확인
-- [ ] GitHub Secrets 등록
-- [ ] EC2 인스턴스 생성 및 초기 설정
-- [ ] PR → CI 통과 확인
+- [x] Dockerfile x7 빌드 확인
+- [x] docker-compose 인프라 로컬 기동 확인
+- [x] GitHub Secrets 등록
+- [x] EC2 인스턴스 생성 (Amazon Linux 2023, t3.large)
+- [x] Elastic IP 할당 및 연결 (not-found)
+- [x] 보안 그룹 설정 (포트 22, 80)
+- [x] EC2 Docker + git 설치 및 레포 클론
 - [ ] main 머지 → CD 배포 확인
 - [ ] 도메인 확보 후 Nginx + HTTPS 추가
