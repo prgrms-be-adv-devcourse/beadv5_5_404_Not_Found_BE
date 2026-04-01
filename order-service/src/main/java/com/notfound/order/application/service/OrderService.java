@@ -3,15 +3,16 @@ package com.notfound.order.application.service;
 import com.notfound.order.application.port.in.*;
 import com.notfound.order.application.port.in.command.CreateOrderCommand;
 import com.notfound.order.application.port.out.*;
+import com.notfound.order.domain.event.PurchaseConfirmedEvent;
 import com.notfound.order.domain.exception.OrderException;
 import com.notfound.order.domain.model.*;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,7 +20,7 @@ import java.util.stream.Collectors;
 @Service
 public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
         GetOrderListUseCase, GetOrderDetailUseCase, GetInternalOrderUseCase,
-        CancelOrderUseCase, UpdateOrderStatusUseCase {
+        CancelOrderUseCase, ConfirmPurchaseUseCase, UpdateOrderStatusUseCase {
 
     private static final int FREE_SHIPPING_THRESHOLD = 15000;
     private static final int SHIPPING_FEE = 2500;
@@ -30,19 +31,22 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
     private final CartItemRepository cartItemRepository;
     private final MemberServicePort memberServicePort;
     private final ProductServicePort productServicePort;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrderService(OrderRepository orderRepository,
                         OrderItemRepository orderItemRepository,
                         CartRepository cartRepository,
                         CartItemRepository cartItemRepository,
                         MemberServicePort memberServicePort,
-                        ProductServicePort productServicePort) {
+                        ProductServicePort productServicePort,
+                        ApplicationEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.memberServicePort = memberServicePort;
         this.productServicePort = productServicePort;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -320,46 +324,90 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
         return new CancelOrderUseCase.CancelOrderResult(updatedOrder, refundAmount, cancelledIds);
     }
 
+    @Override
+    @Transactional
+    public Order confirmPurchase(UUID memberId, UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(OrderException::orderNotFound);
+
+        if (!order.getMemberId().equals(memberId)) {
+            throw OrderException.orderAccessDenied();
+        }
+
+        if (order.getStatus() != OrderStatus.DELIVERED) {
+            throw OrderException.orderCannotBeConfirmed();
+        }
+
+        order.confirmPurchase();
+        Order saved = orderRepository.save(order);
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        if (items.isEmpty()) {
+            throw OrderException.orderItemNotFound();
+        }
+        UUID sellerId = items.get(0).getSellerId();
+        UUID eventId = UUID.nameUUIDFromBytes(("confirm:" + orderId).getBytes());
+        eventPublisher.publishEvent(new PurchaseConfirmedEvent(
+                eventId, saved.getId(), sellerId, saved.getTotalAmount(), saved.getConfirmedAt()));
+
+        return saved;
+    }
+
     /**
      * Internal API: payment-service가 결제 완료 후 호출.
      *
-     * 멱등 정책:
-     * - PENDING → PAID: 정상 처리 (스냅샷 저장 + 장바구니 삭제 + depositUsed 저장)
-     * - 이미 PAID → PAID 재요청: 200 반환, 부작용 없음 (payment 재시도 안전)
-     * - 그 외 전이: 409 Conflict
+     * PAID 요청 시 한 트랜잭션 내에서 전체 흐름 처리:
+     * PENDING → PAID → DELIVERED → PURCHASE_CONFIRMED
      *
+     * 멱등: 이미 PURCHASE_CONFIRMED이면 바로 반환
      * 동시성: @Version 낙관적 락으로 cancel/pay 경합 방어
-     * 트랜잭션: 외부 호출(member address) 실패 시 롤백 — PAID로 잘못 남지 않음
+     * Kafka 발행: 트랜잭션 커밋 후 실행
      */
     @Override
     @Transactional
-    public Order updateStatus(UUID orderId, OrderStatus status, int depositUsed, LocalDateTime confirmedAt) {
+    public Order updateStatus(UUID orderId, OrderStatus status, int depositUsed) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(OrderException::orderNotFound);
 
         if (status == OrderStatus.PAID) {
-            // 멱등: 이미 PAID면 외부 호출 없이 바로 반환
-            if (order.getStatus() == OrderStatus.PAID) {
+            // 멱등: 이미 최종 상태면 바로 반환
+            if (order.getStatus() == OrderStatus.PURCHASE_CONFIRMED) {
                 return order;
             }
 
-            // 1. 배송지 스냅샷 조회 (외부 호출 — 실패 시 트랜잭션 롤백)
+            // 1. PENDING 검증 + 배송지 스냅샷 조회
             String shippingSnapshot = resolveShippingSnapshot(order);
 
-            // 2. 상태 전이
+            // 2. PENDING → PAID
             order.pay(depositUsed, shippingSnapshot);
 
             // 3. 장바구니 항목 삭제
             order.parseCartItemIds().forEach(cartItemRepository::deleteById);
+
+            // 4. PAID → DELIVERED
+            order.markShipping();
+            order.markDelivered();
+
+            // 5. DELIVERED → PURCHASE_CONFIRMED
+            order.confirmPurchase();
+
+            // 6. DB 저장
+            Order saved = orderRepository.save(order);
+
+            // 7. Spring Event 발행 → AFTER_COMMIT에서 Kafka 전송
+            List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+            if (items.isEmpty()) {
+                throw OrderException.orderItemNotFound();
+            }
+            UUID sellerId = items.get(0).getSellerId();
+            UUID eventId = UUID.nameUUIDFromBytes(("confirm:" + orderId).getBytes());
+            eventPublisher.publishEvent(new PurchaseConfirmedEvent(
+                    eventId, saved.getId(), sellerId, saved.getTotalAmount(), saved.getConfirmedAt()));
+
+            return saved;
         } else {
             throw new IllegalStateException("지원하지 않는 상태 전이입니다: " + status);
         }
-
-        if (confirmedAt != null) {
-            order.setConfirmedAt(confirmedAt);
-        }
-
-        return orderRepository.save(order);
     }
 
     private String resolveShippingSnapshot(Order order) {

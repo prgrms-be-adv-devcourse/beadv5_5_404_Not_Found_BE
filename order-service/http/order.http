@@ -1,6 +1,6 @@
 @baseUrl = http://localhost:8083
 @memberBaseUrl = http://localhost:8081
-@internalSecret = my-order-internal-secret-key-2026
+@internalSecret = your_internal_service_secret_key_here
 
 ### ── 수동 변수 설정 (응답 핸들러 안 될 때 복사해서 붙여넣기) ──
 @memberId =
@@ -194,24 +194,70 @@ GET {{baseUrl}}/internal/order/{{orderId}}
 X-Internal-Secret: {{internalSecret}}
 
 
-### STEP 5-2. 주문 상태 변경 — PAID 전환 (payment용)
+### STEP 5-2. 결제 완료 → 자동 구매확정 (PENDING → PURCHASE_CONFIRMED)
+###  payment 대신 Internal API로 결제 시뮬레이션
+###  PENDING → PAID → SHIPPING → DELIVERED → PURCHASE_CONFIRMED 자동 전이
+###  + Kafka order.purchase-confirmed 이벤트 발행
 POST {{baseUrl}}/internal/order/{{orderId}}/status
 Content-Type: application/json
 X-Internal-Secret: {{internalSecret}}
 
 {
   "status": "PAID",
-  "depositUsed": 50000,
-  "confirmedAt": null
+  "depositUsed": 50000
 }
 
 
-### STEP 5-3. 장바구니 삭제 (payment용)
+### STEP 5-3. 결제 후 주문 상세 조회 (기대: PURCHASE_CONFIRMED, depositUsed=50000)
+GET {{baseUrl}}/order/{{orderId}}
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 5-4. Internal 주문 조회 — shippingFee 포함 확인
+GET {{baseUrl}}/internal/order/{{orderId}}
+X-Internal-Secret: {{internalSecret}}
+
+
+### STEP 5-5. 장바구니 비어있는지 확인
+GET {{baseUrl}}/order/cart
+X-User-Id: {{memberId}}
+X-Role: USER
+
+
+### STEP 5-5a. 멱등성 — 이미 PURCHASE_CONFIRMED인 주문에 PAID 재요청 → 200
+POST {{baseUrl}}/internal/order/{{orderId}}/status
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "status": "PAID",
+  "depositUsed": 50000
+}
+
+
+### STEP 5-6. 예치금 잔액 확인 (100000 - 50000 = 50000)
+GET {{memberBaseUrl}}/internal/member/{{memberId}}/deposit
+X-Internal-Secret: {{internalSecret}}
+
+
+### STEP 5-7. 멱등성 — PURCHASE_CONFIRMED에 PAID 재요청 → 200
+POST {{baseUrl}}/internal/order/{{orderId}}/status
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "status": "PAID",
+  "depositUsed": 50000
+}
+
+
+### STEP 5-8. 장바구니 삭제 (payment용)
 DELETE {{baseUrl}}/internal/order/cart/{{memberId}}
 X-Internal-Secret: {{internalSecret}}
 
 
-### STEP 5-4. 만료 주문 수동 정리
+### STEP 5-9. 만료 주문 수동 정리
 POST {{baseUrl}}/internal/order/cleanup
 X-Internal-Secret: {{internalSecret}}
 
@@ -277,3 +323,25 @@ GET {{baseUrl}}/internal/order/{{orderId}}
 ### [실패] Internal API 잘못된 시크릿 → 403
 GET {{baseUrl}}/internal/order/{{orderId}}
 X-Internal-Secret: wrong-secret
+
+
+### [실패] CANCELLED 주문에 PAID → 409
+POST {{baseUrl}}/internal/order/{{orderId}}/status
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "status": "PAID",
+  "depositUsed": 0
+}
+
+
+### [실패] 존재하지 않는 주문에 PAID → 404
+POST {{baseUrl}}/internal/order/00000000-0000-0000-0000-000000000000/status
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "status": "PAID",
+  "depositUsed": 0
+}

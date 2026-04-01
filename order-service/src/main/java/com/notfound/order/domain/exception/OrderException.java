@@ -57,6 +57,10 @@ public class OrderException extends RuntimeException {
         return new OrderException("ORDER_NOT_FOUND", "주문을 찾을 수 없습니다.");
     }
 
+    public static OrderException orderItemNotFound() {
+        return new OrderException("ORDER_ITEM_NOT_FOUND", "주문 항목이 존재하지 않습니다.");
+    }
+
     public static OrderException orderAccessDenied() {
         return new OrderException("ORDER_ACCESS_DENIED", "해당 주문에 접근할 권한이 없습니다.");
     }

@@ -3,6 +3,7 @@ package com.notfound.order.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notfound.order.application.port.out.MemberServicePort;
+import com.notfound.order.application.port.out.PurchaseEventPublisher;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -42,6 +43,9 @@ class OrderIntegrationTest {
 
     @MockitoBean
     private MemberServicePort memberServicePort;
+
+    @MockitoBean
+    private PurchaseEventPublisher purchaseEventPublisher;
 
     private static final String MEMBER_ID = "11111111-1111-1111-1111-111111111111";
     private static final String PRODUCT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";

@@ -105,6 +105,7 @@ class InternalOrderControllerTest {
                     .andExpect(jsonPath("$.data.orderId").value(ORDER_ID.toString()))
                     .andExpect(jsonPath("$.data.status").value("PENDING"))
                     .andExpect(jsonPath("$.data.totalAmount").value(30000))
+                    .andExpect(jsonPath("$.data.shippingFee").value(0))
                     .andExpect(jsonPath("$.data.items.length()").value(2))
                     .andExpect(jsonPath("$.data.items[0].productId").value(PRODUCT_ID_1.toString()))
                     .andExpect(jsonPath("$.data.items[0].quantity").value(2))
@@ -113,15 +114,15 @@ class InternalOrderControllerTest {
         }
 
         @Test
-        @DisplayName("CANCELLED 상태 주문 조회 → status: CANCELLED 반환")
+        @DisplayName("CANCELLED 상태 주문 조회 → status: CANCELLED, shippingFee 반환")
         void getOrder_cancelledStatus() throws Exception {
             Order order = Order.builder()
                     .id(ORDER_ID)
                     .orderNumber("20260401-abc123def456")
                     .memberId(UUID.randomUUID())
                     .status(OrderStatus.CANCELLED)
-                    .totalAmount(30000)
-                    .shippingFee(0)
+                    .totalAmount(10000)
+                    .shippingFee(2500)
                     .depositUsed(0)
                     .build();
             when(getInternalOrderUseCase.getOrder(ORDER_ID))
@@ -130,7 +131,8 @@ class InternalOrderControllerTest {
             mockMvc.perform(get("/internal/order/{orderId}", ORDER_ID)
                             .header("X-Internal-Secret", INTERNAL_SECRET))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.status").value("CANCELLED"));
+                    .andExpect(jsonPath("$.data.status").value("CANCELLED"))
+                    .andExpect(jsonPath("$.data.shippingFee").value(2500));
         }
 
         @Test
