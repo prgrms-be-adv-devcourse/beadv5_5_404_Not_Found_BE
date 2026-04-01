@@ -27,8 +27,5 @@ Thumbs.db
 **/.env
 *.env.local
 
-# Docs
-docs/
-
 # Spring Boot
 spring-shell.log
