@@ -67,7 +67,9 @@ public class TossPayClient implements PgPort {
                     })
                     .body(TossConfirmResponse.class);
 
-            assert response != null;
+            if (response == null) {
+                throw PaymentException.pgConfirmFailed();
+            }
             return new PgConfirmResult(
                     response.transactionKey(),
                     response.paymentKey(),
