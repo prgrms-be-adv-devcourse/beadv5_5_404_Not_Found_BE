@@ -98,12 +98,16 @@ public class Order {
         this.status = OrderStatus.CANCELLED;
     }
 
-    public void confirmPurchase() {
+    public boolean confirmPurchase() {
+        if (this.status == OrderStatus.PURCHASE_CONFIRMED) {
+            return true;
+        }
         if (this.status != OrderStatus.DELIVERED) {
             throw new InvalidStateTransitionException("구매확정 가능 상태가 아닙니다: " + this.status);
         }
         this.status = OrderStatus.PURCHASE_CONFIRMED;
         this.confirmedAt = LocalDateTime.now();
+        return false;
     }
 
     public void markShipping() {

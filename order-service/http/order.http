@@ -225,6 +225,17 @@ X-User-Id: {{memberId}}
 X-Role: USER
 
 
+### STEP 5-5a. 멱등성 — 이미 PURCHASE_CONFIRMED인 주문에 PAID 재요청 → 200
+POST {{baseUrl}}/internal/order/{{orderId}}/status
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "status": "PAID",
+  "depositUsed": 50000
+}
+
+
 ### STEP 5-6. 예치금 잔액 확인 (100000 - 50000 = 50000)
 GET {{memberBaseUrl}}/internal/member/{{memberId}}/deposit
 X-Internal-Secret: {{internalSecret}}
