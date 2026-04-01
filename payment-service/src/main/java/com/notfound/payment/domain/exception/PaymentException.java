@@ -117,4 +117,9 @@ public class PaymentException extends RuntimeException {
     public static PaymentException emailNotVerified() {
         return new PaymentException("EMAIL_NOT_VERIFIED", "이메일 인증이 완료된 회원만 이용 가능합니다.");
     }
+
+    // Order
+    public static PaymentException orderAlreadyPaid(java.util.UUID orderId) {
+        return new PaymentException("ORDER_ALREADY_PAID", "이미 결제된 주문입니다: " + orderId);
+    }
 }

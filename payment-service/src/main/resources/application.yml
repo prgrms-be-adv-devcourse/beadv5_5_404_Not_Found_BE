@@ -25,6 +25,10 @@ eureka:
 internal:
   secret-key: ${INTERNAL_SECRET_KEY}
 
+payment:
+  encryption:
+    key: ${PAYMENT_ENCRYPTION_KEY}
+
 toss:
   payments:
     client-key: ${TOSS_CLIENT_KEY}

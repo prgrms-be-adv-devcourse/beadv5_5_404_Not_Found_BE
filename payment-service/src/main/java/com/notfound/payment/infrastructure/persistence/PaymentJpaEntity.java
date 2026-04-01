@@ -6,6 +6,7 @@ import com.notfound.payment.domain.model.PaymentPurpose;
 import com.notfound.payment.domain.model.PaymentStatus;
 import com.notfound.payment.domain.model.PgProvider;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -46,6 +47,7 @@ public class PaymentJpaEntity {
     @Column(name = "pg_transaction_id", unique = true, length = 200)
     private String pgTransactionId;
 
+    @Convert(converter = EncryptedStringConverter.class)
     @Column(name = "payment_key", length = 500)
     private String paymentKey;
 

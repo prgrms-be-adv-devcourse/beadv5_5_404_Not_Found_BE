@@ -60,7 +60,8 @@ public class GlobalExceptionHandler {
             case "PAYMENT_NOT_FOUND", "DEPOSIT_NOT_FOUND", "REFUND_NOT_FOUND",
                  "SETTLEMENT_NOT_FOUND", "PAYMENT_READY_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "PAYMENT_ALREADY_COMPLETED", "PAYMENT_ALREADY_CONFIRMED",
-                 "REFUND_ALREADY_COMPLETED", "SETTLEMENT_ALREADY_COMPLETED" -> HttpStatus.CONFLICT;
+                 "REFUND_ALREADY_COMPLETED", "SETTLEMENT_ALREADY_COMPLETED",
+                 "ORDER_ALREADY_PAID" -> HttpStatus.CONFLICT;
             case "PG_CONFIRM_FAILED", "PG_CANCEL_FAILED" -> HttpStatus.BAD_GATEWAY;
             case "EMAIL_NOT_VERIFIED" -> HttpStatus.FORBIDDEN;
             default -> HttpStatus.BAD_REQUEST;
