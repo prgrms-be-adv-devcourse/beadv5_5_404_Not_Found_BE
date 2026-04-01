@@ -1,0 +1,35 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: member-service
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+jwt:
+  secret: ${JWT_SECRET_KEY}
+  access-expiration: 1800000
+  refresh-expiration: 1209600000
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+admin:
+  email: ${ADMIN_EMAIL:admin@bookcommerce.com}
+  password: ${ADMIN_PASSWORD:}
+
+internal:
+  secret: ${INTERNAL_SECRET_KEY}

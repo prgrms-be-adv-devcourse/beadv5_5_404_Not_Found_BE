@@ -1,0 +1,203 @@
+@baseUrl = http://localhost:8080
+
+### =========================================
+### 테스트 데이터 초기 세팅
+### order-pay-test.http 실행 전 1회만 실행
+### 실행 순서: STEP 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
+### =========================================
+
+### STEP 0. 계정 정보
+@adminEmail = admin@bookcommerce.com
+@adminPassword = Admin1234!
+@sellerEmail = seller01@example.com
+@sellerPassword = Password123!
+@buyerEmail = test02@example.com
+@buyerPassword = Password123!
+
+
+### =========================================
+### STEP 1. 구매자 계정 회원가입
+### 이미 있으면 409 무시
+### =========================================
+POST {{baseUrl}}/api/member/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{buyerEmail}}",
+  "password": "{{buyerPassword}}",
+  "name": "테스트구매자",
+  "phone": "01011111111"
+}
+
+
+### =========================================
+### STEP 2. 판매자 계정 회원가입
+### 이미 있으면 409 무시
+### =========================================
+POST {{baseUrl}}/api/member/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{sellerEmail}}",
+  "password": "{{sellerPassword}}",
+  "name": "테스트판매자",
+  "phone": "01022222222"
+}
+
+
+### =========================================
+### STEP 3. 판매자 계정으로 로그인 → 토큰 저장
+### =========================================
+POST {{baseUrl}}/api/member/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{sellerEmail}}",
+  "password": "{{sellerPassword}}"
+}
+
+> {%
+  if (response.status === 200 && response.body.data) {
+    client.global.set("sellerAccessToken", response.body.data.accessToken);
+    client.global.set("sellerMemberId", response.body.data.memberId);
+  } else {
+    client.log("판매자 로그인 실패: " + response.status + " / " + JSON.stringify(response.body));
+  }
+%}
+
+
+### =========================================
+### STEP 4. 판매자 신청
+### 이미 신청한 경우 409 무시
+### =========================================
+POST {{baseUrl}}/api/member/member/seller
+Content-Type: application/json
+Authorization: Bearer {{sellerAccessToken}}
+
+{
+  "businessNumber": "1234567890",
+  "shopName": "테스트서점",
+  "bankCode": "004",
+  "bankAccount": "1234567890",
+  "accountHolder": "테스트판매자"
+}
+
+
+### =========================================
+### STEP 5. ADMIN 로그인 → 토큰 저장
+### member-service에 ADMIN_EMAIL, ADMIN_PASSWORD 환경변수 설정 후 재시작 필요
+### =========================================
+POST {{baseUrl}}/api/member/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+> {%
+  if (response.status === 200 && response.body.data) {
+    client.global.set("adminAccessToken", response.body.data.accessToken);
+  } else {
+    client.log("ADMIN 로그인 실패: " + response.status + " / " + JSON.stringify(response.body));
+    client.log("member-service에 ADMIN_EMAIL, ADMIN_PASSWORD 환경변수 설정 후 재시작했는지 확인하세요.");
+  }
+%}
+
+
+### =========================================
+### STEP 6. 판매자 승인 (ADMIN)
+### sellerMemberId는 STEP 3에서 저장된 값 사용
+### =========================================
+PATCH {{baseUrl}}/api/member/member/admin/seller/{{sellerMemberId}}
+Content-Type: application/json
+Authorization: Bearer {{adminAccessToken}}
+
+{
+  "status": "APPROVED"
+}
+
+
+### =========================================
+### STEP 7. 카테고리 등록 (ADMIN) → categoryId 저장
+### 이미 있으면 STEP 7-2에서 조회
+### =========================================
+POST {{baseUrl}}/api/product/products/categories
+Content-Type: application/json
+Authorization: Bearer {{adminAccessToken}}
+
+{
+  "name": "국내도서",
+  "slug": "domestic-books",
+  "sortOrder": 1
+}
+
+> {%
+  if ((response.status === 200 || response.status === 201) && response.body.data) {
+    client.global.set("categoryId", response.body.data.categoryId);
+  } else {
+    client.log("카테고리 등록 실패: " + response.status + " / " + JSON.stringify(response.body));
+  }
+%}
+
+
+### STEP 7-2. 카테고리 목록 조회 → categoryId 확인
+### STEP 7이 실패한 경우(이미 존재 등) 여기서 저장
+GET {{baseUrl}}/api/product/products/categories
+Authorization: Bearer {{adminAccessToken}}
+
+> {%
+  if (response.status === 200 && response.body.data && response.body.data.length > 0) {
+    client.global.set("categoryId", response.body.data[0].id);
+  }
+%}
+
+
+### =========================================
+### STEP 8. 판매자 재로그인 → SELLER 역할 토큰으로 갱신
+### 승인 후 역할이 변경됐으므로 새 토큰 필요
+### =========================================
+POST {{baseUrl}}/api/member/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{sellerEmail}}",
+  "password": "{{sellerPassword}}"
+}
+
+> {%
+  if (response.status === 200 && response.body.data) {
+    client.global.set("sellerAccessToken", response.body.data.accessToken);
+  } else {
+    client.log("판매자 재로그인 실패: " + response.status + " / " + JSON.stringify(response.body));
+  }
+%}
+
+
+### =========================================
+### STEP 9. 상품 등록 (SELLER) → productId 저장
+### =========================================
+POST {{baseUrl}}/api/product/products
+Content-Type: application/json
+Authorization: Bearer {{sellerAccessToken}}
+
+{
+  "categoryId": "{{categoryId}}",
+  "isbn": "9791234567890",
+  "title": "테스트 도서",
+  "author": "테스트 작가",
+  "publisher": "테스트 출판사",
+  "price": 10000,
+  "quantity": 100,
+  "bookType": "NEW"
+}
+
+> {%
+  if ((response.status === 200 || response.status === 201) && response.body.data) {
+    client.global.set("productId", response.body.data.productId);
+    client.log("상품 등록 완료. productId: " + response.body.data.productId);
+    client.log("이제 deposit-test-direct.http로 예치금 충전 후 order-pay-test.http 실행하세요.");
+  } else {
+    client.log("상품 등록 실패: " + response.status + " / " + JSON.stringify(response.body));
+  }
+%}

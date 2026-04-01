@@ -1,0 +1,65 @@
+package com.notfound.order.infrastructure.security;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+
+@Component
+public class RoleAuthorizationFilter extends OncePerRequestFilter {
+
+    private static final String HEADER_USER_ID = "X-User-Id";
+    private static final String HEADER_ROLE = "X-Role";
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+        String path = request.getRequestURI();
+
+        if (path.startsWith("/swagger") || path.startsWith("/v3/api-docs")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (path.startsWith("/internal/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String userId = request.getHeader(HEADER_USER_ID);
+        if (userId == null || userId.isBlank()) {
+            sendError(response, HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "인증이 필요합니다.");
+            return;
+        }
+
+        if (isShipmentUpdateRequest(request)) {
+            String role = request.getHeader(HEADER_ROLE);
+            if (!"SELLER".equalsIgnoreCase(role)) {
+                sendError(response, HttpStatus.FORBIDDEN, "SHIPMENT_ACCESS_DENIED", "배송 정보 수정 권한이 없습니다.");
+                return;
+            }
+        }
+
+        filterChain.doFilter(request, response);
+    }
+
+    private boolean isShipmentUpdateRequest(HttpServletRequest request) {
+        return "PATCH".equalsIgnoreCase(request.getMethod())
+                && request.getRequestURI().startsWith("/order/")
+                && request.getRequestURI().endsWith("/shipment");
+    }
+
+    private void sendError(HttpServletResponse response, HttpStatus status, String code, String message) throws IOException {
+        response.setStatus(status.value());
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write(
+                "{\"status\":%d,\"code\":\"%s\",\"message\":\"%s\",\"data\":null}"
+                        .formatted(status.value(), code, message));
+    }
+}

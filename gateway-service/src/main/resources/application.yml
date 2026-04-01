@@ -1,0 +1,46 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: member-service
+              uri: lb://member-service
+              predicates:
+                - Path=/api/member/**
+              filters:
+                - StripPrefix=2
+            - id: product-service
+              uri: lb://product-service
+              predicates:
+                - Path=/api/product/**
+              filters:
+                - StripPrefix=2
+            - id: order-service
+              uri: lb://order-service
+              predicates:
+                - Path=/api/order/**
+              filters:
+                - StripPrefix=2
+            - id: payment-service
+              uri: lb://payment-service
+              predicates:
+                - Path=/api/payment/**
+              filters:
+                - StripPrefix=2
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+jwt:
+  secret: ${JWT_SECRET_KEY}
+
+internal:
+  secret: ${INTERNAL_SECRET_KEY}
