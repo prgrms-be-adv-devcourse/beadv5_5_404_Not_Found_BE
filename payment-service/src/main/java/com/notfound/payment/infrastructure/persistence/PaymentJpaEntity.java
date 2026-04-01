@@ -30,7 +30,7 @@ public class PaymentJpaEntity {
     @Column(name = "member_id", columnDefinition = "uuid", nullable = false)
     private UUID memberId;
 
-    @Column(name = "order_id", columnDefinition = "uuid")
+    @Column(name = "order_id", columnDefinition = "uuid", unique = true)
     private UUID orderId;
 
     @Enumerated(EnumType.STRING)
