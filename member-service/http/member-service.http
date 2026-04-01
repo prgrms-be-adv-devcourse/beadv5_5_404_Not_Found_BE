@@ -240,37 +240,66 @@ GET {{baseUrl}}/internal/member/{{memberId}}/deposit
 X-Internal-Secret: {{internalSecret}}
 
 
-### STEP 5-4. 예치금 충전
+### STEP 5-4. 예치금 충전 (transactionId 포함)
 POST {{baseUrl}}/internal/member/{{memberId}}/deposit/charge
 Content-Type: application/json
 X-Internal-Secret: {{internalSecret}}
 
 {
-  "amount": 50000
+  "amount": 50000,
+  "transactionId": "charge-test-001"
 }
 
 
-### STEP 5-5. 예치금 차감
+### STEP 5-5. 예치금 충전 멱등성 확인 (동일 transactionId 재요청 → 이전 결과 반환)
+POST {{baseUrl}}/internal/member/{{memberId}}/deposit/charge
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "amount": 50000,
+  "transactionId": "charge-test-001"
+}
+
+
+### STEP 5-6. 예치금 차감 (transactionId 포함)
 POST {{baseUrl}}/internal/member/{{memberId}}/deposit/deduct
 Content-Type: application/json
 X-Internal-Secret: {{internalSecret}}
 
 {
-  "amount": 10000
+  "amount": 10000,
+  "transactionId": "deduct-test-001"
 }
 
 
-### STEP 5-6. 판매자 승인 여부 확인 (product-service용)
+### STEP 5-7. 예치금 차감 멱등성 확인 (동일 transactionId 재요청 → 이전 결과 반환, 이중 차감 안 됨)
+POST {{baseUrl}}/internal/member/{{memberId}}/deposit/deduct
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "amount": 10000,
+  "transactionId": "deduct-test-001"
+}
+
+
+### STEP 5-8. 잔액 확인 (기대: 50000 - 10000 = 40000, 멱등성으로 1회만 차감)
+GET {{baseUrl}}/internal/member/{{memberId}}/deposit
+X-Internal-Secret: {{internalSecret}}
+
+
+### STEP 5-9. 판매자 승인 여부 확인 (product-service용)
 GET {{baseUrl}}/internal/seller/{{memberId}}/approved
 X-Internal-Secret: {{internalSecret}}
 
 
-### STEP 5-7. 판매자 정산 계좌 조회 (settlement용)
+### STEP 5-10. 판매자 정산 계좌 조회 (settlement용)
 GET {{baseUrl}}/internal/seller/{{memberId}}/account
 X-Internal-Secret: {{internalSecret}}
 
 
-### STEP 5-8. 토큰 블랙리스트 확인 (gateway용)
+### STEP 5-11. 토큰 블랙리스트 확인 (gateway용)
 GET {{baseUrl}}/internal/token-blacklist/test-jti-value
 X-Internal-Secret: {{internalSecret}}
 
@@ -390,5 +419,16 @@ Content-Type: application/json
 X-Internal-Secret: {{internalSecret}}
 
 {
-  "amount": 999999
+  "amount": 999999,
+  "transactionId": "deduct-fail-001"
+}
+
+
+### [실패] transactionId 누락 → 400
+POST {{baseUrl}}/internal/member/{{memberId}}/deposit/deduct
+Content-Type: application/json
+X-Internal-Secret: {{internalSecret}}
+
+{
+  "amount": 10000
 }

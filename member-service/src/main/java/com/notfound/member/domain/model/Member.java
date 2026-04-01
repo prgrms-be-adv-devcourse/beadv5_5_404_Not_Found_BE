@@ -19,6 +19,7 @@ public class Member {
     private boolean emailVerified;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long version;
 
     private Member() {
     }
@@ -73,6 +74,10 @@ public class Member {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public Long getVersion() {
+        return version;
     }
 
     public void deductDeposit(int amount) {
@@ -175,6 +180,11 @@ public class Member {
 
         public Builder updatedAt(LocalDateTime updatedAt) {
             member.updatedAt = updatedAt;
+            return this;
+        }
+
+        public Builder version(Long version) {
+            member.version = version;
             return this;
         }
 
