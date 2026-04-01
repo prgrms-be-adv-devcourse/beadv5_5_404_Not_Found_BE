@@ -27,7 +27,7 @@ public class PayOrderService implements PayOrderUseCase {
         // 1. 주문 조회 (총액 + 상품 목록)
         OrderPort.OrderDetail order = orderPort.getOrder(command.orderId());
 
-        if ("PAID".equals(order.status())) {
+        if (!"PENDING".equals(order.status())) {
             throw PaymentException.orderAlreadyPaid(command.orderId());
         }
 
