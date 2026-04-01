@@ -54,6 +54,10 @@ public class AutoConfirmScheduler {
                 orderRepository.save(order);
 
                 List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+                if (items.isEmpty()) {
+                    log.warn("주문 항목 없음, 자동확정 스킵: orderId={}", order.getId());
+                    continue;
+                }
                 UUID sellerId = items.get(0).getSellerId();
                 UUID eventId = UUID.nameUUIDFromBytes(("confirm:" + order.getId()).getBytes());
                 eventPublisher.publishEvent(new PurchaseConfirmedEvent(

@@ -342,6 +342,9 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
         Order saved = orderRepository.save(order);
 
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        if (items.isEmpty()) {
+            throw OrderException.orderItemNotFound();
+        }
         UUID sellerId = items.get(0).getSellerId();
         UUID eventId = UUID.nameUUIDFromBytes(("confirm:" + orderId).getBytes());
         eventPublisher.publishEvent(new PurchaseConfirmedEvent(
@@ -393,6 +396,9 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
 
             // 7. Spring Event 발행 → AFTER_COMMIT에서 Kafka 전송
             List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+            if (items.isEmpty()) {
+                throw OrderException.orderItemNotFound();
+            }
             UUID sellerId = items.get(0).getSellerId();
             UUID eventId = UUID.nameUUIDFromBytes(("confirm:" + orderId).getBytes());
             eventPublisher.publishEvent(new PurchaseConfirmedEvent(
