@@ -69,7 +69,7 @@ public class MemberService implements CheckMemberActiveUseCase, GetDepositBalanc
     @Override
     @Transactional
     public int deductDeposit(UUID memberId, int amount, String transactionId) {
-        var existing = transactionRepository.findByTransactionId(transactionId);
+        var existing = transactionRepository.findById(transactionId);
         if (existing.isPresent()) {
             return existing.get().getRemainingBalance();
         }
@@ -88,7 +88,7 @@ public class MemberService implements CheckMemberActiveUseCase, GetDepositBalanc
     @Override
     @Transactional
     public int chargeDeposit(UUID memberId, int amount, String transactionId) {
-        var existing = transactionRepository.findByTransactionId(transactionId);
+        var existing = transactionRepository.findById(transactionId);
         if (existing.isPresent()) {
             return existing.get().getRemainingBalance();
         }
