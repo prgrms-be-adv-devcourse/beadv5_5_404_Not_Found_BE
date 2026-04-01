@@ -48,7 +48,7 @@ public class ProductServiceClient implements ProductServicePort {
                 .collect(Collectors.joining(","));
 
         var response = restClient.get()
-                .uri("/products?ids={ids}", ids)
+                .uri("/product?ids={ids}", ids)
                 .retrieve()
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {});
 

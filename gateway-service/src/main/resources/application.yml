@@ -14,25 +14,25 @@ spring:
               predicates:
                 - Path=/api/member/**
               filters:
-                - StripPrefix=2
+                - StripPrefix=1
             - id: product-service
               uri: lb://product-service
               predicates:
                 - Path=/api/product/**
               filters:
-                - StripPrefix=2
+                - StripPrefix=1
             - id: order-service
               uri: lb://order-service
               predicates:
                 - Path=/api/order/**
               filters:
-                - StripPrefix=2
+                - StripPrefix=1
             - id: payment-service
               uri: lb://payment-service
               predicates:
                 - Path=/api/payment/**
               filters:
-                - StripPrefix=2
+                - StripPrefix=1
 
 eureka:
   client:

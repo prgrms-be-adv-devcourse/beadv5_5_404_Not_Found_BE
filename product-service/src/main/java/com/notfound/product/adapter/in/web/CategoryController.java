@@ -17,7 +17,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/products/categories")
+@RequestMapping("/product/category")
 @RequiredArgsConstructor
 public class CategoryController {
 

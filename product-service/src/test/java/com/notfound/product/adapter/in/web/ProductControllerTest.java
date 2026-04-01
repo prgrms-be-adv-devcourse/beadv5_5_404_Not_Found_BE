@@ -70,7 +70,7 @@ class ProductControllerTest {
     }
 
     @Nested
-    @DisplayName("GET /products - 상품 목록 조회")
+    @DisplayName("GET /product - 상품 목록 조회")
     class GetProductList {
 
         @Test
@@ -79,7 +79,7 @@ class ProductControllerTest {
             List<Product> products = List.of(createProduct(UUID.randomUUID()), createProduct(UUID.randomUUID()));
             given(getProductListUseCase.getProducts(null)).willReturn(products);
 
-            mockMvc.perform(get("/products"))
+            mockMvc.perform(get("/product"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value("PRODUCT_LIST_GET_SUCCESS"))
                     .andExpect(jsonPath("$.data.length()").value(2));
@@ -93,7 +93,7 @@ class ProductControllerTest {
             List<Product> products = List.of(createProduct(id1), createProduct(id2));
             given(getProductListUseCase.getProducts(List.of(id1, id2))).willReturn(products);
 
-            mockMvc.perform(get("/products")
+            mockMvc.perform(get("/product")
                             .param("ids", id1.toString(), id2.toString()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value("PRODUCT_LIST_GET_SUCCESS"))
@@ -102,7 +102,7 @@ class ProductControllerTest {
     }
 
     @Nested
-    @DisplayName("GET /products/{productId} - 상품 상세 조회")
+    @DisplayName("GET /product/{productId} - 상품 상세 조회")
     class GetProduct {
 
         @Test
@@ -111,7 +111,7 @@ class ProductControllerTest {
             UUID productId = UUID.randomUUID();
             given(getProductUseCase.getProduct(productId)).willReturn(createProduct(productId));
 
-            mockMvc.perform(get("/products/{productId}", productId))
+            mockMvc.perform(get("/product/{productId}", productId))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value("PRODUCT_GET_SUCCESS"))
                     .andExpect(jsonPath("$.data.productId").value(productId.toString()));
@@ -124,14 +124,14 @@ class ProductControllerTest {
             given(getProductUseCase.getProduct(productId))
                     .willThrow(new ProductNotFoundException(productId));
 
-            mockMvc.perform(get("/products/{productId}", productId))
+            mockMvc.perform(get("/product/{productId}", productId))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.code").value("PRODUCT_NOT_FOUND"));
         }
     }
 
     @Nested
-    @DisplayName("POST /products - 상품 등록")
+    @DisplayName("POST /product - 상품 등록")
     class RegisterProduct {
 
         private ProductRegisterRequest validRequest() {
@@ -148,7 +148,7 @@ class ProductControllerTest {
             UUID productId = UUID.randomUUID();
             given(registerProductUseCase.registerProduct(any())).willReturn(createProduct(productId));
 
-            mockMvc.perform(post("/products")
+            mockMvc.perform(post("/product")
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "SELLER")
                             .header("X-Email-Verified", "true")
@@ -165,7 +165,7 @@ class ProductControllerTest {
             UUID productId = UUID.randomUUID();
             given(registerProductUseCase.registerProduct(any())).willReturn(createProduct(productId));
 
-            mockMvc.perform(post("/products")
+            mockMvc.perform(post("/product")
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "SELLER")
                             .header("X-Email-Verified", "false")
@@ -178,7 +178,7 @@ class ProductControllerTest {
         @Test
         @DisplayName("인증 헤더가 없으면 403과 FORBIDDEN을 반환한다")
         void fail_whenNoAuth() throws Exception {
-            mockMvc.perform(post("/products")
+            mockMvc.perform(post("/product")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest())))
                     .andExpect(status().isForbidden())
@@ -188,7 +188,7 @@ class ProductControllerTest {
         @Test
         @DisplayName("SELLER가 아니면 403과 FORBIDDEN을 반환한다")
         void fail_whenNotSeller() throws Exception {
-            mockMvc.perform(post("/products")
+            mockMvc.perform(post("/product")
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "USER")
                             .header("X-Email-Verified", "true")
@@ -204,7 +204,7 @@ class ProductControllerTest {
             given(registerProductUseCase.registerProduct(any()))
                     .willThrow(new ForbiddenException("승인된 판매자가 아닙니다."));
 
-            mockMvc.perform(post("/products")
+            mockMvc.perform(post("/product")
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "SELLER")
                             .header("X-Email-Verified", "true")
@@ -223,7 +223,7 @@ class ProductControllerTest {
                     15000, 100, BookType.NEW
             );
 
-            mockMvc.perform(post("/products")
+            mockMvc.perform(post("/product")
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "SELLER")
                             .header("X-Email-Verified", "true")
@@ -240,7 +240,7 @@ class ProductControllerTest {
             given(registerProductUseCase.registerProduct(any()))
                     .willThrow(new CategoryNotFoundException(UUID.randomUUID()));
 
-            mockMvc.perform(post("/products")
+            mockMvc.perform(post("/product")
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "SELLER")
                             .header("X-Email-Verified", "true")
@@ -252,7 +252,7 @@ class ProductControllerTest {
     }
 
     @Nested
-    @DisplayName("PATCH /products/{productId} - 상품 수정")
+    @DisplayName("PATCH /product/{productId} - 상품 수정")
     class UpdateProduct {
 
         @Test
@@ -261,7 +261,7 @@ class ProductControllerTest {
             UUID productId = UUID.randomUUID();
             given(updateProductUseCase.updateProduct(any())).willReturn(createProduct(productId));
 
-            mockMvc.perform(patch("/products/{productId}", productId)
+            mockMvc.perform(patch("/product/{productId}", productId)
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "SELLER")
                             .header("X-Email-Verified", "true")
@@ -275,7 +275,7 @@ class ProductControllerTest {
         @Test
         @DisplayName("SELLER가 아니면 403과 FORBIDDEN을 반환한다")
         void fail_whenNotSeller() throws Exception {
-            mockMvc.perform(patch("/products/{productId}", UUID.randomUUID())
+            mockMvc.perform(patch("/product/{productId}", UUID.randomUUID())
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "USER")
                             .header("X-Email-Verified", "true")
@@ -292,7 +292,7 @@ class ProductControllerTest {
             given(updateProductUseCase.updateProduct(any()))
                     .willThrow(new ProductNotFoundException(UUID.randomUUID()));
 
-            mockMvc.perform(patch("/products/{productId}", UUID.randomUUID())
+            mockMvc.perform(patch("/product/{productId}", UUID.randomUUID())
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "SELLER")
                             .header("X-Email-Verified", "true")
@@ -305,7 +305,7 @@ class ProductControllerTest {
     }
 
     @Nested
-    @DisplayName("PATCH /products/{productId}/status - 상품 상태 변경")
+    @DisplayName("PATCH /product/{productId}/status - 상품 상태 변경")
     class ChangeProductStatus {
 
         @Test
@@ -314,7 +314,7 @@ class ProductControllerTest {
             UUID productId = UUID.randomUUID();
             given(changeProductStatusUseCase.changeProductStatus(any())).willReturn(createProduct(productId));
 
-            mockMvc.perform(patch("/products/{productId}/status", productId)
+            mockMvc.perform(patch("/product/{productId}/status", productId)
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "ADMIN")
                             .header("X-Email-Verified", "true")
@@ -328,7 +328,7 @@ class ProductControllerTest {
         @Test
         @DisplayName("ADMIN이 아니면 403과 FORBIDDEN을 반환한다")
         void fail_whenNotAdmin() throws Exception {
-            mockMvc.perform(patch("/products/{productId}/status", UUID.randomUUID())
+            mockMvc.perform(patch("/product/{productId}/status", UUID.randomUUID())
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "SELLER")
                             .header("X-Email-Verified", "true")
@@ -342,7 +342,7 @@ class ProductControllerTest {
         @Test
         @DisplayName("status가 null이면 400과 INVALID_INPUT_VALUE를 반환한다")
         void fail_whenStatusIsNull() throws Exception {
-            mockMvc.perform(patch("/products/{productId}/status", UUID.randomUUID())
+            mockMvc.perform(patch("/product/{productId}/status", UUID.randomUUID())
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "ADMIN")
                             .header("X-Email-Verified", "true")
@@ -358,7 +358,7 @@ class ProductControllerTest {
             given(changeProductStatusUseCase.changeProductStatus(any()))
                     .willThrow(new ProductNotFoundException(UUID.randomUUID()));
 
-            mockMvc.perform(patch("/products/{productId}/status", UUID.randomUUID())
+            mockMvc.perform(patch("/product/{productId}/status", UUID.randomUUID())
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "ADMIN")
                             .header("X-Email-Verified", "true")

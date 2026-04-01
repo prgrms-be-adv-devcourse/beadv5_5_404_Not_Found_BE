@@ -56,7 +56,7 @@ class CategoryControllerTest {
     }
 
     @Nested
-    @DisplayName("GET /products/categories - 카테고리 목록 조회")
+    @DisplayName("GET /product/category - 카테고리 목록 조회")
     class GetCategoryList {
 
         @Test
@@ -70,7 +70,7 @@ class CategoryControllerTest {
             );
             given(getCategoryListUseCase.getCategoryList()).willReturn(categories);
 
-            mockMvc.perform(get("/products/categories"))
+            mockMvc.perform(get("/product/category"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value("CATEGORY_LIST_GET_SUCCESS"))
                     .andExpect(jsonPath("$.data.length()").value(1))
@@ -82,7 +82,7 @@ class CategoryControllerTest {
         void success_emptyList() throws Exception {
             given(getCategoryListUseCase.getCategoryList()).willReturn(List.of());
 
-            mockMvc.perform(get("/products/categories"))
+            mockMvc.perform(get("/product/category"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value("CATEGORY_LIST_GET_SUCCESS"))
                     .andExpect(jsonPath("$.data.length()").value(0));
@@ -90,7 +90,7 @@ class CategoryControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /products/categories - 카테고리 등록")
+    @DisplayName("POST /product/category - 카테고리 등록")
     class CreateCategory {
 
         private CreateCategoryRequest validRequest() {
@@ -104,7 +104,7 @@ class CategoryControllerTest {
             given(createCategoryUseCase.createCategory(any()))
                     .willReturn(createCategory(newId, null, 0));
 
-            mockMvc.perform(post("/products/categories")
+            mockMvc.perform(post("/product/category")
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "ADMIN")
                             .header("X-Email-Verified", "true")
@@ -118,7 +118,7 @@ class CategoryControllerTest {
         @Test
         @DisplayName("인증 헤더가 없으면 403과 FORBIDDEN을 반환한다")
         void fail_whenNoAuth() throws Exception {
-            mockMvc.perform(post("/products/categories")
+            mockMvc.perform(post("/product/category")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest())))
                     .andExpect(status().isForbidden())
@@ -128,7 +128,7 @@ class CategoryControllerTest {
         @Test
         @DisplayName("ADMIN이 아니면 403과 FORBIDDEN을 반환한다")
         void fail_whenNotAdmin() throws Exception {
-            mockMvc.perform(post("/products/categories")
+            mockMvc.perform(post("/product/category")
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "SELLER")
                             .header("X-Email-Verified", "true")
@@ -141,7 +141,7 @@ class CategoryControllerTest {
         @Test
         @DisplayName("name이 빈 값이면 400과 INVALID_INPUT_VALUE를 반환한다")
         void fail_whenNameIsBlank() throws Exception {
-            mockMvc.perform(post("/products/categories")
+            mockMvc.perform(post("/product/category")
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "ADMIN")
                             .header("X-Email-Verified", "true")
@@ -159,7 +159,7 @@ class CategoryControllerTest {
             given(createCategoryUseCase.createCategory(any()))
                     .willThrow(new CategorySlugDuplicateException("domestic"));
 
-            mockMvc.perform(post("/products/categories")
+            mockMvc.perform(post("/product/category")
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "ADMIN")
                             .header("X-Email-Verified", "true")
@@ -175,7 +175,7 @@ class CategoryControllerTest {
             given(createCategoryUseCase.createCategory(any()))
                     .willThrow(new CategoryNotFoundException(UUID.randomUUID()));
 
-            mockMvc.perform(post("/products/categories")
+            mockMvc.perform(post("/product/category")
                             .header("X-User-Id", UUID.randomUUID().toString())
                             .header("X-Role", "ADMIN")
                             .header("X-Email-Verified", "true")
