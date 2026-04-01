@@ -5,6 +5,7 @@ import com.notfound.settlement.domain.model.Settlement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,5 +39,11 @@ public class SettlementRepositoryAdapter implements SettlementRepository {
                 .stream()
                 .map(SettlementJpaEntity::toDomain)
                 .toList();
+    }
+
+    @Override
+    public Optional<Settlement> findBySellerIdAndPeriod(UUID sellerId, LocalDate periodStart, LocalDate periodEnd) {
+        return settlementJpaRepository.findBySellerIdAndPeriodStartAndPeriodEnd(sellerId, periodStart, periodEnd)
+                .map(SettlementJpaEntity::toDomain);
     }
 }

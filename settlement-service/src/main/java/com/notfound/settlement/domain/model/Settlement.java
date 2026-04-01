@@ -68,4 +68,11 @@ public class Settlement {
         }
         this.status = SettlementStatus.FAILED;
     }
+
+    public void reset() {
+        if (this.status != SettlementStatus.FAILED) {
+            throw new InvalidSettlementStatusException(this.id, this.status);
+        }
+        this.status = SettlementStatus.PENDING;
+    }
 }
