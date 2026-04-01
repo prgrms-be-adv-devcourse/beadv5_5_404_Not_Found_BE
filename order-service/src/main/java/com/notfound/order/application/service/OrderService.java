@@ -3,8 +3,10 @@ package com.notfound.order.application.service;
 import com.notfound.order.application.port.in.*;
 import com.notfound.order.application.port.in.command.CreateOrderCommand;
 import com.notfound.order.application.port.out.*;
+import com.notfound.order.domain.event.PurchaseConfirmedEvent;
 import com.notfound.order.domain.exception.OrderException;
 import com.notfound.order.domain.model.*;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,7 +31,7 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
     private final CartItemRepository cartItemRepository;
     private final MemberServicePort memberServicePort;
     private final ProductServicePort productServicePort;
-    private final PurchaseEventPublisher purchaseEventPublisher;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrderService(OrderRepository orderRepository,
                         OrderItemRepository orderItemRepository,
@@ -37,14 +39,14 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
                         CartItemRepository cartItemRepository,
                         MemberServicePort memberServicePort,
                         ProductServicePort productServicePort,
-                        PurchaseEventPublisher purchaseEventPublisher) {
+                        ApplicationEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.memberServicePort = memberServicePort;
         this.productServicePort = productServicePort;
-        this.purchaseEventPublisher = purchaseEventPublisher;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -339,8 +341,11 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
         order.confirmPurchase();
         Order saved = orderRepository.save(order);
 
-        purchaseEventPublisher.publishPurchaseConfirmed(
-                saved.getId(), saved.getMemberId(), saved.getTotalAmount(), saved.getConfirmedAt());
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        UUID sellerId = items.get(0).getSellerId();
+        UUID eventId = UUID.nameUUIDFromBytes(("confirm:" + orderId).getBytes());
+        eventPublisher.publishEvent(new PurchaseConfirmedEvent(
+                eventId, saved.getId(), sellerId, saved.getTotalAmount(), saved.getConfirmedAt()));
 
         return saved;
     }
@@ -386,11 +391,12 @@ public class OrderService implements CheckoutUseCase, CreateOrderUseCase,
             // 6. DB 저장
             Order saved = orderRepository.save(order);
 
-            // 7. Kafka 발행 (sellerId: 첫 번째 orderItem)
+            // 7. Spring Event 발행 → AFTER_COMMIT에서 Kafka 전송
             List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
             UUID sellerId = items.get(0).getSellerId();
-            purchaseEventPublisher.publishPurchaseConfirmed(
-                    saved.getId(), sellerId, saved.getTotalAmount(), saved.getConfirmedAt());
+            UUID eventId = UUID.nameUUIDFromBytes(("confirm:" + orderId).getBytes());
+            eventPublisher.publishEvent(new PurchaseConfirmedEvent(
+                    eventId, saved.getId(), sellerId, saved.getTotalAmount(), saved.getConfirmedAt()));
 
             return saved;
         } else {

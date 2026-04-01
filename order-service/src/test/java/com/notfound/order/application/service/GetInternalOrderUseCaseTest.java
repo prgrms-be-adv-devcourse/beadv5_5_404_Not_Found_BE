@@ -41,7 +41,7 @@ class GetInternalOrderUseCaseTest {
                 mock(CartItemRepository.class),
                 mock(MemberServicePort.class),
                 mock(ProductServicePort.class),
-                mock(PurchaseEventPublisher.class)
+                mock(org.springframework.context.ApplicationEventPublisher.class)
         );
     }
 

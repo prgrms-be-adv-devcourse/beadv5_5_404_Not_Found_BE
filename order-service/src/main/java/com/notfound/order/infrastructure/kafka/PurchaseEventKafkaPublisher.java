@@ -21,7 +21,8 @@ public class PurchaseEventKafkaPublisher implements PurchaseEventPublisher {
     }
 
     @Override
-    public void publishPurchaseConfirmed(UUID orderId, UUID sellerId, long totalAmount, LocalDateTime confirmedAt) {
+    public void publishPurchaseConfirmed(UUID eventId, UUID orderId, UUID sellerId,
+                                          long totalAmount, LocalDateTime confirmedAt) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("orderId", orderId.toString());
         payload.put("sellerId", sellerId.toString());
@@ -29,7 +30,7 @@ public class PurchaseEventKafkaPublisher implements PurchaseEventPublisher {
         payload.put("confirmedAt", confirmedAt != null ? confirmedAt.toString() : null);
 
         Map<String, Object> event = new LinkedHashMap<>();
-        event.put("eventId", UUID.randomUUID().toString());
+        event.put("eventId", eventId.toString());
         event.put("eventType", "PurchaseConfirmedEvent");
         event.put("timestamp", LocalDateTime.now().toString());
         event.put("payload", payload);

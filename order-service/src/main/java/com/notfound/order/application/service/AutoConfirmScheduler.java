@@ -1,17 +1,21 @@
 package com.notfound.order.application.service;
 
+import com.notfound.order.application.port.out.OrderItemRepository;
 import com.notfound.order.application.port.out.OrderRepository;
-import com.notfound.order.application.port.out.PurchaseEventPublisher;
+import com.notfound.order.domain.event.PurchaseConfirmedEvent;
 import com.notfound.order.domain.model.Order;
+import com.notfound.order.domain.model.OrderItem;
 import com.notfound.order.domain.model.OrderStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class AutoConfirmScheduler {
@@ -20,12 +24,15 @@ public class AutoConfirmScheduler {
     private static final int AUTO_CONFIRM_DAYS = 7;
 
     private final OrderRepository orderRepository;
-    private final PurchaseEventPublisher purchaseEventPublisher;
+    private final OrderItemRepository orderItemRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AutoConfirmScheduler(OrderRepository orderRepository,
-                                PurchaseEventPublisher purchaseEventPublisher) {
+                                OrderItemRepository orderItemRepository,
+                                ApplicationEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
-        this.purchaseEventPublisher = purchaseEventPublisher;
+        this.orderItemRepository = orderItemRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Scheduled(cron = "0 0 2 * * *")
@@ -38,13 +45,24 @@ public class AutoConfirmScheduler {
         log.info("자동 구매확정 대상: {}건", orders.size());
 
         for (Order order : orders) {
-            order.confirmPurchase();
-            orderRepository.save(order);
+            try {
+                if (order.getStatus() == OrderStatus.PURCHASE_CONFIRMED) {
+                    continue;
+                }
 
-            purchaseEventPublisher.publishPurchaseConfirmed(
-                    order.getId(), order.getMemberId(), order.getTotalAmount(), order.getConfirmedAt());
+                order.confirmPurchase();
+                orderRepository.save(order);
 
-            log.info("자동 구매확정 완료: orderId={}", order.getId());
+                List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+                UUID sellerId = items.get(0).getSellerId();
+                UUID eventId = UUID.nameUUIDFromBytes(("confirm:" + order.getId()).getBytes());
+                eventPublisher.publishEvent(new PurchaseConfirmedEvent(
+                        eventId, order.getId(), sellerId, order.getTotalAmount(), order.getConfirmedAt()));
+
+                log.info("자동 구매확정 완료: orderId={}", order.getId());
+            } catch (Exception e) {
+                log.error("자동 구매확정 실패: orderId={}, cause={}", order.getId(), e.getMessage(), e);
+            }
         }
     }
 }
