@@ -55,7 +55,7 @@ jobs:
           DB_USERNAME: postgres
           DB_PASSWORD: postgres
           JWT_SECRET_KEY: test-jwt-secret-key-for-ci-minimum-32-chars
-          INTERNAL_SECRET_KEY: test-internal-secret-key-for-ci
+          INTERNAL_SECRET_KEY: test-internal-secret
           ADMIN_EMAIL: admin@test.com
           ADMIN_PASSWORD: adminpassword
           PAYMENT_ENCRYPTION_KEY: test-payment-encryption-key-32chars
