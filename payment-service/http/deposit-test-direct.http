@@ -10,7 +10,7 @@
 @phone = 01012345678
 @chargeAmount = 10000
 # STEP 5 실행 후 Toss 결제창 완료 시 리디렉션 URL의 paymentKey를 아래에 입력
-@paymentKey = tviva20260401105824ubM11
+@paymentKey =
 
 
 ### =========================================
