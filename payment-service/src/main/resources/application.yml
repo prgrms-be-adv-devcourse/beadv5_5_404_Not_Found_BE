@@ -21,3 +21,18 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+internal:
+  secret-key: ${INTERNAL_SECRET_KEY}
+
+payment:
+  encryption:
+    key: ${PAYMENT_ENCRYPTION_KEY}
+
+toss:
+  payments:
+    client-key: ${TOSS_CLIENT_KEY}
+    secret-key: ${TOSS_SECRET_KEY}
+    confirm-url: https://api.tosspayments.com/v1/payments/confirm
+    success-url: ${TOSS_SUCCESS_URL:http://localhost:8084/success.html}
+    fail-url: ${TOSS_FAIL_URL:http://localhost:8084/fail.html}

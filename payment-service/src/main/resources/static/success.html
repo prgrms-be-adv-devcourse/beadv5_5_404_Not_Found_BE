@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>충전 승인 처리 중...</title>
+    <style>
+        body { font-family: sans-serif; max-width: 480px; margin: 60px auto; }
+        #result { background: #f0f8ff; padding: 16px; border-radius: 6px; margin-top: 16px; }
+        #error  { color: red; margin-top: 12px; }
+        a { display: inline-block; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <h2>결제 승인 처리 중...</h2>
+    <div id="result" style="display:none"></div>
+    <p id="error"></p>
+
+    <script>
+        (async () => {
+            const params     = new URLSearchParams(location.search);
+            const paymentKey = params.get('paymentKey');
+            const orderId    = params.get('orderId');
+            const amount     = parseInt(params.get('amount'), 10);
+            const memberId   = sessionStorage.getItem('memberId');
+            const errEl      = document.getElementById('error');
+
+            if (!paymentKey || !orderId || !amount || !memberId) {
+                errEl.textContent = '필수 파라미터가 없습니다. charge.html에서 다시 시도하세요.';
+                return;
+            }
+
+            try {
+                const res = await fetch('/payment/deposit/charge/confirm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-Id': memberId,
+                        'X-Email-Verified': 'true'
+                    },
+                    body: JSON.stringify({ paymentKey, orderId, amount })
+                });
+
+                const body = await res.json();
+                if (!res.ok) { errEl.textContent = body.message || '충전 승인 실패'; return; }
+
+                sessionStorage.removeItem('memberId');
+                const r   = body.data;
+                const div = document.getElementById('result');
+                div.style.display = 'block';
+
+                const lines = [
+                    ['충전 금액', r.chargedAmount.toLocaleString() + '원'],
+                    ['충전 후 잔액', r.balanceAfter.toLocaleString() + '원'],
+                    ['결제 방법', r.method],
+                    ['결제 시각', r.paidAt],
+                    ['PG 거래 ID', r.pgTransactionId],
+                ];
+                const title = document.createElement('strong');
+                title.textContent = '✅ 예치금 충전 완료';
+                div.appendChild(title);
+                div.appendChild(document.createElement('br'));
+                div.appendChild(document.createElement('br'));
+                lines.forEach(([label, value]) => {
+                    const span = document.createElement('span');
+                    span.textContent = label + ' : ' + value;
+                    div.appendChild(span);
+                    div.appendChild(document.createElement('br'));
+                });
+                document.querySelector('h2').textContent = '충전 완료';
+            } catch (e) {
+                errEl.textContent = e.message;
+            }
+        })();
+    </script>
+
+    <a href="/charge.html">충전 페이지로 돌아가기</a>
+</body>
+</html>

@@ -64,12 +64,12 @@ class AddressIntegrationTest {
     void createAddress_success() throws Exception {
         String body = """
                 {
-                    "label": "집",
                     "recipient": "홍길동",
                     "phone": "010-1111-2222",
                     "zipcode": "12345",
                     "address1": "서울시 강남구 테헤란로 1",
-                    "address2": "101호"
+                    "address2": "101호",
+                    "isDefault": true
                 }
                 """;
 
@@ -147,7 +147,6 @@ class AddressIntegrationTest {
     void createAddress_validation() throws Exception {
         String body = """
                 {
-                    "label": "회사",
                     "recipient": "",
                     "phone": "",
                     "zipcode": "",
