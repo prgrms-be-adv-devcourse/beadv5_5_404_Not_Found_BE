@@ -17,11 +17,15 @@ spring:
       hibernate:
         format_sql: true
 
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+service:
+  member:
+    url: ${MEMBER_SERVICE_URL}
+  product:
+    url: ${PRODUCT_SERVICE_URL}
+
+order:
+  pending:
+    expire-minutes: 30
 
 internal:
   secret-key: ${INTERNAL_SECRET_KEY}

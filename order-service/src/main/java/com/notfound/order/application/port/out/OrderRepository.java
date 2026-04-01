@@ -18,4 +18,5 @@ public interface OrderRepository {
     Page<Order> findByMemberIdAndStatus(UUID memberId, OrderStatus status, Pageable pageable);
     Page<Order> findByMemberId(UUID memberId, Pageable pageable);
     List<Order> findByStatusAndDeliveredBefore(OrderStatus status, LocalDateTime before);
+    List<Order> findByStatusAndCreatedBefore(OrderStatus status, LocalDateTime before);
 }

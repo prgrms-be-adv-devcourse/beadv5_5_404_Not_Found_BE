@@ -3,7 +3,6 @@ package com.notfound.order.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notfound.order.application.port.out.MemberServicePort;
-import com.notfound.order.application.port.out.PurchaseEventPublisher;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,9 +47,6 @@ class ConcurrencyTest {
 
     @MockitoBean
     private MemberServicePort memberServicePort;
-
-    @MockitoBean
-    private PurchaseEventPublisher purchaseEventPublisher;
 
     private static final String MEMBER_ID = "22222222-2222-2222-2222-222222222222";
     private static final String PRODUCT_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
