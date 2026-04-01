@@ -2,8 +2,11 @@ package com.notfound.payment.application.service;
 
 import com.notfound.payment.application.port.in.DeductDepositUseCase;
 import com.notfound.payment.application.port.in.RefundDepositUseCase;
+import com.notfound.payment.application.port.out.DepositEventPublisher;
 import com.notfound.payment.application.port.out.DepositPort;
 import com.notfound.payment.application.port.out.MemberPort;
+import com.notfound.payment.domain.event.DepositDeductedEvent;
+import com.notfound.payment.domain.event.DepositRefundedEvent;
 import com.notfound.payment.domain.exception.PaymentException;
 import com.notfound.payment.domain.model.Deposit;
 import com.notfound.payment.domain.model.DepositType;
@@ -26,6 +29,7 @@ class DepositTransactionServiceTest {
 
     @Mock private DepositPort depositPort;
     @Mock private MemberPort memberPort;
+    @Mock private DepositEventPublisher depositEventPublisher;
 
     @InjectMocks
     private DepositTransactionService depositTransactionService;
@@ -75,7 +79,7 @@ class DepositTransactionServiceTest {
     }
 
     @Test
-    void deduct_정상_차감시_Deposit_저장_및_member_차감_호출() {
+    void deduct_정상_차감시_Deposit_저장_및_이벤트_발행() {
         UUID memberId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
         Deposit saved = Deposit.create(memberId, null, orderId, DepositType.USE, 25000, 75000, "결제");
@@ -86,7 +90,7 @@ class DepositTransactionServiceTest {
                 new DeductDepositUseCase.DeductCommand(memberId, orderId, 25000, "결제"));
 
         then(depositPort).should().save(any(Deposit.class));
-        then(memberPort).should().deductDeposit(memberId, 25000);
+        then(depositEventPublisher).should().publishDepositDeducted(any(DepositDeductedEvent.class));
     }
 
     // ===== refund =====
@@ -106,7 +110,7 @@ class DepositTransactionServiceTest {
     }
 
     @Test
-    void refund_정상_환급시_Deposit_저장_및_member_충전_호출() {
+    void refund_정상_환급시_Deposit_저장_및_이벤트_발행() {
         UUID memberId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
         Deposit saved = Deposit.create(memberId, null, orderId, DepositType.REFUND, 25000, 125000, "환급");
@@ -117,6 +121,6 @@ class DepositTransactionServiceTest {
                 new RefundDepositUseCase.RefundCommand(memberId, orderId, 25000, "환급"));
 
         then(depositPort).should().save(any(Deposit.class));
-        then(memberPort).should().chargeDeposit(memberId, 25000);
+        then(depositEventPublisher).should().publishDepositRefunded(any(DepositRefundedEvent.class));
     }
 }

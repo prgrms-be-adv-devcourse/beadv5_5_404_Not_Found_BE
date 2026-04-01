@@ -51,9 +51,9 @@ class DepositChargeRecorder {
                 balanceAfter,
                 "예치금 충전"
         );
-        depositPort.save(deposit);
+        Deposit savedDeposit = depositPort.save(deposit);
         depositEventPublisher.publishDepositCharged(
-                new DepositChargedEvent(memberId, payment.getAmount(), balanceAfter));
+                new DepositChargedEvent(memberId, payment.getAmount(), balanceAfter, savedDeposit.getId().toString()));
 
         return new ConfirmDepositChargeUseCase.ConfirmResult(
                 payment.getId(),

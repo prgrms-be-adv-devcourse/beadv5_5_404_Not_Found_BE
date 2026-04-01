@@ -2,8 +2,11 @@ package com.notfound.payment.application.service;
 
 import com.notfound.payment.application.port.in.DeductDepositUseCase;
 import com.notfound.payment.application.port.in.RefundDepositUseCase;
+import com.notfound.payment.application.port.out.DepositEventPublisher;
 import com.notfound.payment.application.port.out.DepositPort;
 import com.notfound.payment.application.port.out.MemberPort;
+import com.notfound.payment.domain.event.DepositDeductedEvent;
+import com.notfound.payment.domain.event.DepositRefundedEvent;
 import com.notfound.payment.domain.exception.PaymentException;
 import com.notfound.payment.domain.model.Deposit;
 import com.notfound.payment.domain.model.DepositType;
@@ -17,6 +20,7 @@ public class DepositTransactionService implements DeductDepositUseCase, RefundDe
 
     private final DepositPort depositPort;
     private final MemberPort memberPort;
+    private final DepositEventPublisher depositEventPublisher;
 
     @Override
     @Transactional
@@ -37,7 +41,9 @@ public class DepositTransactionService implements DeductDepositUseCase, RefundDe
                 command.description()
         );
         Deposit saved = depositPort.save(deposit);
-        memberPort.deductDeposit(command.memberId(), command.amount());
+        depositEventPublisher.publishDepositDeducted(
+                new DepositDeductedEvent(command.memberId(), command.amount(), saved.getId().toString())
+        );
 
         return new DeductResult(saved.getId(), balanceAfter);
     }
@@ -58,7 +64,9 @@ public class DepositTransactionService implements DeductDepositUseCase, RefundDe
                 command.description()
         );
         Deposit saved = depositPort.save(deposit);
-        memberPort.chargeDeposit(command.memberId(), command.amount());
+        depositEventPublisher.publishDepositRefunded(
+                new DepositRefundedEvent(command.memberId(), command.amount(), saved.getId().toString())
+        );
 
         return new RefundResult(saved.getId(), balanceAfter);
     }

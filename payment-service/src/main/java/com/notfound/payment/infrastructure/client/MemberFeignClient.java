@@ -18,10 +18,10 @@ public interface MemberFeignClient {
     ApiResponse<DepositBalanceData> getDepositBalance(@PathVariable UUID memberId);
 
     @PostMapping("/internal/member/{memberId}/deposit/deduct")
-    ApiResponse<Object> deductDeposit(@PathVariable UUID memberId, @RequestBody AmountRequest request);
+    ApiResponse<Object> deductDeposit(@PathVariable UUID memberId, @RequestBody DepositRequest request);
 
     @PostMapping("/internal/member/{memberId}/deposit/charge")
-    ApiResponse<Object> chargeDeposit(@PathVariable UUID memberId, @RequestBody AmountRequest request);
+    ApiResponse<Object> chargeDeposit(@PathVariable UUID memberId, @RequestBody DepositRequest request);
 
     record ApiResponse<T>(int status, String code, String message, T data) {}
 
@@ -29,5 +29,5 @@ public interface MemberFeignClient {
 
     record DepositBalanceData(int depositBalance) {}
 
-    record AmountRequest(int amount) {}
+    record DepositRequest(String transactionId, int amount) {}
 }

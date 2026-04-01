@@ -8,7 +8,7 @@ public interface MemberPort {
 
     int getDepositBalance(UUID memberId);
 
-    void deductDeposit(UUID memberId, int amount);
+    void deductDeposit(UUID memberId, int amount, String transactionId);
 
-    void chargeDeposit(UUID memberId, int amount);
+    void chargeDeposit(UUID memberId, int amount, String transactionId);
 }

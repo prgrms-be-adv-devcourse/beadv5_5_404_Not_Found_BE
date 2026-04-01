@@ -23,12 +23,12 @@ public class MemberClientAdapter implements MemberPort {
     }
 
     @Override
-    public void deductDeposit(UUID memberId, int amount) {
-        memberFeignClient.deductDeposit(memberId, new MemberFeignClient.AmountRequest(amount));
+    public void deductDeposit(UUID memberId, int amount, String transactionId) {
+        memberFeignClient.deductDeposit(memberId, new MemberFeignClient.DepositRequest(transactionId, amount));
     }
 
     @Override
-    public void chargeDeposit(UUID memberId, int amount) {
-        memberFeignClient.chargeDeposit(memberId, new MemberFeignClient.AmountRequest(amount));
+    public void chargeDeposit(UUID memberId, int amount, String transactionId) {
+        memberFeignClient.chargeDeposit(memberId, new MemberFeignClient.DepositRequest(transactionId, amount));
     }
 }

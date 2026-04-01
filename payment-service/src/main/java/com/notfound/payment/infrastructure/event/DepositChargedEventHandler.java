@@ -18,7 +18,7 @@ public class DepositChargedEventHandler {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(DepositChargedEvent event) {
         try {
-            memberPort.chargeDeposit(event.memberId(), event.chargedAmount());
+            memberPort.chargeDeposit(event.memberId(), event.chargedAmount(), event.transactionId());
             log.debug("예치금 충전 완료 — memberId={}, balanceAfter={}", event.memberId(), event.balanceAfter());
         } catch (Exception e) {
             log.error("예치금 잔액 동기화 실패 — memberId={}, chargedAmount={}", event.memberId(), event.chargedAmount(), e);

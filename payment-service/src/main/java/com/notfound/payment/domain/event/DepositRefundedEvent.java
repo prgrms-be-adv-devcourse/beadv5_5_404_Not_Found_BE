@@ -2,9 +2,8 @@ package com.notfound.payment.domain.event;
 
 import java.util.UUID;
 
-public record DepositChargedEvent(
+public record DepositRefundedEvent(
         UUID memberId,
-        int chargedAmount,
-        int balanceAfter,
+        int amount,
         String transactionId
 ) {}
