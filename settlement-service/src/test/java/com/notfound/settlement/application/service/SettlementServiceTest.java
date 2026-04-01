@@ -11,6 +11,8 @@ import com.notfound.settlement.domain.model.Settlement;
 import com.notfound.settlement.domain.model.SettlementStatus;
 import com.notfound.settlement.domain.model.SettlementTarget;
 import com.notfound.settlement.domain.model.SettlementTargetStatus;
+
+import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,6 +32,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
@@ -84,6 +87,8 @@ class SettlementServiceTest {
             );
             given(settlementTargetRepository.findPendingByConfirmedAtBetween(any(), any()))
                     .willReturn(targets);
+            given(settlementRepository.findBySellerIdAndPeriod(any(), any(), any()))
+                    .willReturn(java.util.Optional.empty());
             given(sellerAccountClient.findSellerAccount(sellerId))
                     .willReturn(new SellerAccount("004", "123-456", "홍길동"));
 
@@ -107,6 +112,8 @@ class SettlementServiceTest {
             );
             given(settlementTargetRepository.findPendingByConfirmedAtBetween(any(), any()))
                     .willReturn(targets);
+            given(settlementRepository.findBySellerIdAndPeriod(any(), any(), any()))
+                    .willReturn(java.util.Optional.empty());
             willThrow(new SellerAccountNotFoundException(sellerId))
                     .given(sellerAccountClient).findSellerAccount(sellerId);
 
@@ -129,6 +136,8 @@ class SettlementServiceTest {
                     UUID.randomUUID(), sellerId, 10000L, LocalDateTime.now());
             given(settlementTargetRepository.findPendingByConfirmedAtBetween(any(), any()))
                     .willReturn(List.of(target));
+            given(settlementRepository.findBySellerIdAndPeriod(any(), any(), any()))
+                    .willReturn(java.util.Optional.empty());
             given(sellerAccountClient.findSellerAccount(sellerId))
                     .willReturn(new SellerAccount("004", "123-456", "홍길동"));
 
@@ -148,11 +157,67 @@ class SettlementServiceTest {
                     .willReturn(List.of(target));
             willThrow(new SellerAccountNotFoundException(sellerId))
                     .given(sellerAccountClient).findSellerAccount(sellerId);
+            given(settlementRepository.findBySellerIdAndPeriod(any(), any(), any()))
+                    .willReturn(java.util.Optional.empty());
 
             settlementService.execute(YearMonth.of(2025, 2));
 
             assertThat(target.getStatus()).isEqualTo(SettlementTargetStatus.PENDING);
             verify(settlementTargetRepository, never()).saveAll(any());
+        }
+
+        @Test
+        @DisplayName("FAILED Settlement가 존재하면 재사용하여 COMPLETED 처리한다")
+        void failedSettlementExists_resetAndComplete() {
+            UUID sellerId = UUID.randomUUID();
+            YearMonth targetMonth = YearMonth.of(2025, 1);
+            List<SettlementTarget> targets = List.of(
+                    SettlementTarget.create(UUID.randomUUID(), sellerId, 10000L, LocalDateTime.now())
+            );
+
+            Settlement failedSettlement = Settlement.create(sellerId,
+                    targetMonth.atDay(1), targetMonth.atEndOfMonth(), targets, 0.03);
+            failedSettlement.fail();
+
+            given(settlementTargetRepository.findPendingByConfirmedAtBetween(any(), any()))
+                    .willReturn(targets);
+            given(settlementRepository.findBySellerIdAndPeriod(
+                    eq(sellerId), eq(targetMonth.atDay(1)), eq(targetMonth.atEndOfMonth())))
+                    .willReturn(java.util.Optional.of(failedSettlement));
+            given(sellerAccountClient.findSellerAccount(sellerId))
+                    .willReturn(new SellerAccount("004", "123-456", "홍길동"));
+
+            settlementService.execute(targetMonth);
+
+            assertThat(failedSettlement.getStatus()).isEqualTo(SettlementStatus.COMPLETED);
+            ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher).publishEvent(eventCaptor.capture());
+            assertThat(eventCaptor.getValue()).isInstanceOf(SettlementCompletedEvent.class);
+        }
+
+        @Test
+        @DisplayName("COMPLETED Settlement가 이미 존재하면 건너뛴다")
+        void completedSettlementExists_skip() {
+            UUID sellerId = UUID.randomUUID();
+            YearMonth targetMonth = YearMonth.of(2025, 1);
+            List<SettlementTarget> targets = List.of(
+                    SettlementTarget.create(UUID.randomUUID(), sellerId, 10000L, LocalDateTime.now())
+            );
+
+            Settlement completedSettlement = Settlement.create(sellerId,
+                    targetMonth.atDay(1), targetMonth.atEndOfMonth(), targets, 0.03);
+            completedSettlement.complete();
+
+            given(settlementTargetRepository.findPendingByConfirmedAtBetween(any(), any()))
+                    .willReturn(targets);
+            given(settlementRepository.findBySellerIdAndPeriod(
+                    eq(sellerId), eq(targetMonth.atDay(1)), eq(targetMonth.atEndOfMonth())))
+                    .willReturn(java.util.Optional.of(completedSettlement));
+
+            settlementService.execute(targetMonth);
+
+            verify(settlementRepository, never()).save(any());
+            verify(eventPublisher, never()).publishEvent(any());
         }
     }
 }

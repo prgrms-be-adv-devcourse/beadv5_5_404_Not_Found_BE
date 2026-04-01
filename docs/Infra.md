@@ -194,6 +194,8 @@ TOSS_SUCCESS_URL=...
 TOSS_FAIL_URL=...
 ADMIN_EMAIL=...
 ADMIN_PASSWORD=...
+MEMBER_SERVICE_URL=http://member-service:8081
+PRODUCT_SERVICE_URL=http://product-service:8082
 EOF
 ```
 
@@ -273,5 +275,5 @@ docker compose -f docker/docker-compose.yml --env-file .env up
 - [x] Elastic IP 할당 및 연결 (not-found)
 - [x] 보안 그룹 설정 (포트 22, 80)
 - [x] EC2 Docker + git 설치 및 레포 클론
-- [ ] main 머지 → CD 배포 확인
+- [x] main 머지 → CD 배포 확인
 - [ ] 도메인 확보 후 Nginx + HTTPS 추가

@@ -9,6 +9,7 @@ import com.notfound.settlement.domain.event.SettlementCompletedEvent;
 import com.notfound.settlement.domain.event.SettlementFailedEvent;
 import com.notfound.settlement.domain.exception.SellerAccountNotFoundException;
 import com.notfound.settlement.domain.model.Settlement;
+import com.notfound.settlement.domain.model.SettlementStatus;
 import com.notfound.settlement.domain.model.SettlementTarget;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -62,7 +64,15 @@ public class SettlementService implements ExecuteMonthlySettlementUseCase, GetSe
             UUID sellerId = entry.getKey();
             List<SettlementTarget> targets = entry.getValue();
 
-            Settlement settlement = Settlement.create(sellerId, periodStart, periodEnd, targets, feeRate);
+            Optional<Settlement> existing = settlementRepository.findBySellerIdAndPeriod(sellerId, periodStart, periodEnd);
+            if (existing.isPresent() && existing.get().getStatus() == SettlementStatus.COMPLETED) {
+                log.info("[Settlement] Already COMPLETED for sellerId={}, period={} ~ {}", sellerId, periodStart, periodEnd);
+                continue;
+            }
+
+            Settlement settlement = existing
+                    .map(s -> { s.reset(); return s; })
+                    .orElseGet(() -> Settlement.create(sellerId, periodStart, periodEnd, targets, feeRate));
             settlementRepository.save(settlement);
 
             try {

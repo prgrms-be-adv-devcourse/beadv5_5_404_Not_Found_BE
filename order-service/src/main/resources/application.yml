@@ -27,9 +27,9 @@ spring:
 
 service:
   member:
-    url: ${MEMBER_SERVICE_URL}
+    url: ${MEMBER_SERVICE_URL:http://member-service:8081}
   product:
-    url: ${PRODUCT_SERVICE_URL}
+    url: ${PRODUCT_SERVICE_URL:http://product-service:8082}
 
 order:
   pending:
@@ -37,6 +37,12 @@ order:
 
 internal:
   secret-key: ${INTERNAL_SECRET_KEY}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui/index.html
+  api-docs:
+    path: /v3/api-docs
 
 eureka:
   client:
