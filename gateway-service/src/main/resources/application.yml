@@ -51,6 +51,12 @@ spring:
                 - Path=/payment/swagger-ui/**, /payment/v3/api-docs/**
               filters:
                 - StripPrefix=1
+            - id: product-swagger
+              uri: lb://product-service
+              predicates:
+                - Path=/product/swagger-ui/**, /product/v3/api-docs/**
+              filters:
+                - StripPrefix=1
             - id: webjars
               uri: lb://member-service
               predicates:
