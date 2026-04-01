@@ -50,8 +50,23 @@ class InternalOrderResponseTest {
         InternalOrderResponse response = InternalOrderResponse.from(order, items);
 
         assertThat(response.orderId()).isEqualTo(ORDER_ID);
+        assertThat(response.status()).isEqualTo("PENDING");
         assertThat(response.totalAmount()).isEqualTo(35000);
         assertThat(response.items()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("CANCELLED 상태 → status 필드에 CANCELLED 반환")
+    void from_cancelledStatus() {
+        Order order = Order.builder()
+                .id(ORDER_ID)
+                .status(OrderStatus.CANCELLED)
+                .totalAmount(0)
+                .build();
+
+        InternalOrderResponse response = InternalOrderResponse.from(order, List.of());
+
+        assertThat(response.status()).isEqualTo("CANCELLED");
     }
 
     @Test

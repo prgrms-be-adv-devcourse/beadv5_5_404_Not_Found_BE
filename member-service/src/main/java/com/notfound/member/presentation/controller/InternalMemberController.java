@@ -7,6 +7,8 @@ import com.notfound.member.application.port.in.GetDepositBalanceUseCase;
 import com.notfound.member.application.port.in.GetMemberAddressesUseCase;
 import com.notfound.member.presentation.dto.AddressResponse;
 import com.notfound.member.presentation.dto.ApiResponse;
+import com.notfound.member.presentation.dto.DepositRequest;
+import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
@@ -89,10 +91,9 @@ public class InternalMemberController {
     @PostMapping("/{memberId}/deposit/deduct")
     public ResponseEntity<ApiResponse<Map<String, Object>>> deductDeposit(
             @PathVariable UUID memberId,
-            @RequestBody Map<String, Integer> request) {
+            @Valid @RequestBody DepositRequest request) {
 
-        int amount = request.get("amount");
-        int remaining = deductDepositUseCase.deductDeposit(memberId, amount);
+        int remaining = deductDepositUseCase.deductDeposit(memberId, request.amount(), request.transactionId());
 
         return ResponseEntity.ok(
                 ApiResponse.success(200, "DEPOSIT_DEDUCT_SUCCESS",
@@ -104,10 +105,9 @@ public class InternalMemberController {
     @PostMapping("/{memberId}/deposit/charge")
     public ResponseEntity<ApiResponse<Map<String, Object>>> chargeDeposit(
             @PathVariable UUID memberId,
-            @RequestBody Map<String, Integer> request) {
+            @Valid @RequestBody DepositRequest request) {
 
-        int amount = request.get("amount");
-        int remaining = chargeDepositUseCase.chargeDeposit(memberId, amount);
+        int remaining = chargeDepositUseCase.chargeDeposit(memberId, request.amount(), request.transactionId());
 
         return ResponseEntity.ok(
                 ApiResponse.success(200, "DEPOSIT_CHARGE_SUCCESS",
