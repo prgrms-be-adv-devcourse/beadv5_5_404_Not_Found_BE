@@ -25,8 +25,10 @@ eureka:
 internal:
   secret-key: ${INTERNAL_SECRET_KEY}
 
+gateway:
+  url: ${GATEWAY_URL:http://localhost:8080}
+
 springdoc:
-  override-server-url: ${GATEWAY_URL:http://localhost:8080}/api/payment
   swagger-ui:
     path: /swagger-ui/index.html
     config-url: /payment/v3/api-docs/swagger-config
