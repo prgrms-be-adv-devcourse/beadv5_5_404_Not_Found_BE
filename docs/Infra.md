@@ -118,12 +118,13 @@ Docker 네트워크 내부 URL:
 
 - 트리거: PR → `develop`, `main`
 - 동작: Gradle 빌드 + 테스트, 실패 시 merge 차단
+- 비고: member-service, order-service 테스트 임시 제외 (`-x :member-service:test -x :order-service:test`) — issue #56, #58 해결 후 제거 예정
 
 ### CD (`.github/workflows/cd.yml`)
 
-- 트리거: push → `main`
+- 트리거: push → `main`, `workflow_dispatch` (수동 실행 가능)
 - 동작:
-  1. EC2 SSH 접속
+  1. EC2 SSH 접속 (`command_timeout: 40m`)
   2. `scripts/deploy.sh` 실행 (git pull → docker-compose --build → image prune)
 
 ### 배포 스크립트 (`scripts/deploy.sh`)
@@ -252,9 +253,9 @@ services:
 ### 문제 2: INTERNAL_SECRET_KEY 불일치
 - **증상**: `AssertionError` — 내부 API 인증 실패 (15개 테스트 실패)
 - **원인**: CI 환경변수 값이 테스트 코드 하드코딩 값과 다름
-  - CI 설정값: `test-internal-secret-key-for-ci`
+  - 잘못된 CI 설정값: `test-internal-secret-key-for-ci`
   - 테스트 코드: `test-internal-secret`
-- **해결**: CI 환경변수를 `test-internal-secret`으로 수정
+- **해결**: CI 환경변수를 `test-internal-secret`으로 수정 → **현재 ci.yml 반영 완료**
 
 ### 문제 3: Docker Compose --env-file 누락
 - **증상**: `DB_USERNAME`, `DB_PASSWORD` 변수 미인식
