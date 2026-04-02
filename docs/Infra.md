@@ -20,8 +20,6 @@ gateway-service (:80)
 PostgreSQL / Kafka
 ```
 
-> HTTPS(Nginx + Let's Encrypt)는 도메인 확보 후 추가 예정
-
 ---
 
 ## 생성 파일 목록
@@ -132,8 +130,39 @@ Docker 네트워크 내부 URL:
 ### 배포 스크립트 (`scripts/deploy.sh`)
 
 ```bash
-# JSON 배열 인자로 변경된 서비스 목록 수신 (예: ["member-service","order-service"])
+#!/bin/bash
+set -e
+
+cd /home/ec2-user/app
+
+# JSON 배열을 공백 구분 문자열로 변환 (예: ["member-service","order-service"] → member-service order-service)
 SERVICES=$(echo "$1" | tr -d '[]"' | tr ',' ' ')
+
+echo "Deploying services: $SERVICES"
+
+# systemd 서비스 등록 (최초 1회)
+if [ ! -f /etc/systemd/system/bookcommerce.service ]; then
+  sudo tee /etc/systemd/system/bookcommerce.service > /dev/null << 'SYSTEMD'
+[Unit]
+Description=BookCommerce Docker Compose
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/ec2-user/app/docker
+ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d
+ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml down
+User=ec2-user
+
+[Install]
+WantedBy=multi-user.target
+SYSTEMD
+  sudo systemctl daemon-reload
+  sudo systemctl enable bookcommerce.service
+fi
+
 docker compose -f docker/docker-compose.prod.yml --env-file .env pull $SERVICES
 docker compose -f docker/docker-compose.prod.yml --env-file .env up -d --no-deps $SERVICES
 docker image prune -f
@@ -162,6 +191,7 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 | `TOSS_FAIL_URL` | 결제 실패 콜백 URL |
 | `ADMIN_EMAIL` | 관리자 이메일 |
 | `ADMIN_PASSWORD` | 관리자 비밀번호 |
+| `GATEWAY_URL` | EC2 퍼블릭 IP (예: `http://43.200.75.98`) — Swagger Server URL에 사용, 값은 URL만 입력 (`GATEWAY_URL=` 접두사 제외) |
 
 ---
 
@@ -202,8 +232,7 @@ TOSS_SUCCESS_URL=...
 TOSS_FAIL_URL=...
 ADMIN_EMAIL=...
 ADMIN_PASSWORD=...
-MEMBER_SERVICE_URL=http://member-service:8081
-PRODUCT_SERVICE_URL=http://product-service:8082
+GATEWAY_URL=...
 EOF
 ```
 
@@ -236,7 +265,7 @@ EOF
 | settlement-service Dockerfile 빌드 | ✅ 성공 (169MB) |
 | docker-compose 인프라 기동 (postgres, kafka, zookeeper, eureka) | ✅ 성공 |
 | CI 워크플로우 (GitHub Actions) | ✅ 성공 |
-| CD 워크플로우 (EC2 배포) | ⬜ EC2 설정 후 확인 예정 |
+| CD 워크플로우 (EC2 배포) | ✅ 성공 |
 
 ---
 
@@ -289,10 +318,16 @@ docker compose -f docker/docker-compose.yml --env-file .env up
 - **해결**: Zookeeper에서 stale 노드 삭제 후 Kafka 재시작
 ```bash
 docker exec bookcommerce-zookeeper zookeeper-shell zookeeper:2181 delete /brokers/ids/1
-docker compose -f docker-compose.prod.yml restart kafka
+docker compose -f docker/docker-compose.prod.yml --env-file .env restart kafka
 ```
 
-### 문제 7: EC2 재시작 후 .env 파일 유실
+### 문제 7: CD 배포 후 .env 자동 완전화 (현재 적용)
+- **배경**: EC2 재시작 시 `.env` 유실 문제 근본 해결
+- **해결**: `cd.yml`에서 SSH 접속 후 GitHub Secrets 값으로 `.env` 자동 생성
+- **systemd 서비스**: `deploy.sh`에서 최초 1회 자동 등록 → EC2 부팅 시 `docker compose up -d` 자동 실행
+- **주의**: GitHub Secrets `GATEWAY_URL` 값은 URL만 입력 (`http://43.200.75.98`) — `GATEWAY_URL=` 접두사 포함 시 `.env`에 중복 기록됨
+
+### 문제 8: EC2 재시작 후 .env 파일 유실 (문제 7 적용 전 수동 복구 방법)
 - **증상**: `DB_USERNAME`, `DOCKERHUB_USERNAME` 변수 미인식
 - **원인**: `.env` 파일이 git에 포함되지 않아 EC2 재시작(또는 재클론) 시 유실
 - **해결**: EC2에서 수동으로 두 위치에 `.env` 재생성 필요
@@ -325,5 +360,6 @@ EOF
 - [x] 보안 그룹 설정 (포트 22, 80)
 - [x] EC2 Docker + git 설치 및 레포 클론
 - [x] main 머지 → CD 배포 확인
-- [x] EC2 재시작 후 자동 기동 설정 (`restart: unless-stopped`)
-- [ ] 도메인 확보 후 Nginx + HTTPS 추가
+- [x] EC2 재시작 후 자동 기동 설정 (`restart: unless-stopped` + systemd)
+- [x] CD 배포 시 GitHub Secrets → `.env` 자동 생성
+- [x] Swagger Server URL EC2 주소로 고정 (`GATEWAY_URL` Secret 추가)
