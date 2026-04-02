@@ -97,6 +97,25 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           command_timeout: 10m
           script: |
+            cat > /home/ec2-user/app/.env << 'ENVEOF'
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+            INTERNAL_SECRET_KEY=${{ secrets.INTERNAL_SECRET_KEY }}
+            PAYMENT_ENCRYPTION_KEY=${{ secrets.PAYMENT_ENCRYPTION_KEY }}
+            TOSS_CLIENT_KEY=${{ secrets.TOSS_CLIENT_KEY }}
+            TOSS_SECRET_KEY=${{ secrets.TOSS_SECRET_KEY }}
+            TOSS_SUCCESS_URL=${{ secrets.TOSS_SUCCESS_URL }}
+            TOSS_FAIL_URL=${{ secrets.TOSS_FAIL_URL }}
+            ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}
+            ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
+            ENVEOF
+            cat > /home/ec2-user/app/docker/.env << 'ENVEOF'
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            ENVEOF
             cd /home/ec2-user/app
             git pull origin main
             bash scripts/deploy.sh '${{ needs.detect-changes.outputs.services }}'
