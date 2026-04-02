@@ -3,7 +3,7 @@ package com.notfound.order.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notfound.order.application.port.out.MemberServicePort;
-import com.notfound.order.application.port.out.PurchaseEventPublisher;
+import com.notfound.order.application.port.out.ProductServicePort;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,12 +50,12 @@ class ConcurrencyTest {
     private MemberServicePort memberServicePort;
 
     @MockitoBean
-    private PurchaseEventPublisher purchaseEventPublisher;
+    private ProductServicePort productServicePort;
 
     private static final String MEMBER_ID = "22222222-2222-2222-2222-222222222222";
     private static final String PRODUCT_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
     private static final UUID ADDRESS_ID = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd");
-    private static final String INTERNAL_SECRET = "test-internal-secret-key-for-testing";
+    private static final String INTERNAL_SECRET = "test-internal-secret";
 
     private String orderId;
 
@@ -69,6 +69,14 @@ class ConcurrencyTest {
                         "recipient", "테스트", "phone", "01000000000",
                         "zipcode", "12345", "address1", "서울", "address2", "101호",
                         "isDefault", true)
+        ));
+
+        when(productServicePort.getProducts(any())).thenReturn(List.of(
+                Map.of("productId", PRODUCT_ID,
+                        "productName", "동시성 테스트 도서",
+                        "price", 15000,
+                        "stock", 100,
+                        "sellerId", UUID.randomUUID().toString())
         ));
 
         // PENDING 주문 생성
@@ -108,7 +116,7 @@ class ConcurrencyTest {
                     .andReturn().getResponse().getStatus();
         });
 
-        // pay 요청
+        // pay 요청 (PAID → PURCHASE_CONFIRMED 자동 전이)
         Future<Integer> payFuture = executor.submit(() -> {
             latch.await();
             return mockMvc.perform(post("/internal/order/{orderId}/status", orderId)
@@ -128,29 +136,15 @@ class ConcurrencyTest {
 
         executor.shutdown();
 
-        // 검증 1: 둘 중 하나만 성공(200), 실패 측은 409 또는 정의된 예외
         boolean cancelSuccess = (cancelStatus == 200);
         boolean paySuccess = (payStatus == 200);
 
-        // H2 단일 스레드 특성상 순차 실행될 수 있어 둘 다 성공 가능.
-        // 실 DB(PostgreSQL)에서는 @Version 낙관적 락으로 하나가 409.
-        // 여기서는 "최종 상태 일관성"을 핵심으로 검증.
-        if (!cancelSuccess && !paySuccess) {
-            // 둘 다 실패는 허용 안 됨
-            assertThat(cancelSuccess || paySuccess)
-                    .as("cancel 또는 pay 중 최소 하나는 성공해야 합니다")
-                    .isTrue();
-        }
+        // 최소 하나는 성공
+        assertThat(cancelSuccess || paySuccess)
+                .as("cancel 또는 pay 중 최소 하나는 성공해야 합니다")
+                .isTrue();
 
-        // 실패한 쪽은 409 Conflict (상태 전이 실패)
-        if (!cancelSuccess) {
-            assertThat(cancelStatus).isEqualTo(409);
-        }
-        if (!paySuccess) {
-            assertThat(payStatus).isEqualTo(409);
-        }
-
-        // 검증 2: 최종 상태가 PAID 또는 CANCELLED 중 하나로 일관
+        // 최종 상태가 PURCHASE_CONFIRMED 또는 CANCELLED 중 하나로 일관
         MvcResult detail = mockMvc.perform(get("/order/{orderId}", orderId)
                         .header("X-User-Id", MEMBER_ID)
                         .header("X-Role", "USER"))
@@ -160,13 +154,11 @@ class ConcurrencyTest {
         JsonNode json = objectMapper.readTree(detail.getResponse().getContentAsString());
         String finalStatus = json.get("data").get("orderStatus").asText();
 
-        assertThat(finalStatus).isIn("PAID", "CANCELLED");
+        assertThat(finalStatus).isIn("PURCHASE_CONFIRMED", "CANCELLED");
 
-        // 검증 3: 중복 부작용 없음 — 상태와 depositUsed가 일관
-        if ("PAID".equals(finalStatus)) {
+        if ("PURCHASE_CONFIRMED".equals(finalStatus)) {
             assertThat(json.get("data").get("depositUsed").asInt()).isEqualTo(15000);
         } else {
-            // CANCELLED면 depositUsed는 0 (PENDING에서 취소됐으므로)
             assertThat(json.get("data").get("depositUsed").asInt()).isEqualTo(0);
         }
     }

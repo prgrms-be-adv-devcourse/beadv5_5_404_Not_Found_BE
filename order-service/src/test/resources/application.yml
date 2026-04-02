@@ -7,9 +7,9 @@ spring:
   flyway:
     enabled: false
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/bookcommerce}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:test1234}
     driver-class-name: ${DB_DRIVER:org.postgresql.Driver}
   jpa:
     hibernate:
@@ -19,17 +19,23 @@ spring:
       hibernate:
         format_sql: true
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 service:
   member:
-    url: ${MEMBER_SERVICE_URL}
+    url: ${MEMBER_SERVICE_URL:http://localhost:8081}
+  product:
+    url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+
+order:
+  pending:
+    expire-minutes: 30
 
 internal:
-  secret-key: ${INTERNAL_SECRET_KEY}
+  secret-key: ${INTERNAL_SECRET_KEY:test-internal-secret}
 
 eureka:
   client:

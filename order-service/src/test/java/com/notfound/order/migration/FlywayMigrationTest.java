@@ -1,6 +1,7 @@
 package com.notfound.order.migration;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -17,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * H2 PostgreSQL 모드에서 V1 스크립트가 정상 실행되고
  * Hibernate validate가 통과하는지 검증합니다.
  */
+@Tag("flyway")
 @SpringBootTest
 @ActiveProfiles("flyway-test")
 class FlywayMigrationTest {
