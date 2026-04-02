@@ -218,9 +218,9 @@ flowchart TD
 
 ---
 
-## 환불(취소) 플로우 (🔴 미구현)
+## 환불(취소) 플로우 (🟡 운영상 도달 불가)
 
-> 🔴 **미구현** — 현재 결제 완료 시 PAID→SHIPPING→DELIVERED→PURCHASE_CONFIRMED 자동 전이로 운영 중이므로, PAID/CONFIRMED 상태에서의 취소·환불 플로우는 실질적으로 동작하지 않음. PENDING 취소(단순 상태 변경)만 유효.
+> 🟡 **운영상 도달 불가** — PAID/CONFIRMED 취소 로직은 코드에 구현되어 있으나, 현재 결제 완료 시 PAID→SHIPPING→DELIVERED→PURCHASE_CONFIRMED 자동 전이로 운영 중이므로 PAID/CONFIRMED 상태에 머무르지 않아 실질적으로 도달하지 않음. PENDING 취소(단순 상태 변경)만 운영상 유효.
 
 ```mermaid
 sequenceDiagram
@@ -237,10 +237,12 @@ sequenceDiagram
         Order-->>Client: 취소 완료
     else PAID/CONFIRMED 상태
         Order->>Order: 상태 변경 → CANCELLED
+        loop 주문 항목별
+            Order->>Product: restoreStock (STUB — 미구현, log.warn만 출력)
+        end
         Order->>Member: POST /internal/member/{id}/deposit/charge (예치금 환급)
         Member->>Member: 예치금 잔액 복원
         Member-->>Order: 환급 완료
-        Order->>Product: restoreStock (STUB — 미구현, log.warn만 출력)
         Order-->>Client: 취소 완료
     end
 ```
@@ -311,7 +313,7 @@ GET    /internal/order/{orderId}           [order] 주문 조회 → payment
 POST   /internal/order/{orderId}/status    [order] 주문 상태 변경 → payment
 POST   /internal/order/cleanup             [order] 만료 PENDING 주문 수동 정리
 DELETE /internal/order/cart/{memberId}     [order] 장바구니 삭제 → payment
-GET    /internal/products?ids=             [product] 상품 가격/이름 조회 → order (checkout, 주문 생성)
+GET    /products?ids=                      [product] 상품 가격/이름 조회 → order (공개 API, checkout/주문 생성 시 호출)
 POST   /internal/products/stock/deduct     [product] 재고 차감 → payment
 POST   /internal/products/stock/restore    [product] 재고 복원 → order (🔴 STUB 미구현)
 POST   /internal/deposit/deduct            [payment] 예치금 차감 (현재 미사용 — order가 member 직접 호출)
