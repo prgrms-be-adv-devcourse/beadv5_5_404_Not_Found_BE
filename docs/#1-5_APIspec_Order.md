@@ -132,14 +132,14 @@ Request Body:
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `productId` | number | O | 장바구니에 담을 상품 ID |
+| `productId` | UUID | O | 장바구니에 담을 상품 ID |
 | `quantity` | number | O | 담을 수량 |
 
 Request Body Example:
 
 ```json
 {
-  "productId": 101,
+  "productId": "550e8400-e29b-41d4-a716-446655440101",
   "quantity": 2
 }
 ```
