@@ -3,15 +3,16 @@ set -e
 
 cd /home/ec2-user/app
 
-echo "Pulling latest source..."
-git pull origin main
+# JSON 배열을 공백 구분 문자열로 변환 (예: ["member-service","order-service"] → member-service order-service)
+SERVICES=$(echo "$1" | tr -d '[]"' | tr ',' ' ')
 
-echo "Cleaning up Docker resources..."
-docker system prune -f
-docker builder prune -f
+echo "Deploying services: $SERVICES"
 
-echo "Building and starting services..."
-docker compose -f docker/docker-compose.prod.yml --env-file .env up --build -d --remove-orphans
+echo "Pulling latest images..."
+docker compose -f docker/docker-compose.prod.yml --env-file .env pull $SERVICES
+
+echo "Restarting changed services..."
+docker compose -f docker/docker-compose.prod.yml --env-file .env up -d --no-deps $SERVICES
 
 echo "Removing unused images..."
 docker image prune -f

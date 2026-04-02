@@ -2,7 +2,7 @@
 
 ## 개요
 
-7개 MSA 서비스를 AWS EC2에서 직접 빌드하여 배포하는 파이프라인 구성. GitHub Actions가 EC2에 SSH 접속 → git pull → docker-compose --build 방식으로 동작.
+7개 MSA 서비스를 GitHub Actions에서 빌드하여 Docker Hub에 푸시, EC2는 이미지를 pull하여 실행. GitHub Actions → Docker Hub push → EC2 pull 방식으로 동작.
 
 ---
 
@@ -124,15 +124,18 @@ Docker 네트워크 내부 URL:
 
 - 트리거: push → `main`, `workflow_dispatch` (수동 실행 가능)
 - 동작:
-  1. EC2 SSH 접속 (`command_timeout: 40m`)
-  2. `scripts/deploy.sh` 실행 (docker system prune → git pull → docker-compose --build → image prune)
+  1. `detect-changes`: `dorny/paths-filter`로 변경된 서비스 감지 → JSON 배열 출력
+  2. `build-and-push`: 변경된 서비스만 병렬 빌드 + Docker Hub 푸시 (dynamic matrix)
+  3. `deploy`: EC2 SSH 접속 → `scripts/deploy.sh` 실행 (변경된 서비스 목록 전달)
+- 비고: `workflow_dispatch` 수동 실행 시 7개 전부 배포
 
 ### 배포 스크립트 (`scripts/deploy.sh`)
 
 ```bash
-git pull origin main
-docker system prune -f  # 빌드 전 디스크 공간 확보
-docker compose -f docker/docker-compose.prod.yml --env-file .env up --build -d --remove-orphans
+# JSON 배열 인자로 변경된 서비스 목록 수신 (예: ["member-service","order-service"])
+SERVICES=$(echo "$1" | tr -d '[]"' | tr ',' ' ')
+docker compose -f docker/docker-compose.prod.yml --env-file .env pull $SERVICES
+docker compose -f docker/docker-compose.prod.yml --env-file .env up -d --no-deps $SERVICES
 docker image prune -f
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
@@ -146,6 +149,8 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 | `EC2_HOST` | EC2 Elastic IP |
 | `EC2_USERNAME` | `ec2-user` (Amazon Linux) |
 | `EC2_SSH_KEY` | PEM 키 |
+| `DOCKERHUB_USERNAME` | Docker Hub 계정명 |
+| `DOCKERHUB_TOKEN` | Docker Hub Access Token |
 | `DB_USERNAME` | DB 계정 |
 | `DB_PASSWORD` | DB 비밀번호 |
 | `JWT_SECRET_KEY` | JWT 서명 키 (32자 이상) |
