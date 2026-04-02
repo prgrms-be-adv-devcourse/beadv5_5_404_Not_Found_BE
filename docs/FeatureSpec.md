@@ -197,7 +197,7 @@
 | 단계 | 처리 |
 |------|------|
 | 차감 실패 발생 | product-service REST 호출 시 즉시 예외 반환 |
-| 결제 실패 | 예치금 차감 전이므로 롤백 불필요, 결제 실패 응답 |
+| 결제 실패 | 예치금 차감 후이므로 예치금 환급(보상 트랜잭션) 후 결제 실패 응답 |
 
 ### 4-4. 주문 취소
 - 취소 가능 상태: PENDING, PAID, CONFIRMED
@@ -227,14 +227,14 @@
 | 수동 확정 | 구매자가 직접 구매확정 API 호출 |
 
 - `PURCHASE_CONFIRMED` 전환 시 `confirmed_at` 시각 기록
-- `PurchaseConfirmedEvent` 발행 시 `confirmedAt` 포함 → Payment 서비스가 정산 대상 생성
+- `PurchaseConfirmedEvent` 발행 시 `confirmedAt` 포함 → Settlement Service가 정산 대상 생성
 
 ---
 
 ## 5. 결제 모듈
 
 ### 5-1. 결제 처리
-- Payment Service가 결제 실행을 담당 (재고 차감 → 예치금 차감 → 주문 상태 PAID 변경)
+- Payment Service가 결제 실행을 담당 (예치금 차감 → 재고 차감 → 주문 상태 PAID 변경)
 - Payment Service는 예치금 충전(PG 연동), 예치금 결제 실행, 예치금 차감/환급을 담당
 - 정산은 Settlement Service가 별도 담당
 - PG(토스페이먼츠)는 **예치금 충전 목적**으로만 사용

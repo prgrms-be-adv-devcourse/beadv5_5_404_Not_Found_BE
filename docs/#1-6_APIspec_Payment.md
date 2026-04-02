@@ -5,7 +5,7 @@
 
 ---
 
-> ★ = 상품선택 → 결제완료 → 정산완료 필수 플로우
+> ★ = 결제 필수 플로우
 
 ## 📌 Payment API
 
@@ -18,89 +18,63 @@
 | 환불 요청 | POST | /payment/{paymentId}/refund | ❌ | | 미구현 |
 | PG 웹훅 수신 | POST | /payment/webhook/pg | ❌ | | 미구현 |
 
-### Settlement Service API (정산 — 별도 서비스로 분리)
-
-| 기능 | Method | Endpoint | 구현 | 필수 | 설명 |
-|------|--------|----------|:---:|:---:|------|
-| 내 정산 조회 | GET | /api/settlements/me | ✅ | ★ | 판매자 정산 내역 조회 |
-| 월 정산 수동 실행 | POST | /internal/settlements/execute | ✅ | ★ | 관리자 수동 트리거 |
-| 정산 상세 조회 | GET | /payment/settlement/{settlementId} | ❌ | | 미구현 |
-| 출금 신청 | POST | /payment/settlement/payout | ❌ | | 미구현 |
-| 정산 요약 | GET | /payment/settlement/summary | ❌ | | 미구현 |
-| 수수료 정책 등록 | POST | /payment/commission | ❌ | | 미구현 |
-| 수수료 정책 조회 | GET | /payment/commission | ❌ | | 미구현 |
-
 ### Payment Internal API
 
 | 기능 | Method | Endpoint | 구현 | 필수 | 설명 |
 |------|--------|----------|:---:|:---:|------|
-| 예치금 차감 | POST | /internal/deposit/deduct | ✅ | | order-service → payment (주문 취소 시) |
-| 예치금 환급 | POST | /internal/deposit/refund | ✅ | | order-service → payment (주문 취소 시) |
+| 예치금 차감 | POST | /internal/deposit/deduct | ✅ | | payment-service 내부에서 직접 처리 (외부 호출자 없음) |
+| 예치금 환급 | POST | /internal/deposit/refund | ✅ | | 내부 환급 처리 API (외부 공개 환불 API와 별개) |
 
-### Payment → Order Internal 호출
+### Payment → 외부 서비스 내부 호출
 
-| 기능 | Method | Endpoint | 설명 | 대상 서비스 |
-|------|--------|----------|------|------------|
-| 주문 상태 변경 | POST | /internal/order/{orderId}/status | 결제 완료 후 PENDING → PAID 변경 | order-service |
+| 기능 | Method | Endpoint | 대상 서비스 | 설명 |
+|------|--------|----------|------------|------|
+| 주문 조회 | GET | /internal/order/{orderId} | order-service | 결제 전 주문 금액/상태 확인 |
+| 주문 상태 변경 | POST | /internal/order/{orderId}/status | order-service | 결제 완료 후 PENDING → PAID 변경 |
+| 재고 차감 | POST | /internal/products/stock/deduct | product-service | 결제 시 재고 차감 |
+| 회원 활성 상태 확인 | GET | /internal/member/{memberId}/active | member-service | 충전 전 회원 상태 확인 |
+| 예치금 잔액 조회 | GET | /internal/member/{memberId}/deposit | member-service | 결제/충전 전 잔액 확인 |
+| 예치금 차감 동기화 | POST | /internal/member/{memberId}/deposit/deduct | member-service | 결제 후 AFTER_COMMIT 잔액 동기화 |
+| 예치금 충전 동기화 | POST | /internal/member/{memberId}/deposit/charge | member-service | 충전/환급 후 AFTER_COMMIT 잔액 동기화 |
 
-> payment-service가 결제 실행(`POST /payment/orders/{orderId}/pay`) 완료 후, order-service의 내부 API를 호출하여 주문 상태를 PAID로 변경하고 depositUsed를 전달합니다.
-
-Request Body:
-
-```json
-{
-  "status": "PAID",
-  "depositUsed": 55000
-}
-```
+> payment-service가 결제 완료 후 order-service 내부 API를 호출하여 주문 상태를 PAID로 변경합니다.
+> order-service는 PAID 수신 후 단일 트랜잭션 내에서 PAID → DELIVERED → PURCHASE_CONFIRMED 처리 및 Kafka 이벤트 발행합니다.
 
 ### Notes
 
-- **Payment Purpose**: PaymentPurpose는 DEPOSIT_CHARGE만 지원합니다. ORDER_PAY는 제거되었습니다.
+- **Payment Purpose**: `PaymentPurpose`는 `DEPOSIT_CHARGE`만 지원합니다. `ORDER_PAY`는 제거되었습니다.
 - **Direct Order Payment**: 상품 주문은 예치금 전용입니다. PG 결제는 사용되지 않습니다.
-- **PG Usage**: PG는 오직 예치금 충전(POST /payment/deposit/charge/*)에만 사용됩니다.
-- **Stock Events**: 재고 차감은 REST 동기 호출로 처리됩니다 (payment-service → product-service). Kafka 미사용.
-- **Settlement Trigger**: 구매확정 시 Order 서비스가 `PurchaseConfirmedEvent`(Kafka)를 발행하면, Settlement 서비스가 consume하여 `settlement_target`을 생성합니다. 정산은 스케줄러 배치(매월 25일)로 실행됩니다.
-- **Deposit Events**: 예치금 충전/차감/환급 시 Spring Event(AFTER_COMMIT)로 member-service 잔액을 동기화합니다 (DepositChargedEvent, DepositDeductedEvent, DepositRefundedEvent).
+- **PG Usage**: PG(Toss)는 오직 예치금 충전(`POST /payment/deposit/charge/*`)에만 사용됩니다.
+- **paymentKey 암호화**: Toss에서 받은 `paymentKey`는 AES-256-GCM으로 암호화하여 DB에 저장됩니다.
+- **Stock Deduction**: 재고 차감은 REST 동기 호출로 처리됩니다 (payment-service → product-service). 재고 차감 실패 시 예치금 자동 환급(보상 트랜잭션)됩니다.
+- **Settlement Trigger**: 구매확정 시 order-service가 `order.purchase-confirmed` Kafka 이벤트를 발행하면, settlement-service가 소비하여 `settlement_target`을 생성합니다. 정산은 스케줄러(매월 25일) 또는 수동 트리거로 실행됩니다.
+- **Deposit Sync Events**: 예치금 충전/차감/환급 시 Spring Event(AFTER_COMMIT)로 member-service 잔액을 비동기 동기화합니다 (`DepositChargedEvent`, `DepositDeductedEvent`, `DepositRefundedEvent`).
+- **충전 한도**: 1회 충전 1,000원 이상 500,000원 이하. 보유 예치금 최대 1,000,000원.
 
 ---
 
-### `POST /payment/{paymentId}/refund` — 환불 요청
+## `POST /payment/orders/{orderId}/pay` — 예치금 결제 실행
 
-결제 건에 대한 환불을 요청합니다. 전액 환불 및 부분 환불을 지원합니다.
+예치금으로 주문을 결제합니다.
+내부적으로 예치금 차감 → 재고 차감 → 주문 상태 PAID 변경 순으로 처리되며,
+재고 차감 실패 시 보상 트랜잭션(예치금 환급)을 수행합니다.
 
-#### Request
+### Request
 
 Path Parameter:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `paymentId` | number | O | 환불할 결제 ID |
+| `orderId` | UUID | O | 결제할 주문 ID |
 
 Request Header:
 
 | 헤더 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `Content-Type` | string | O | `application/json` |
 | `Authorization` | string | O | Bearer access token |
+| `X-Email-Verified` | boolean | O | 이메일 인증 여부 (gateway가 JWT에서 주입) |
 
-Request Body:
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `refundAmount` | number | X | 환불 금액 (미입력 시 전액 환불) |
-| `reason` | string | O | 환불 사유 |
-
-Request Body Example:
-
-```json
-{
-  "refundAmount": 25000,
-  "reason": "상품 불량으로 인한 부분 환불 요청"
-}
-```
-
-#### Response
+### Response
 
 **1. 요청 성공**
 
@@ -109,121 +83,56 @@ Status Code: `200 OK`
 ```json
 {
   "status": 200,
-  "code": "REFUND_REQUESTED",
-  "message": "환불이 성공적으로 요청되었습니다.",
+  "code": "ORDER_PAID",
+  "message": "결제가 완료되었습니다.",
   "data": {
-    "refundId": 7001,
-    "paymentId": 3001,
-    "refundAmount": 25000,
-    "refundStatus": "PROCESSING",
-    "reason": "상품 불량으로 인한 부분 환불 요청",
-    "requestedAt": "2026-03-18T15:00:00Z"
+    "orderId": "550e8400-e29b-41d4-a716-446655440001",
+    "depositUsed": 50000,
+    "balanceAfter": 50000
   }
 }
 ```
 
-**2. 클라이언트 오류 — 존재하지 않는 결제**
-
-Status Code: `404 Not Found`
-
-```json
-{
-  "status": 404,
-  "code": "PAYMENT_NOT_FOUND",
-  "message": "해당 결제 건을 찾을 수 없습니다.",
-  "data": null
-}
-```
-
-**3. 클라이언트 오류 — 환불 금액 초과**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "REFUND_AMOUNT_EXCEEDED",
-  "message": "환불 가능 금액을 초과했습니다.",
-  "data": {
-    "refundableAmount": 54000,
-    "requestedAmount": 60000
-  }
-}
-```
-
-**4. 클라이언트 오류 — 환불 불가 상태**
-
-Status Code: `409 Conflict`
-
-```json
-{
-  "status": 409,
-  "code": "REFUND_NOT_ALLOWED",
-  "message": "현재 결제 상태에서는 환불할 수 없습니다.",
-  "data": {
-    "currentStatus": "FAILED"
-  }
-}
-```
-
-**5. 클라이언트 오류 — 환불 사유 누락**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "MISSING_REQUIRED_FIELD",
-  "message": "환불 사유를 입력해주세요.",
-  "data": {
-    "missingFields": ["reason"]
-  }
-}
-```
-
-**6. PG사 환불 처리 실패**
-
-Status Code: `502 Bad Gateway`
-
-```json
-{
-  "status": 502,
-  "code": "PG_REFUND_FAILED",
-  "message": "PG사 환불 처리에 실패했습니다.",
-  "data": {
-    "pgErrorCode": "REFUND_TIMEOUT",
-    "pgErrorMessage": "환불 요청 시간이 초과되었습니다."
-  }
-}
-```
-
-**7. 인증 오류**
-
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
-  "data": null
-}
-```
-
-**8. 권한 오류**
+**2. 클라이언트 오류 — 이메일 미인증**
 
 Status Code: `403 Forbidden`
 
 ```json
 {
   "status": 403,
-  "code": "FORBIDDEN",
-  "message": "해당 결제 건에 대한 환불 권한이 없습니다.",
+  "code": "EMAIL_NOT_VERIFIED",
+  "message": "이메일 인증이 완료된 회원만 이용 가능합니다.",
   "data": null
 }
 ```
 
-**9. 서버 오류**
+**3. 클라이언트 오류 — 예치금 잔액 부족**
+
+Status Code: `400 Bad Request`
+
+```json
+{
+  "status": 400,
+  "code": "DEPOSIT_INSUFFICIENT_BALANCE",
+  "message": "예치금 잔액이 부족합니다.",
+  "data": null
+}
+```
+
+**4. 클라이언트 오류 — 이미 결제된 주문**
+
+Status Code: `409 Conflict`
+
+```json
+{
+  "status": 409,
+  "code": "ORDER_ALREADY_PAID",
+  "message": "이미 결제된 주문입니다.",
+  "data": null
+}
+```
+
+**5. 서버 오류**
 
 Status Code: `500 Internal Server Error`
 
@@ -238,11 +147,12 @@ Status Code: `500 Internal Server Error`
 
 ---
 
-### `POST /payment/deposit/charge/ready` — 예치금 충전 준비
+## `POST /payment/deposit/charge/ready` — 예치금 충전 준비
 
-예치금 충전을 준비합니다. 충전 금액을 검증하고, PG 결제창 호출에 필요한 데이터를 반환합니다. 내부적으로 PAYMENT(purpose=DEPOSIT_CHARGE, status=PENDING) 레코드를 생성합니다.
+예치금 충전을 준비합니다. 충전 금액을 검증하고, PG 결제창 호출에 필요한 데이터를 반환합니다.
+내부적으로 `Payment(purpose=DEPOSIT_CHARGE, status=PENDING)` 레코드를 생성합니다.
 
-#### Request
+### Request
 
 Request Header:
 
@@ -255,7 +165,7 @@ Request Body:
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `amount` | number | O | 충전 금액 (최소 1,000원 이상) |
+| `amount` | number | O | 충전 금액 (1,000원 이상 500,000원 이하) |
 
 Request Body Example:
 
@@ -265,7 +175,7 @@ Request Body Example:
 }
 ```
 
-#### Response
+### Response
 
 **1. 요청 성공**
 
@@ -282,7 +192,7 @@ Status Code: `200 OK`
     "pgProvider": "TOSS",
     "pgData": {
       "clientKey": "test_ck_xxx",
-      "orderId": "DEPOSIT-20260320-XYZ789",
+      "orderId": "DEPOSIT-20260402-A1B2C3D4",
       "amount": 50000,
       "orderName": "예치금 충전",
       "successUrl": "https://example.com/deposit/success",
@@ -292,7 +202,20 @@ Status Code: `200 OK`
 }
 ```
 
-**2. 클라이언트 오류 — 유효하지 않은 금액**
+**2. 클라이언트 오류 — 이메일 미인증**
+
+Status Code: `403 Forbidden`
+
+```json
+{
+  "status": 403,
+  "code": "EMAIL_NOT_VERIFIED",
+  "message": "이메일 인증이 완료된 회원만 이용 가능합니다.",
+  "data": null
+}
+```
+
+**3. 클라이언트 오류 — 유효하지 않은 금액**
 
 Status Code: `400 Bad Request`
 
@@ -300,12 +223,38 @@ Status Code: `400 Bad Request`
 {
   "status": 400,
   "code": "INVALID_CHARGE_AMOUNT",
-  "message": "충전 금액은 1,000원 이상이어야 합니다.",
+  "message": "충전 금액은 1,000원 이상 500,000원 이하이어야 합니다.",
   "data": null
 }
 ```
 
-**3. 인증 오류**
+**4. 클라이언트 오류 — 예치금 최대 보유 한도 초과**
+
+Status Code: `400 Bad Request`
+
+```json
+{
+  "status": 400,
+  "code": "DEPOSIT_BALANCE_EXCEEDS_LIMIT",
+  "message": "예치금 최대 보유 한도를 초과합니다.",
+  "data": null
+}
+```
+
+**5. 클라이언트 오류 — 비활성 회원**
+
+Status Code: `400 Bad Request`
+
+```json
+{
+  "status": 400,
+  "code": "MEMBER_NOT_ACTIVE",
+  "message": "활성 상태의 회원만 예치금 충전이 가능합니다.",
+  "data": null
+}
+```
+
+**6. 인증 오류**
 
 Status Code: `401 Unauthorized`
 
@@ -318,7 +267,7 @@ Status Code: `401 Unauthorized`
 }
 ```
 
-**4. 서버 오류**
+**7. 서버 오류**
 
 Status Code: `500 Internal Server Error`
 
@@ -333,11 +282,12 @@ Status Code: `500 Internal Server Error`
 
 ---
 
-### `POST /payment/deposit/charge/confirm` — 예치금 충전 승인
+## `POST /payment/deposit/charge/confirm` — 예치금 충전 승인
 
 PG 결제 승인을 완료하고, 예치금을 충전합니다.
+Toss API 호출은 트랜잭션 밖에서 실행되며, 승인 성공 후 DB에 Payment/Deposit 레코드를 저장합니다.
 
-#### Request
+### Request
 
 Request Header:
 
@@ -350,21 +300,21 @@ Request Body:
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `paymentKey` | string | O | 토스페이먼츠에서 발급한 결제 키 |
-| `orderId` | string | O | 주문번호 (ready에서 생성한 값과 일치해야 함) |
+| `paymentKey` | string | O | Toss에서 발급한 결제 키 |
+| `orderId` | string | O | 주문번호 (ready에서 생성한 `pgData.orderId`와 일치해야 함) |
 | `amount` | number | O | 결제 금액 (ready에서 확정한 금액과 일치해야 함) |
 
 Request Body Example:
 
 ```json
 {
-  "paymentKey": "tgen_20260320ABCDEF1234567890",
-  "orderId": "DEPOSIT-20260320-XYZ789",
+  "paymentKey": "tgen_20260402ABCDEF1234567890",
+  "orderId": "DEPOSIT-20260402-A1B2C3D4",
   "amount": 50000
 }
 ```
 
-#### Response
+### Response
 
 **1. 요청 성공**
 
@@ -379,9 +329,9 @@ Status Code: `200 OK`
     "paymentId": "770e8400-e29b-41d4-a716-446655440002",
     "chargedAmount": 50000,
     "balanceAfter": 100000,
-    "pgTransactionId": "toss_txn_20260320ABC",
-    "method": "CARD",
-    "paidAt": "2026-03-20T14:30:00"
+    "pgTransactionId": "toss_txn_20260402ABC",
+    "method": "카드",
+    "paidAt": "2026-04-02T14:30:00"
   }
 }
 ```
@@ -433,11 +383,8 @@ Status Code: `502 Bad Gateway`
 {
   "status": 502,
   "code": "PG_CONFIRM_FAILED",
-  "message": "PG사 결제 승인에 실패했습니다.",
-  "data": {
-    "pgErrorCode": "REJECT_CARD_COMPANY",
-    "pgErrorMessage": "카드사에서 거절되었습니다."
-  }
+  "message": "PG 결제 승인에 실패했습니다.",
+  "data": null
 }
 ```
 
@@ -469,11 +416,11 @@ Status Code: `500 Internal Server Error`
 
 ---
 
-### `GET /payment/deposit/history` — 예치금 충전/사용 내역
+## `GET /payment/deposit/history` — 예치금 충전/사용 내역
 
 예치금 충전/사용/환불 내역을 조회합니다.
 
-#### Request
+### Request
 
 Request Header:
 
@@ -489,7 +436,7 @@ Query String:
 | `page` | number | X | 페이지 번호 (기본값: 0) |
 | `size` | number | X | 페이지당 항목 수 (기본값: 20, 최대: 100) |
 
-#### Response
+### Response
 
 **1. 요청 성공**
 
@@ -503,30 +450,31 @@ Status Code: `200 OK`
   "data": {
     "content": [
       {
-        "depositId": 1,
+        "depositId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
         "type": "CHARGE",
         "amount": 50000,
         "balanceAfter": 50000,
         "description": "예치금 충전",
-        "createdAt": "2026-03-19T10:00:00Z"
+        "orderId": null,
+        "createdAt": "2026-04-02T10:00:00"
       },
       {
-        "depositId": 2,
+        "depositId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
         "type": "USE",
         "amount": 30000,
         "balanceAfter": 20000,
-        "description": "주문 #ORD-20260319-001 차감",
-        "orderId": 1001,
-        "createdAt": "2026-03-19T11:00:00Z"
+        "description": "주문 결제",
+        "orderId": "550e8400-e29b-41d4-a716-446655440001",
+        "createdAt": "2026-04-02T11:00:00"
       },
       {
-        "depositId": 3,
+        "depositId": "c3d4e5f6-a7b8-9012-cdef-123456789012",
         "type": "REFUND",
         "amount": 30000,
         "balanceAfter": 50000,
-        "description": "주문 #ORD-20260319-001 환불 복원",
-        "orderId": 1001,
-        "createdAt": "2026-03-19T15:00:00Z"
+        "description": "주문 취소 환급",
+        "orderId": "550e8400-e29b-41d4-a716-446655440001",
+        "createdAt": "2026-04-02T15:00:00"
       }
     ],
     "page": 0,
@@ -537,22 +485,7 @@ Status Code: `200 OK`
 }
 ```
 
-**2. 클라이언트 오류 — 유효하지 않은 내역 유형**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "INVALID_DEPOSIT_TYPE",
-  "message": "유효하지 않은 예치금 내역 유형입니다.",
-  "data": {
-    "allowedTypes": ["CHARGE", "USE", "REFUND"]
-  }
-}
-```
-
-**3. 인증 오류**
+**2. 인증 오류**
 
 Status Code: `401 Unauthorized`
 
@@ -561,6 +494,19 @@ Status Code: `401 Unauthorized`
   "status": 401,
   "code": "UNAUTHORIZED",
   "message": "인증이 필요합니다.",
+  "data": null
+}
+```
+
+**3. 클라이언트 오류 — 잘못된 type 파라미터**
+
+Status Code: `400 Bad Request`
+
+```json
+{
+  "status": 400,
+  "code": "BAD_REQUEST",
+  "message": "잘못된 요청입니다.",
   "data": null
 }
 ```
@@ -580,9 +526,19 @@ Status Code: `500 Internal Server Error`
 
 ---
 
-### `POST /payment/webhook/pg` — PG 웹훅 수신
+## `POST /payment/{paymentId}/refund` — 환불 요청 ❌ 미구현
 
-PG사로부터 결제 상태 변경 알림을 수신합니다. PG사 서버에서 호출하는 엔드포인트입니다.
+---
+
+## `POST /payment/webhook/pg` — PG 웹훅 수신 ❌ 미구현
+
+---
+
+## Internal API
+
+### `POST /internal/deposit/deduct` — 예치금 차감
+
+payment-service의 결제 실행(`PayOrderService`) 내부에서 직접 처리됩니다. 외부 호출자는 없습니다.
 
 #### Request
 
@@ -590,37 +546,26 @@ Request Header:
 
 | 헤더 | 타입 | 필수 | 설명 |
 |------|------|------|------|
+| `X-Internal-Secret` | string | O | 내부 서비스 인증 시크릿 |
 | `Content-Type` | string | O | `application/json` |
-| `X-PG-Signature` | string | O | PG사 웹훅 서명 (요청 위변조 검증용) |
 
 Request Body:
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `eventType` | string | O | 이벤트 유형 (`PAYMENT_APPROVED`, `PAYMENT_FAILED`, `PAYMENT_CANCELLED`, `REFUND_COMPLETED`) |
-| `pgTransactionId` | string | O | PG사 거래 ID |
-| `merchantOrderId` | string | O | 가맹점 주문 ID |
-| `amount` | number | O | 금액 |
-| `currency` | string | O | 통화 코드 |
-| `status` | string | O | PG사 결제 상태 |
-| `timestamp` | string | O | 이벤트 발생 시각 (ISO 8601) |
-| `metadata` | object | X | 추가 메타데이터 |
+| `memberId` | UUID | O | 예치금 차감 대상 회원 ID |
+| `orderId` | UUID | O | 차감 원인 주문 ID |
+| `amount` | number | O | 차감 금액 |
+| `description` | string | X | 차감 사유 |
 
 Request Body Example:
 
 ```json
 {
-  "eventType": "PAYMENT_APPROVED",
-  "pgTransactionId": "pg_txn_abc123def456",
-  "merchantOrderId": "order_1001",
-  "amount": 54000,
-  "currency": "KRW",
-  "status": "SUCCESS",
-  "timestamp": "2026-03-18T14:30:00Z",
-  "metadata": {
-    "cardCompany": "신한카드",
-    "approvalNumber": "12345678"
-  }
+  "memberId": "550e8400-e29b-41d4-a716-446655440000",
+  "orderId": "550e8400-e29b-41d4-a716-446655440001",
+  "amount": 50000,
+  "description": "주문 결제"
 }
 ```
 
@@ -633,538 +578,46 @@ Status Code: `200 OK`
 ```json
 {
   "status": 200,
-  "code": "WEBHOOK_RECEIVED",
-  "message": "웹훅이 성공적으로 수신되었습니다.",
-  "data": null
-}
-```
-
-**2. 클라이언트 오류 — 서명 검증 실패**
-
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "INVALID_SIGNATURE",
-  "message": "웹훅 서명 검증에 실패했습니다.",
-  "data": null
-}
-```
-
-**3. 클라이언트 오류 — 중복 이벤트**
-
-Status Code: `409 Conflict`
-
-```json
-{
-  "status": 409,
-  "code": "DUPLICATE_EVENT",
-  "message": "이미 처리된 이벤트입니다.",
+  "code": "DEPOSIT_DEDUCTED",
+  "message": "예치금이 차감되었습니다.",
   "data": {
-    "pgTransactionId": "pg_txn_abc123def456"
+    "depositId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "balanceAfter": 50000
   }
 }
 ```
 
-**4. 클라이언트 오류 — 잘못된 이벤트 형식**
+**2. 클라이언트 오류 — 잔액 부족**
 
 Status Code: `400 Bad Request`
 
 ```json
 {
   "status": 400,
-  "code": "INVALID_WEBHOOK_PAYLOAD",
-  "message": "웹훅 요청 형식이 올바르지 않습니다.",
-  "data": null
-}
-```
-
-**5. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
-}
-```
-
----
-
-### `GET /payment/settlement/me` — 내 정산 조회
-
-로그인한 판매자의 정산 내역을 조회합니다.
-
-#### Request
-
-Request Header:
-
-| 헤더 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `Authorization` | string | O | Bearer access token (판매자) |
-
-Query String:
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `page` | number | X | 페이지 번호 (기본값: 1) |
-| `limit` | number | X | 페이지당 항목 수 (기본값: 20, 최대: 100) |
-| `status` | string | X | 정산 상태 필터 (`PENDING`, `COMPLETED`, `FAILED`) |
-| `startDate` | string | X | 조회 시작일 (형식: `YYYY-MM-DD`) |
-| `endDate` | string | X | 조회 종료일 (형식: `YYYY-MM-DD`) |
-
-#### Response
-
-**1. 요청 성공**
-
-Status Code: `200 OK`
-
-```json
-{
-  "status": 200,
-  "code": "SUCCESS",
-  "message": "정산 내역 조회에 성공했습니다.",
-  "data": {
-    "settlements": [
-      {
-        "settlementId": 8001,
-        "settlementPeriod": {
-          "startDate": "2026-03-01",
-          "endDate": "2026-03-15"
-        },
-        "totalSalesAmount": 1500000,
-        "commissionAmount": 150000,
-        "netAmount": 1350000,
-        "status": "COMPLETED",
-        "settledAt": "2026-03-18T00:00:00Z"
-      }
-    ],
-    "pagination": {
-      "currentPage": 1,
-      "totalPages": 5,
-      "totalItems": 90,
-      "limit": 20
-    }
-  }
-}
-```
-
-**2. 인증 오류**
-
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
-  "data": null
-}
-```
-
-**3. 권한 오류**
-
-Status Code: `403 Forbidden`
-
-```json
-{
-  "status": 403,
-  "code": "FORBIDDEN",
-  "message": "판매자만 정산 내역을 조회할 수 있습니다.",
-  "data": null
-}
-```
-
-**4. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
-}
-```
-
----
-
-### `GET /payment/settlement/{settlementId}` — 정산 상세 조회
-
-특정 정산 건의 상세 정보를 조회합니다.
-
-#### Request
-
-Path Parameter:
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `settlementId` | number | O | 조회할 정산 ID |
-
-Request Header:
-
-| 헤더 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `Authorization` | string | O | Bearer access token (판매자) |
-
-#### Response
-
-**1. 요청 성공**
-
-Status Code: `200 OK`
-
-```json
-{
-  "status": 200,
-  "code": "SUCCESS",
-  "message": "정산 상세 조회에 성공했습니다.",
-  "data": {
-    "settlementId": 8001,
-    "sellerId": 201,
-    "settlementPeriod": {
-      "startDate": "2026-03-01",
-      "endDate": "2026-03-15"
-    },
-    "totalSalesAmount": 1500000,
-    "refundedAmount": 50000,
-    "commissionAmount": 150000,
-    "commissionRate": 10.0,
-    "netAmount": 1300000,
-    "status": "COMPLETED",
-    "paymentDetails": [
-      {
-        "paymentId": 3001,
-        "orderId": 1001,
-        "amount": 54000,
-        "commission": 5400,
-        "netAmount": 48600,
-        "paidAt": "2026-03-05T14:30:00Z"
-      }
-    ],
-    "settledAt": "2026-03-18T00:00:00Z",
-    "paidOutAt": null
-  }
-}
-```
-
-**2. 클라이언트 오류 — 존재하지 않는 정산**
-
-Status Code: `404 Not Found`
-
-```json
-{
-  "status": 404,
-  "code": "SETTLEMENT_NOT_FOUND",
-  "message": "해당 정산 건을 찾을 수 없습니다.",
-  "data": null
-}
-```
-
-**3. 권한 오류**
-
-Status Code: `403 Forbidden`
-
-```json
-{
-  "status": 403,
-  "code": "FORBIDDEN",
-  "message": "해당 정산 정보에 대한 접근 권한이 없습니다.",
-  "data": null
-}
-```
-
-**4. 인증 오류**
-
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
-  "data": null
-}
-```
-
-**5. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
-}
-```
-
----
-
-### `POST /payment/settlement/payout` — 출금 신청
-
-정산된 금액의 출금을 신청합니다.
-
-#### Request
-
-Request Header:
-
-| 헤더 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `Content-Type` | string | O | `application/json` |
-| `Authorization` | string | O | Bearer access token (판매자) |
-
-Request Body:
-
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `settlementIds` | number[] | O | 출금 대상 정산 ID 배열 |
-| `bankCode` | string | O | 출금 은행 코드 |
-| `bankAccount` | string | O | 출금 계좌번호 |
-| `accountHolder` | string | O | 예금주명 |
-
-Request Body Example:
-
-```json
-{
-  "settlementIds": [8001, 8002],
-  "bankCode": "004",
-  "bankAccount": "123-456-789012",
-  "accountHolder": "홍길동"
-}
-```
-
-#### Response
-
-**1. 요청 성공**
-
-Status Code: `200 OK`
-
-```json
-{
-  "status": 200,
-  "code": "PAYOUT_REQUESTED",
-  "message": "출금이 성공적으로 신청되었습니다.",
-  "data": {
-    "payoutId": 9001,
-    "totalAmount": 2650000,
-    "bankCode": "004",
-    "bankAccount": "***-***-***012",
-    "accountHolder": "홍길동",
-    "payoutStatus": "PROCESSING",
-    "estimatedArrival": "2026-03-20T00:00:00Z",
-    "requestedAt": "2026-03-18T16:00:00Z"
-  }
-}
-```
-
-**2. 클라이언트 오류 — 출금 가능 금액 없음**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "NO_PAYABLE_AMOUNT",
-  "message": "출금 가능한 정산 금액이 없습니다.",
-  "data": null
-}
-```
-
-**3. 클라이언트 오류 — 정산 미완료 상태**
-
-Status Code: `409 Conflict`
-
-```json
-{
-  "status": 409,
-  "code": "SETTLEMENT_NOT_READY",
-  "message": "아직 정산이 완료되지 않은 건이 포함되어 있습니다.",
-  "data": {
-    "pendingSettlementIds": [8002]
-  }
-}
-```
-
-**4. 클라이언트 오류 — 잘못된 계좌 정보**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "INVALID_ACCOUNT_INFO",
-  "message": "계좌 정보가 유효하지 않습니다.",
-  "data": null
-}
-```
-
-**5. 클라이언트 오류 — 최소 출금 금액 미달**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "BELOW_MINIMUM_PAYOUT",
-  "message": "최소 출금 금액(1,000원) 이상부터 출금할 수 있습니다.",
-  "data": {
-    "minimumAmount": 1000,
-    "requestedAmount": 500
-  }
-}
-```
-
-**6. 인증 오류**
-
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
-  "data": null
-}
-```
-
-**7. 권한 오류**
-
-Status Code: `403 Forbidden`
-
-```json
-{
-  "status": 403,
-  "code": "FORBIDDEN",
-  "message": "출금 신청 권한이 없습니다.",
-  "data": null
-}
-```
-
-**8. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
-}
-```
-
----
-
-### `GET /payment/settlement/summary` — 정산 요약
-
-판매자의 정산 현황 요약 정보를 조회합니다.
-
-#### Request
-
-Request Header:
-
-| 헤더 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `Authorization` | string | O | Bearer access token (판매자) |
-
-Query String:
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `period` | string | X | 조회 기간 (`week`, `month`, `quarter`, `year`) (기본값: `month`) |
-
-#### Response
-
-**1. 요청 성공**
-
-Status Code: `200 OK`
-
-```json
-{
-  "status": 200,
-  "code": "SUCCESS",
-  "message": "정산 요약 조회에 성공했습니다.",
-  "data": {
-    "period": "month",
-    "totalSalesAmount": 5200000,
-    "totalRefundedAmount": 200000,
-    "totalCommission": 500000,
-    "totalNetAmount": 4500000,
-    "pendingSettlement": 1200000,
-    "availablePayout": 3300000,
-    "paidOutAmount": 0,
-    "settlementCount": {
-      "pending": 2,
-      "settled": 5,
-      "paidOut": 0
-    }
-  }
-}
-```
-
-**2. 클라이언트 오류 — 잘못된 기간 값**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "INVALID_PERIOD",
-  "message": "유효하지 않은 조회 기간입니다. (허용값: week, month, quarter, year)",
+  "code": "DEPOSIT_INSUFFICIENT_BALANCE",
+  "message": "예치금 잔액이 부족합니다.",
   "data": null
 }
 ```
 
 **3. 인증 오류**
 
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
-  "data": null
-}
-```
-
-**4. 권한 오류**
-
 Status Code: `403 Forbidden`
 
 ```json
 {
   "status": 403,
   "code": "FORBIDDEN",
-  "message": "판매자만 정산 요약을 조회할 수 있습니다.",
-  "data": null
-}
-```
-
-**5. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
+  "message": "내부 서비스 인증에 실패했습니다.",
   "data": null
 }
 ```
 
 ---
 
-### `POST /payment/commission` — 수수료 정책 등록
+### `POST /internal/deposit/refund` — 예치금 환급
 
-수수료 정책을 등록합니다. 관리자 전용 API입니다.
+내부 환급 처리 API입니다. 외부 공개 환불 API(`POST /payment/{paymentId}/refund`)와 별개로, payment-service 내부에서 보상 트랜잭션 시 사용됩니다.
 
 #### Request
 
@@ -1172,157 +625,28 @@ Request Header:
 
 | 헤더 | 타입 | 필수 | 설명 |
 |------|------|------|------|
+| `X-Internal-Secret` | string | O | 내부 서비스 인증 시크릿 |
 | `Content-Type` | string | O | `application/json` |
-| `Authorization` | string | O | Bearer access token (관리자) |
 
 Request Body:
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `name` | string | O | 수수료 정책명 |
-| `type` | string | O | 수수료 유형 (`PERCENTAGE`, `FIXED`) |
-| `rate` | number | 조건부 | 수수료율 (%) (type이 `PERCENTAGE`일 때 필수, 0~100) |
-| `fixedAmount` | number | 조건부 | 고정 수수료 금액 (type이 `FIXED`일 때 필수) |
-| `categoryId` | number | X | 적용 카테고리 ID (미입력 시 전체 카테고리 적용) |
-| `effectiveFrom` | string | O | 적용 시작일 (형식: `YYYY-MM-DD`) |
-| `effectiveTo` | string | X | 적용 종료일 (형식: `YYYY-MM-DD`, 미입력 시 무기한) |
+| `memberId` | UUID | O | 환급 대상 회원 ID |
+| `orderId` | UUID | O | 환급 원인 주문 ID |
+| `amount` | number | O | 환급 금액 |
+| `description` | string | X | 환급 사유 |
 
 Request Body Example:
 
 ```json
 {
-  "name": "기본 판매 수수료",
-  "type": "PERCENTAGE",
-  "rate": 10.0,
-  "categoryId": null,
-  "effectiveFrom": "2026-04-01",
-  "effectiveTo": null
+  "memberId": "550e8400-e29b-41d4-a716-446655440000",
+  "orderId": "550e8400-e29b-41d4-a716-446655440001",
+  "amount": 50000,
+  "description": "재고 부족으로 인한 결제 취소"
 }
 ```
-
-#### Response
-
-**1. 요청 성공**
-
-Status Code: `201 Created`
-
-```json
-{
-  "status": 201,
-  "code": "COMMISSION_CREATED",
-  "message": "수수료 정책이 성공적으로 등록되었습니다.",
-  "data": {
-    "commissionId": 101,
-    "name": "기본 판매 수수료",
-    "type": "PERCENTAGE",
-    "rate": 10.0,
-    "effectiveFrom": "2026-04-01"
-  }
-}
-```
-
-**2. 클라이언트 오류 — 기간 중복**
-
-Status Code: `409 Conflict`
-
-```json
-{
-  "status": 409,
-  "code": "COMMISSION_PERIOD_OVERLAP",
-  "message": "동일 카테고리에 적용 기간이 중복되는 수수료 정책이 존재합니다.",
-  "data": {
-    "conflictingCommissionId": 99
-  }
-}
-```
-
-**3. 클라이언트 오류 — 유효하지 않은 수수료율**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "INVALID_COMMISSION_RATE",
-  "message": "수수료율은 0에서 100 사이여야 합니다.",
-  "data": null
-}
-```
-
-**4. 클라이언트 오류 — 필수 필드 누락**
-
-Status Code: `400 Bad Request`
-
-```json
-{
-  "status": 400,
-  "code": "MISSING_REQUIRED_FIELD",
-  "message": "필수 입력 항목이 누락되었습니다.",
-  "data": {
-    "missingFields": ["name", "type"]
-  }
-}
-```
-
-**5. 인증 오류**
-
-Status Code: `401 Unauthorized`
-
-```json
-{
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
-  "data": null
-}
-```
-
-**6. 권한 오류**
-
-Status Code: `403 Forbidden`
-
-```json
-{
-  "status": 403,
-  "code": "FORBIDDEN",
-  "message": "관리자만 수수료 정책을 등록할 수 있습니다.",
-  "data": null
-}
-```
-
-**7. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
-}
-```
-
----
-
-### `GET /payment/commission` — 수수료 정책 조회
-
-수수료 정책 목록을 조회합니다.
-
-#### Request
-
-Request Header:
-
-| 헤더 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `Authorization` | string | O | Bearer access token |
-
-Query String:
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `categoryId` | number | X | 특정 카테고리의 수수료 정책 필터링 |
-| `activeOnly` | boolean | X | 현재 적용 중인 정책만 조회 (기본값: `true`) |
 
 #### Response
 
@@ -1333,63 +657,25 @@ Status Code: `200 OK`
 ```json
 {
   "status": 200,
-  "code": "SUCCESS",
-  "message": "수수료 정책 조회에 성공했습니다.",
+  "code": "DEPOSIT_REFUNDED",
+  "message": "예치금이 환급되었습니다.",
   "data": {
-    "commissions": [
-      {
-        "commissionId": 101,
-        "name": "기본 판매 수수료",
-        "type": "PERCENTAGE",
-        "rate": 10.0,
-        "fixedAmount": null,
-        "categoryId": null,
-        "categoryName": "전체",
-        "effectiveFrom": "2026-04-01",
-        "effectiveTo": null,
-        "isActive": true
-      },
-      {
-        "commissionId": 102,
-        "name": "전자기기 수수료",
-        "type": "PERCENTAGE",
-        "rate": 8.0,
-        "fixedAmount": null,
-        "categoryId": 10,
-        "categoryName": "전자기기",
-        "effectiveFrom": "2026-04-01",
-        "effectiveTo": "2026-12-31",
-        "isActive": true
-      }
-    ]
+    "depositId": "d4e5f6a7-b8c9-0123-defa-234567890123",
+    "balanceAfter": 100000
   }
 }
 ```
 
 **2. 인증 오류**
 
-Status Code: `401 Unauthorized`
+Status Code: `403 Forbidden`
 
 ```json
 {
-  "status": 401,
-  "code": "UNAUTHORIZED",
-  "message": "인증이 필요합니다.",
+  "status": 403,
+  "code": "FORBIDDEN",
+  "message": "내부 서비스 인증에 실패했습니다.",
   "data": null
 }
 ```
 
-**3. 서버 오류**
-
-Status Code: `500 Internal Server Error`
-
-```json
-{
-  "status": 500,
-  "code": "INTERNAL_SERVER_ERROR",
-  "message": "요청을 처리하는 도중 서버에서 문제가 발생했습니다.",
-  "data": null
-}
-```
-
----
