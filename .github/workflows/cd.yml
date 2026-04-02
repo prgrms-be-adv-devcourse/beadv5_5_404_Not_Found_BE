@@ -110,6 +110,7 @@ jobs:
             TOSS_FAIL_URL=${{ secrets.TOSS_FAIL_URL }}
             ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}
             ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
+            GATEWAY_URL=${{ secrets.GATEWAY_URL }}
             ENVEOF
             cat > /home/ec2-user/app/docker/.env << 'ENVEOF'
             DB_USERNAME=${{ secrets.DB_USERNAME }}
