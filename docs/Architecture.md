@@ -188,14 +188,18 @@ service-name/
 
 ---
 
-### DB 분리 전략
+### DB 전략
 
-각 서비스는 독립된 PostgreSQL 데이터베이스를 사용합니다 (Database per Service 패턴).
+모든 서비스는 단일 PostgreSQL 인스턴스의 동일한 DB(`bookcommerce`)를 공유합니다.
+테이블 네이밍과 서비스별 접근 경로를 분리해 논리적 격리를 유지합니다.
+물리적 DB 분리(Database per Service)는 트래픽 증가 시 적용할 수 있는 다음 단계로 남겨뒀습니다.
 
-| 서비스 | DB | 주요 테이블 |
-|--------|-----|------------|
-| Member | member_db | MEMBER, ADDRESS, SELLER, REFRESH_TOKEN, TOKEN_BLACKLIST, PROCESSED_DEPOSIT_TRANSACTION |
-| Product | product_db | PRODUCT, CATEGORY |
-| Order | order_db | ORDER, ORDER_ITEM, CART, CART_ITEM, SHIPMENT |
-| Payment | payment_db | PAYMENT, DEPOSIT |
-| Settlement | settlement_db | SETTLEMENT_TARGET, SETTLEMENT, PROCESSED_EVENTS, SHEDLOCK |
+> 실제 연결: `jdbc:postgresql://postgres:5432/bookcommerce` (전 서비스 동일)
+
+| 서비스 | 주요 테이블 |
+|--------|------------|
+| Member | MEMBER, ADDRESS, SELLER, REFRESH_TOKEN, TOKEN_BLACKLIST, PROCESSED_DEPOSIT_TRANSACTION |
+| Product | PRODUCT, CATEGORY |
+| Order | ORDER, ORDER_ITEM, CART, CART_ITEM, SHIPMENT |
+| Payment | PAYMENT, DEPOSIT |
+| Settlement | SETTLEMENT_TARGET, SETTLEMENT, PROCESSED_EVENTS, SHEDLOCK |
