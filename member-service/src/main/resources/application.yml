@@ -37,5 +37,7 @@ internal:
 springdoc:
   swagger-ui:
     path: /swagger-ui/index.html
+    config-url: /member/v3/api-docs/swagger-config
+    url: /member/v3/api-docs
   api-docs:
     path: /v3/api-docs
