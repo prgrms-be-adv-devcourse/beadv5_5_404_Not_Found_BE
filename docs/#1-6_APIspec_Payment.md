@@ -38,7 +38,7 @@
 | 예치금 충전 동기화 | POST | /internal/member/{memberId}/deposit/charge | member-service | 충전/환급 후 AFTER_COMMIT 잔액 동기화 |
 
 > payment-service가 결제 완료 후 order-service 내부 API를 호출하여 주문 상태를 PAID로 변경합니다.
-> order-service는 PAID 수신 후 단일 트랜잭션 내에서 PAID → DELIVERED → PURCHASE_CONFIRMED 처리 및 Kafka 이벤트 발행합니다.
+> order-service는 PAID 수신 후 단일 트랜잭션 내에서 PAID→SHIPPING→DELIVERED→PURCHASE_CONFIRMED 처리 및 Kafka 이벤트 발행합니다.
 
 ### Notes
 
