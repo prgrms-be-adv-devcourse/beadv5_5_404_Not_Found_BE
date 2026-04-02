@@ -44,6 +44,7 @@ internal:
   secret-key: ${INTERNAL_SECRET_KEY}
 
 springdoc:
+  override-server-url: ${GATEWAY_URL:http://localhost:8080}/api/settlement
   swagger-ui:
     path: /swagger-ui/index.html
     config-url: /settlement/v3/api-docs/swagger-config

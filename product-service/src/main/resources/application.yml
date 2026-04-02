@@ -26,6 +26,7 @@ internal:
   secret: ${INTERNAL_SECRET_KEY}
 
 springdoc:
+  override-server-url: ${GATEWAY_URL:http://localhost:8080}/api/product
   swagger-ui:
     path: /swagger-ui/index.html
     config-url: /product/v3/api-docs/swagger-config
