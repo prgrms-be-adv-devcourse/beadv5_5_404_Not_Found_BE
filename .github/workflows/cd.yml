@@ -7,18 +7,58 @@ on:
   workflow_dispatch:
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.set.outputs.services }}
+      any: ${{ steps.set.outputs.any }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed services
+        uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'push'
+        with:
+          filters: |
+            eureka-server:
+              - 'eureka-server/**'
+            gateway-service:
+              - 'gateway-service/**'
+            member-service:
+              - 'member-service/**'
+            product-service:
+              - 'product-service/**'
+            order-service:
+              - 'order-service/**'
+            payment-service:
+              - 'payment-service/**'
+            settlement-service:
+              - 'settlement-service/**'
+
+      - name: Set services to deploy
+        id: set
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SERVICES='["eureka-server","gateway-service","member-service","product-service","order-service","payment-service","settlement-service"]'
+          else
+            SERVICES='${{ steps.filter.outputs.changes }}'
+          fi
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
+          if [ "$SERVICES" = "[]" ] || [ -z "$SERVICES" ]; then
+            echo "any=false" >> $GITHUB_OUTPUT
+          else
+            echo "any=true" >> $GITHUB_OUTPUT
+          fi
+
   build-and-push:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.any == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service:
-          - eureka-server
-          - gateway-service
-          - member-service
-          - product-service
-          - order-service
-          - payment-service
-          - settlement-service
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
 
     steps:
       - name: Checkout
@@ -44,7 +84,8 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   deploy:
-    needs: build-and-push
+    needs: [detect-changes, build-and-push]
+    if: needs.detect-changes.outputs.any == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -58,4 +99,4 @@ jobs:
           script: |
             cd /home/ec2-user/app
             git pull origin main
-            bash scripts/deploy.sh
+            bash scripts/deploy.sh '${{ needs.detect-changes.outputs.services }}'
