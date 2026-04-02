@@ -20,21 +20,21 @@
 | 주문 생성 | POST | /order | ✅ | ★ | 주문 생성 (PENDING 상태, 결제 미포함) |
 | 주문 목록 조회 | GET | /order | ✅ | | 주문 리스트 |
 | 주문 상세 조회 | GET | /order/{orderId} | ✅ | | 주문 상세 |
-| 주문 취소 | POST | /order/{orderId}/cancel | 🟡 | | 주문 취소 (PENDING 🟢 / PAID·CONFIRMED 재고 복원 STUB 🔴) |
-| 구매확정 | POST | /order/{orderId}/confirm | ✅ | | 구매확정 (DELIVERED → PURCHASE_CONFIRMED) |
+| 주문 취소 | POST | /order/{orderId}/cancel | 🟡 | | 주문 취소 (PENDING 🟢 / PAID·CONFIRMED 예치금 환급 🟢 + 재고 복원 🔴 STUB) |
+| 구매확정 | POST | /order/{orderId}/confirm | ✅ | | 구매확정 (DELIVERED → PURCHASE_CONFIRMED). 🟡 현재 PAID 시 자동 전이 운영 중 |
 | 반품 신청 | POST | /order/{orderId}/return | ✅ | | 반품 요청 |
-| 송장 등록/배송 정보 수정 | PATCH | /order/{orderId}/shipment | ✅ | | 송장/배송 수정 |
+| 송장 등록/배송 정보 수정 | PATCH | /order/{orderId}/shipment | ✅ | | 🟡 배송 모듈 미분리 — order-service 내 포함 |
 
 ### Notes
 
 - **Cart Item Stock Check**: 장바구니에 상품을 추가할 때는 재고를 확인하지 않습니다. 어떤 상품이든 추가할 수 있습니다.
 - **Cart Item Latest Info**: 장바구니 조회 시 상품의 최신 가격과 재고 정보를 함께 반환합니다. 가격 변동 또는 품절 여부를 표시합니다.
 - **Cart**: 장바구니는 회원 전용 기능입니다. 비회원 장바구니는 지원하지 않습니다.
-- **Order Status**: 주문은 생성 시점에 PENDING 상태입니다. 결제 완료(`POST /payment/orders/{orderId}/pay`) 후 PAID로 전환됩니다. 유효한 상태: PENDING, PAID, CONFIRMED, SHIPPING, DELIVERED, PURCHASE_CONFIRMED, CANCELLED
+- **Order Status**: 주문은 생성 시점에 PENDING 상태입니다. 결제 완료(`POST /payment/orders/{orderId}/pay`) 후 PAID로 전환됩니다. 🟡 **현재 PAID → DELIVERED → PURCHASE_CONFIRMED 자동 전이 운영 중** (배송 모듈 미분리). 유효한 상태: PENDING, PAID, CONFIRMED(🟡 미사용), SHIPPING, DELIVERED, PURCHASE_CONFIRMED, CANCELLED
 - **Order-Payment Separation**: `POST /order`는 주문 정보만 생성(PENDING)합니다. 실제 결제(재고 차감 + 예치금 차감)는 payment-service의 `POST /payment/orders/{orderId}/pay`가 담당합니다.
 - **Purchase Confirm**: 배송 완료(DELIVERED) 후 구매자가 수동 확정하거나, 7일 경과 시 스케줄러가 자동으로 PURCHASE_CONFIRMED로 전환합니다. 전환 시 PurchaseConfirmedEvent(Kafka)를 발행하여 Settlement 서비스가 정산 대상을 생성합니다.
 - **Payment**: 모든 상품 결제는 예치금만 사용합니다. PG는 예치금 충전(POST /payment/deposit/charge/*) 시에만 사용됩니다.
-- **Stock**: 재고 차감은 REST 동기 호출로 처리됩니다 (payment-service → product-service). 재고 복원 엔드포인트는 미구현(STUB).
+- **Stock**: 재고 차감은 REST 동기 호출로 처리됩니다 (payment-service → product-service). 🔴 재고 복원 엔드포인트(`POST /internal/products/stock/restore`)는 미노출 — order-service STUB(log.warn만 출력).
 
 ---
 
@@ -60,27 +60,17 @@ Status Code: `200 OK`
   "code": "CART_FETCH_SUCCESS",
   "message": "장바구니 조회에 성공했습니다.",
   "data": {
-    "cartId": 1,
+    "cartId": "550e8400-e29b-41d4-a716-446655440010",
     "items": [
       {
-        "cartItemId": 1,
-        "productId": 101,
-        "productName": "도서 A",
-        "price": 15000,
-        "quantity": 2,
-        "stock": 10,
-        "imageUrl": "https://example.com/book-a.jpg",
-        "sellerId": 11
+        "cartItemId": "550e8400-e29b-41d4-a716-446655440011",
+        "productId": "550e8400-e29b-41d4-a716-446655440101",
+        "quantity": 2
       },
       {
-        "cartItemId": 2,
-        "productId": 102,
-        "productName": "도서 B",
-        "price": 22000,
-        "quantity": 1,
-        "stock": 3,
-        "imageUrl": "https://example.com/book-b.jpg",
-        "sellerId": 12
+        "cartItemId": "550e8400-e29b-41d4-a716-446655440012",
+        "productId": "550e8400-e29b-41d4-a716-446655440102",
+        "quantity": 1
       }
     ]
   }
@@ -166,8 +156,8 @@ Status Code: `201 Created`
   "code": "CART_ITEM_CREATE_SUCCESS",
   "message": "장바구니에 상품이 추가되었습니다.",
   "data": {
-    "cartItemId": 1,
-    "productId": 101,
+    "cartItemId": "550e8400-e29b-41d4-a716-446655440011",
+    "productId": "550e8400-e29b-41d4-a716-446655440101",
     "quantity": 2
   }
 }
@@ -250,7 +240,7 @@ Path Variable:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `cartItemId` | number | O | 수정할 장바구니 항목 ID |
+| `cartItemId` | UUID | O | 수정할 장바구니 항목 ID |
 
 Request Header:
 
@@ -284,7 +274,7 @@ Status Code: `200 OK`
   "code": "CART_ITEM_UPDATE_SUCCESS",
   "message": "장바구니 수량이 수정되었습니다.",
   "data": {
-    "cartItemId": 1,
+    "cartItemId": "550e8400-e29b-41d4-a716-446655440011",
     "quantity": 3
   }
 }
@@ -367,7 +357,7 @@ Path Variable:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `cartItemId` | number | O | 삭제할 장바구니 항목 ID |
+| `cartItemId` | UUID | O | 삭제할 장바구니 항목 ID |
 
 Request Header:
 
@@ -527,7 +517,7 @@ Query String:
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
 | `cartItemIds` | string | X | 선택 구매할 장바구니 항목 ID (쉼표로 구분) |
-| `productId` | number | X | 단일 상품 ID (productId + quantity로 직구매) |
+| `productId` | UUID | X | 단일 상품 ID (productId + quantity로 직구매) |
 | `quantity` | number | X | 상품 수량 (productId와 함께 사용) |
 
 #### Response
@@ -545,8 +535,8 @@ Status Code: `200 OK`
     "checkoutId": "chk_20260320_001",
     "items": [
       {
-        "cartItemId": 1,
-        "productId": 101,
+        "cartItemId": "550e8400-e29b-41d4-a716-446655440011",
+        "productId": "550e8400-e29b-41d4-a716-446655440101",
         "productName": "도서 A",
         "price": 15000,
         "quantity": 2,
@@ -554,8 +544,8 @@ Status Code: `200 OK`
         "imageUrl": "https://example.com/book-a.jpg"
       },
       {
-        "cartItemId": 2,
-        "productId": 102,
+        "cartItemId": "550e8400-e29b-41d4-a716-446655440012",
+        "productId": "550e8400-e29b-41d4-a716-446655440102",
         "productName": "도서 B",
         "price": 22000,
         "quantity": 1,
@@ -567,7 +557,7 @@ Status Code: `200 OK`
     "shippingFee": 3000,
     "addresses": [
       {
-        "addressId": 1,
+        "addressId": "550e8400-e29b-41d4-a716-446655440001",
         "recipient": "홍길동",
         "phone": "01012345678",
         "address": "서울특별시 강남구 테헤란로 1 101동 1001호",
@@ -592,7 +582,7 @@ Status Code: `200 OK`
     "checkoutId": "chk_20260320_002",
     "items": [
       {
-        "productId": 101,
+        "productId": "550e8400-e29b-41d4-a716-446655440101",
         "productName": "도서 A",
         "price": 15000,
         "quantity": 1,
@@ -604,7 +594,7 @@ Status Code: `200 OK`
     "shippingFee": 2500,
     "addresses": [
       {
-        "addressId": 1,
+        "addressId": "550e8400-e29b-41d4-a716-446655440001",
         "recipient": "홍길동",
         "phone": "01012345678",
         "address": "서울특별시 강남구 테헤란로 1 101동 1001호",
@@ -675,10 +665,10 @@ Request Body:
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | `items` | object[] | O | 주문 항목 배열 (최소 1개) |
-| `items[].productId` | number | O | 상품 ID |
+| `items[].productId` | UUID | O | 상품 ID |
 | `items[].quantity` | number | O | 수량 (1 이상) |
-| `items[].cartItemId` | number | X | 장바구니 항목 ID (장바구니 구매 시) |
-| `addressId` | number | O | 배송지 ID |
+| `items[].cartItemId` | UUID | X | 장바구니 항목 ID (장바구니 구매 시) |
+| `addressId` | UUID | O | 배송지 ID |
 
 Request Body Example:
 
@@ -686,17 +676,17 @@ Request Body Example:
 {
   "items": [
     {
-      "productId": 101,
+      "productId": "550e8400-e29b-41d4-a716-446655440101",
       "quantity": 2,
-      "cartItemId": 1
+      "cartItemId": "550e8400-e29b-41d4-a716-446655440011"
     },
     {
-      "productId": 102,
+      "productId": "550e8400-e29b-41d4-a716-446655440102",
       "quantity": 1,
-      "cartItemId": 2
+      "cartItemId": "550e8400-e29b-41d4-a716-446655440012"
     }
   ],
-  "addressId": 1
+  "addressId": "550e8400-e29b-41d4-a716-446655440001"
 }
 ```
 
@@ -706,11 +696,11 @@ Request Body Example:
 {
   "items": [
     {
-      "productId": 101,
+      "productId": "550e8400-e29b-41d4-a716-446655440101",
       "quantity": 1
     }
   ],
-  "addressId": 1
+  "addressId": "550e8400-e29b-41d4-a716-446655440001"
 }
 ```
 
@@ -726,21 +716,21 @@ Status Code: `201 Created`
   "code": "ORDER_CREATED",
   "message": "주문이 완료되었습니다.",
   "data": {
-    "orderId": 1001,
+    "orderId": "550e8400-e29b-41d4-a716-446655441001",
     "orderNumber": "20260320-000001",
     "orderStatus": "PAID",
     "items": [
       {
-        "orderItemId": 1,
-        "productId": 101,
+        "orderItemId": "550e8400-e29b-41d4-a716-446655440201",
+        "productId": "550e8400-e29b-41d4-a716-446655440101",
         "productName": "도서 A",
         "price": 15000,
         "quantity": 2,
         "subtotal": 30000
       },
       {
-        "orderItemId": 2,
-        "productId": 102,
+        "orderItemId": "550e8400-e29b-41d4-a716-446655440202",
+        "productId": "550e8400-e29b-41d4-a716-446655440102",
         "productName": "도서 B",
         "price": 22000,
         "quantity": 1,
@@ -769,7 +759,7 @@ Status Code: `409 Conflict`
   "data": {
     "insufficientItems": [
       {
-        "productId": 101,
+        "productId": "550e8400-e29b-41d4-a716-446655440101",
         "productName": "도서 A",
         "requestedQuantity": 10,
         "availableStock": 5
@@ -805,7 +795,7 @@ Status Code: `404 Not Found`
   "code": "PRODUCT_NOT_FOUND",
   "message": "상품을 찾을 수 없습니다.",
   "data": {
-    "invalidProductIds": [999]
+    "invalidProductIds": ["550e8400-e29b-41d4-a716-446655440999"]
   }
 }
 ```
@@ -909,14 +899,14 @@ Status Code: `200 OK`
   "data": {
     "content": [
       {
-        "orderId": 1001,
+        "orderId": "550e8400-e29b-41d4-a716-446655441001",
         "orderNumber": "20260318-000001",
         "orderStatus": "CONFIRMED",
         "totalAmount": 55000,
         "createdAt": "2026-03-18T10:00:00"
       },
       {
-        "orderId": 1002,
+        "orderId": "550e8400-e29b-41d4-a716-446655441002",
         "orderNumber": "20260317-000014",
         "orderStatus": "DELIVERED",
         "totalAmount": 22000,
@@ -967,7 +957,7 @@ Path Variable:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `orderId` | number | O | 조회할 주문 ID |
+| `orderId` | UUID | O | 조회할 주문 ID |
 
 Request Header:
 
@@ -987,7 +977,7 @@ Status Code: `200 OK`
   "code": "ORDER_DETAIL_FETCH_SUCCESS",
   "message": "주문 상세 조회에 성공했습니다.",
   "data": {
-    "orderId": 1001,
+    "orderId": "550e8400-e29b-41d4-a716-446655441001",
     "orderNumber": "20260318-000001",
     "orderStatus": "CONFIRMED",
     "recipient": "홍길동",
@@ -995,8 +985,8 @@ Status Code: `200 OK`
     "address": "서울특별시 강남구 테헤란로 1 101동 1001호",
     "items": [
       {
-        "orderItemId": 1,
-        "productId": 101,
+        "orderItemId": "550e8400-e29b-41d4-a716-446655440201",
+        "productId": "550e8400-e29b-41d4-a716-446655440101",
         "productName": "도서 A",
         "price": 15000,
         "quantity": 2,
@@ -1059,7 +1049,7 @@ Path Variable:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `orderId` | number | O | 취소할 주문 ID |
+| `orderId` | UUID | O | 취소할 주문 ID |
 
 Request Header:
 
@@ -1079,7 +1069,7 @@ Request Body Example:
 ```json
 {
   "reason": "상품 파손",
-  "orderItemIds": [1, 2]
+  "orderItemIds": ["550e8400-e29b-41d4-a716-446655440201", "550e8400-e29b-41d4-a716-446655440202"]
 }
 ```
 
@@ -1095,9 +1085,9 @@ Status Code: `201 Created`
   "code": "RETURN_REQUEST_SUCCESS",
   "message": "반품 신청이 접수되었습니다.",
   "data": {
-    "orderId": 1001,
+    "orderId": "550e8400-e29b-41d4-a716-446655441001",
     "returnStatus": "PENDING",
-    "orderItemIds": [1, 2]
+    "orderItemIds": ["550e8400-e29b-41d4-a716-446655440201", "550e8400-e29b-41d4-a716-446655440202"]
   }
 }
 ```
@@ -1160,7 +1150,9 @@ Status Code: `500 Internal Server Error`
 
 ### `POST /order/{orderId}/confirm` — 구매확정
 
-배송 완료(DELIVERED) 상태의 주문을 구매확정(PURCHASE_CONFIRMED)으로 전환합니다. 전환 시 `PurchaseConfirmedEvent`(Kafka)를 발행하여 Payment 서비스가 정산 대상(`settlement_target`)을 생성합니다.
+> 🟡 **현재 자동 전이 운영 중** — 배송 모듈 미분리 상태이므로 결제 완료(PAID) 시 DELIVERED → PURCHASE_CONFIRMED까지 자동 전이. 아래는 배송 모듈 분리 후 사용될 수동 확정 API.
+
+배송 완료(DELIVERED) 상태의 주문을 구매확정(PURCHASE_CONFIRMED)으로 전환합니다. 전환 시 `PurchaseConfirmedEvent`(Kafka)를 발행하여 Settlement 서비스가 정산 대상(`settlement_target`)을 생성합니다.
 
 > 자동 확정: 배송 완료 후 7일 경과 시 스케줄러가 자동 전환합니다. 이 API는 수동 확정용입니다.
 
@@ -1170,7 +1162,7 @@ Path Variable:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `orderId` | number | O | 구매확정할 주문 ID |
+| `orderId` | UUID | O | 구매확정할 주문 ID |
 
 Request Header:
 
@@ -1190,7 +1182,7 @@ Status Code: `200 OK`
   "code": "PURCHASE_CONFIRM_SUCCESS",
   "message": "구매확정이 완료되었습니다.",
   "data": {
-    "orderId": 1001,
+    "orderId": "550e8400-e29b-41d4-a716-446655441001",
     "orderStatus": "PURCHASE_CONFIRMED",
     "confirmedAt": "2026-03-27T10:00:00Z"
   }
@@ -1261,7 +1253,7 @@ Path Variable:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `orderId` | number | O | 반품 신청할 주문 ID |
+| `orderId` | UUID | O | 반품 신청할 주문 ID |
 
 Request Header:
 
@@ -1281,7 +1273,7 @@ Request Body Example:
 ```json
 {
   "reason": "상품 파손",
-  "orderItemIds": [1, 2]
+  "orderItemIds": ["550e8400-e29b-41d4-a716-446655440201", "550e8400-e29b-41d4-a716-446655440202"]
 }
 ```
 
@@ -1297,9 +1289,9 @@ Status Code: `201 Created`
   "code": "RETURN_REQUEST_SUCCESS",
   "message": "반품 신청이 접수되었습니다.",
   "data": {
-    "orderId": 1001,
+    "orderId": "550e8400-e29b-41d4-a716-446655441001",
     "returnStatus": "PENDING",
-    "orderItemIds": [1, 2]
+    "orderItemIds": ["550e8400-e29b-41d4-a716-446655440201", "550e8400-e29b-41d4-a716-446655440202"]
   }
 }
 ```
@@ -1368,7 +1360,7 @@ Path Variable:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `orderId` | number | O | 배송 정보를 수정할 주문 ID |
+| `orderId` | UUID | O | 배송 정보를 수정할 주문 ID |
 
 Request Header:
 
@@ -1406,7 +1398,7 @@ Status Code: `200 OK`
   "code": "SHIPMENT_UPDATE_SUCCESS",
   "message": "배송 정보가 수정되었습니다.",
   "data": {
-    "orderId": 1001,
+    "orderId": "550e8400-e29b-41d4-a716-446655441001",
     "carrier": "CJ대한통운",
     "trackingNumber": "1234567890",
     "shipmentStatus": "SHIPPED"

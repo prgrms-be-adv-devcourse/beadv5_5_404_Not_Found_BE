@@ -88,9 +88,9 @@
 | 주문 목록 조회 | GET | /order | ✅ | | 주문 리스트 |
 | 주문 상세 조회 | GET | /order/{orderId} | ✅ | | 주문 상세 |
 | 주문 취소 | POST | /order/{orderId}/cancel | 🟡 | | 주문 취소 (PENDING 🟢 / PAID·CONFIRMED 재고 복원 STUB 🔴) |
-| 구매확정 | POST | /order/{orderId}/confirm | ✅ | | 구매확정 (DELIVERED → PURCHASE_CONFIRMED) |
+| 구매확정 | POST | /order/{orderId}/confirm | ✅ | | 구매확정 (DELIVERED → PURCHASE_CONFIRMED). 🟡 현재 PAID 시 자동 전이 운영 중 |
 | 반품 신청 | POST | /order/{orderId}/return | ✅ | | 반품 요청 |
-| 송장 등록/배송 정보 수정 | PATCH | /order/{orderId}/shipment | ✅ | | 송장/배송 수정 |
+| 송장 등록/배송 정보 수정 | PATCH | /order/{orderId}/shipment | ✅ | | 🟡 배송 모듈 미분리 — order-service 내 포함 |
 
 ---
 
@@ -113,7 +113,7 @@
 
 ## 📌 Settlement API (정산 — 별도 서비스)
 
-> 상세: [#1-6_APIspec_Payment.md](#1-6_APIspec_Payment.md)
+> 상세: [#1-7_APIspec_Settlement.md](#1-7_APIspec_Settlement.md)
 
 | 기능 | Method | Endpoint | 구현 | 필수 | 설명 |
 |------|--------|----------|:---:|:---:|------|

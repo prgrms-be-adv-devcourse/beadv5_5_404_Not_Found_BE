@@ -236,7 +236,7 @@ sequenceDiagram
     end
 ```
 
-> **주의**: 재고 복원(`POST /internal/products/stock/restore`)은 product-service에 엔드포인트 미노출 상태. order-service `ProductServiceClient.restoreStock()`은 STUB으로 log.warn만 출력.
+> 🔴 **주의**: 재고 복원(`POST /internal/products/stock/restore`)은 product-service에 엔드포인트 미노출 상태. order-service `ProductServiceClient.restoreStock()`은 STUB으로 log.warn만 출력. PAID/CONFIRMED 취소 시 재고 복원 불가.
 
 ---
 
@@ -245,8 +245,8 @@ sequenceDiagram
 | 상태 | 설명 |
 |------|------|
 | `PENDING` | 결제 대기 (주문 생성 직후, 30분 경과 시 자동 취소) |
-| `PAID` | 결제 완료 (payment-service → order-service 상태 변경) |
-| `CONFIRMED` | 주문 확정 (판매자 확인 — 현재 미사용) |
+| `PAID` | 결제 완료 (payment-service → order-service 상태 변경). 🟡 현재 PAID → DELIVERED → PURCHASE_CONFIRMED 자동 전이 운영 중 (배송 모듈 미분리) |
+| `CONFIRMED` | 주문 확정 (🟡 미사용 — 판매자 주문 승인 플로우 미구현) |
 | `SHIPPING` | 배송 중 |
 | `DELIVERED` | 배송 완료 |
 | `PURCHASE_CONFIRMED` | 구매확정 → confirmed_at 기록, PurchaseConfirmedEvent Kafka 발행 → settlement-service 정산 대상 생성 |

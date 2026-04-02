@@ -57,10 +57,30 @@ spring:
                 - Path=/product/swagger-ui/**, /product/v3/api-docs/**
               filters:
                 - StripPrefix=1
+            - id: settlement-swagger
+              uri: lb://settlement-service
+              predicates:
+                - Path=/settlement/swagger-ui/**, /settlement/v3/api-docs/**
+              filters:
+                - StripPrefix=1
             - id: webjars
               uri: lb://member-service
               predicates:
                 - Path=/webjars/**
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: member
+        url: /member/v3/api-docs
+      - name: product
+        url: /product/v3/api-docs
+      - name: order
+        url: /order/v3/api-docs
+      - name: payment
+        url: /payment/v3/api-docs
+      - name: settlement
+        url: /settlement/v3/api-docs
 
 eureka:
   client:

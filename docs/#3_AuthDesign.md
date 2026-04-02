@@ -137,14 +137,14 @@ Client → Gateway → Member Service
    - 8자 이상 20자 이하
    - 영문 대소문자 + 숫자 + 특수문자 각 1자 이상 포함
 4. 비밀번호 BCrypt 해싱 저장
-5. MEMBER 생성: role = USER, status = ACTIVE, email_verified = false
+5. MEMBER 생성: role = USER, status = ACTIVE, email_verified = true (🟡 이메일 인증 미구현 — 현재 가입 시 true 자동 설정으로 임시 운영 중)
 6. Access Token + Refresh Token 발급 (Member Service에서 발급)
 7. Refresh Token SHA-256 해시 → REFRESH_TOKEN INSERT
-8. Access Token은 응답 바디, Refresh Token은 HttpOnly Cookie로 반환
-9. 이메일 인증 이벤트 발행 (Spring Event) → 인증 메일 발송
+8. Access Token + Refresh Token 모두 응답 바디로 반환
+9. MemberRegisteredEvent 발행 (Spring Event)
 ```
 
-> 가입 직후 `email_verified = false` 상태이므로 이메일 인증 완료 전까지 상품 조회 외 모든 기능은 사용할 수 없습니다.
+> 🟡 이메일 인증 미구현 — 현재 가입 시 `email_verified = true`로 자동 설정. 추후 이메일 인증 기능 구현 시 false로 변경 필요.
 
 ### 4.2 로그인
 
@@ -156,7 +156,7 @@ Client → Gateway → Member Service
 3. BCrypt 검증: 입력 비밀번호 vs MEMBER.password_hash
 4. Access Token + Refresh Token 발급 (Member Service에서 발급)
 5. REFRESH_TOKEN INSERT
-6. Access Token은 응답 바디, Refresh Token은 HttpOnly Cookie로 반환
+6. Access Token + Refresh Token 모두 응답 바디로 반환
 ```
 
 > 동시 로그인을 허용합니다. 기기별로 독립된 Refresh Token이 발급되며, 동일 `member_id`로 여러 행이 공존할 수 있습니다. 만료된 행은 스케줄러가 주기적으로 삭제합니다.

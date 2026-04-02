@@ -45,7 +45,7 @@ Status Code: `200 OK`
   "code": "MEMBER_INFO_FETCH_SUCCESS",
   "message": "내 정보 조회에 성공했습니다.",
   "data": {
-    "memberId": 1,
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
     "email": "user@example.com",
     "name": "홍길동",
     "phone": "01012345678",
@@ -123,7 +123,7 @@ Status Code: `200 OK`
   "code": "MEMBER_UPDATE_SUCCESS",
   "message": "회원 정보가 수정되었습니다.",
   "data": {
-    "memberId": 1,
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
     "name": "김길동",
     "phone": "01099998888"
   }
@@ -195,7 +195,7 @@ Status Code: `200 OK`
   "code": "DEPOSIT_BALANCE_FOUND",
   "message": "예치금 잔액을 조회했습니다.",
   "data": {
-    "memberId": 1,
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
     "depositBalance": 50000
   }
 }
@@ -332,7 +332,7 @@ Status Code: `200 OK`
   "message": "배송지 목록 조회에 성공했습니다.",
   "data": [
     {
-      "addressId": 1,
+      "addressId": "550e8400-e29b-41d4-a716-446655440001",
       "recipient": "홍길동",
       "phone": "01012345678",
       "zipcode": "06236",
@@ -341,7 +341,7 @@ Status Code: `200 OK`
       "isDefault": true
     },
     {
-      "addressId": 2,
+      "addressId": "550e8400-e29b-41d4-a716-446655440002",
       "recipient": "홍길동",
       "phone": "01011112222",
       "zipcode": "04524",
@@ -427,7 +427,7 @@ Status Code: `201 Created`
   "code": "ADDRESS_CREATE_SUCCESS",
   "message": "배송지가 등록되었습니다.",
   "data": {
-    "addressId": 1
+    "addressId": "550e8400-e29b-41d4-a716-446655440001"
   }
 }
 ```
@@ -483,7 +483,7 @@ Path Variable:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `addressId` | number | O | 수정할 배송지 ID |
+| `addressId` | UUID | O | 수정할 배송지 ID |
 
 Request Header:
 
@@ -523,7 +523,7 @@ Status Code: `200 OK`
   "code": "ADDRESS_UPDATE_SUCCESS",
   "message": "배송지 정보가 수정되었습니다.",
   "data": {
-    "addressId": 1
+    "addressId": "550e8400-e29b-41d4-a716-446655440001"
   }
 }
 ```
@@ -577,7 +577,7 @@ Path Variable:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `addressId` | number | O | 삭제할 배송지 ID |
+| `addressId` | UUID | O | 삭제할 배송지 ID |
 
 Request Header:
 
@@ -685,7 +685,7 @@ Status Code: `201 Created`
   "code": "SELLER_APPLY_SUCCESS",
   "message": "판매자 등록 신청이 완료되었습니다.",
   "data": {
-    "memberId": 1,
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
     "sellerStatus": "PENDING"
   }
 }
@@ -719,7 +719,20 @@ Status Code: `400 Bad Request`
 }
 ```
 
-**4. 서버 오류**
+**4. 클라이언트 오류 — 인증 실패**
+
+Status Code: `401 Unauthorized`
+
+```json
+{
+  "status": 401,
+  "code": "UNAUTHORIZED",
+  "message": "인증이 필요합니다.",
+  "data": null
+}
+```
+
+**5. 서버 오류**
 
 Status Code: `500 Internal Server Error`
 
@@ -742,7 +755,7 @@ Path Variable:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `memberId` | number | O | 조회할 회원 ID |
+| `memberId` | UUID | O | 조회할 회원 ID |
 
 #### Response
 
@@ -756,7 +769,7 @@ Status Code: `200 OK`
   "code": "SELLER_INFO_FETCH_SUCCESS",
   "message": "판매자 정보 조회에 성공했습니다.",
   "data": {
-    "memberId": 1,
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
     "shopName": "북하이브 스토어",
     "businessNumber": "1234567890",
     "bankCode": "004",
@@ -803,7 +816,7 @@ Path Variable:
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `memberId` | number | O | 승인/거절할 회원 ID |
+| `memberId` | UUID | O | 승인/거절할 회원 ID |
 
 Request Header:
 
@@ -848,7 +861,7 @@ Status Code: `200 OK`
   "code": "SELLER_STATUS_UPDATE_SUCCESS",
   "message": "판매자 상태가 변경되었습니다.",
   "data": {
-    "memberId": 1,
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
     "sellerStatus": "APPROVED"
   }
 }
