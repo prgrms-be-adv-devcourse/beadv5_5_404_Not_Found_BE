@@ -124,17 +124,18 @@ Docker 네트워크 내부 URL:
 
 - 트리거: push → `main`, `workflow_dispatch` (수동 실행 가능)
 - 동작:
-  1. matrix 전략으로 7개 서비스 병렬 빌드 + Docker Hub 푸시 (`command_timeout: 없음, GitHub runner에서 처리`)
-  2. EC2 SSH 접속 (`command_timeout: 10m`)
-  3. `scripts/deploy.sh` 실행 (git pull → docker pull → docker-compose up → image prune)
+  1. `detect-changes`: `dorny/paths-filter`로 변경된 서비스 감지 → JSON 배열 출력
+  2. `build-and-push`: 변경된 서비스만 병렬 빌드 + Docker Hub 푸시 (dynamic matrix)
+  3. `deploy`: EC2 SSH 접속 → `scripts/deploy.sh` 실행 (변경된 서비스 목록 전달)
+- 비고: `workflow_dispatch` 수동 실행 시 7개 전부 배포
 
 ### 배포 스크립트 (`scripts/deploy.sh`)
 
 ```bash
-cd /home/ec2-user/app
-git pull origin main
-docker compose -f docker/docker-compose.prod.yml --env-file .env pull
-docker compose -f docker/docker-compose.prod.yml --env-file .env up -d --remove-orphans
+# JSON 배열 인자로 변경된 서비스 목록 수신 (예: ["member-service","order-service"])
+SERVICES=$(echo "$1" | tr -d '[]"' | tr ',' ' ')
+docker compose -f docker/docker-compose.prod.yml --env-file .env pull $SERVICES
+docker compose -f docker/docker-compose.prod.yml --env-file .env up -d --no-deps $SERVICES
 docker image prune -f
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
