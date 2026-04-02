@@ -3,8 +3,7 @@ FROM gradle:9.0.0-jdk21-alpine AS build
 WORKDIR /app
 
 COPY . .
-RUN --mount=type=cache,target=/root/.gradle,sharing=locked \
-    chmod +x ./gradlew && ./gradlew :member-service:bootJar -x test --no-daemon
+RUN chmod +x ./gradlew && ./gradlew :member-service:bootJar -x test --no-daemon
 
 # ── Stage 2: Run ─────────────────────────────────────────────────────────────
 FROM eclipse-temurin:21-jre-alpine
