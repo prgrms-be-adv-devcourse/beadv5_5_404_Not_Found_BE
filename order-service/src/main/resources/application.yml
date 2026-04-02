@@ -39,6 +39,7 @@ internal:
   secret-key: ${INTERNAL_SECRET_KEY}
 
 springdoc:
+  override-server-url: http://43.200.75.98/api/order
   swagger-ui:
     path: /swagger-ui/index.html
     config-url: /order/v3/api-docs/swagger-config

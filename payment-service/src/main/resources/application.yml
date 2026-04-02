@@ -26,6 +26,7 @@ internal:
   secret-key: ${INTERNAL_SECRET_KEY}
 
 springdoc:
+  override-server-url: http://43.200.75.98/api/payment
   swagger-ui:
     path: /swagger-ui/index.html
     config-url: /payment/v3/api-docs/swagger-config
