@@ -277,6 +277,42 @@ services:
 docker compose -f docker/docker-compose.yml --env-file .env up
 ```
 
+### 문제 5: EC2 재시작 후 컨테이너 미기동
+- **증상**: EC2 인스턴스 재시작 후 모든 서비스 `Exited` 상태
+- **원인**: `docker-compose.prod.yml`에 `restart` 정책 미설정
+- **해결**: 모든 서비스에 `restart: unless-stopped` 추가
+- **추가 조치**: EC2 재기동 후 수동 복구 절차 (아래 참고)
+
+### 문제 6: EC2 재시작 후 Kafka NodeExists 오류
+- **증상**: `KeeperErrorCode = NodeExists` — Kafka 브로커 등록 실패
+- **원인**: EC2 재시작 시 Zookeeper에 이전 세션의 `/brokers/ids/1` ephemeral 노드가 잔존
+- **해결**: Zookeeper에서 stale 노드 삭제 후 Kafka 재시작
+```bash
+docker exec bookcommerce-zookeeper zookeeper-shell zookeeper:2181 delete /brokers/ids/1
+docker compose -f docker-compose.prod.yml restart kafka
+```
+
+### 문제 7: EC2 재시작 후 .env 파일 유실
+- **증상**: `DB_USERNAME`, `DOCKERHUB_USERNAME` 변수 미인식
+- **원인**: `.env` 파일이 git에 포함되지 않아 EC2 재시작(또는 재클론) 시 유실
+- **해결**: EC2에서 수동으로 두 위치에 `.env` 재생성 필요
+```bash
+# docker compose 변수 치환용 (DOCKERHUB_USERNAME 등)
+cat > ~/app/docker/.env << 'EOF'
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DOCKERHUB_USERNAME=hoya517
+EOF
+
+# 컨테이너 런타임 환경변수용 (env_file: ../.env 참조)
+cat > ~/app/.env << 'EOF'
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DOCKERHUB_USERNAME=hoya517
+# 나머지 운영 시크릿 값 추가
+EOF
+```
+
 ---
 
 ## 향후 작업
@@ -289,4 +325,5 @@ docker compose -f docker/docker-compose.yml --env-file .env up
 - [x] 보안 그룹 설정 (포트 22, 80)
 - [x] EC2 Docker + git 설치 및 레포 클론
 - [x] main 머지 → CD 배포 확인
+- [x] EC2 재시작 후 자동 기동 설정 (`restart: unless-stopped`)
 - [ ] 도메인 확보 후 Nginx + HTTPS 추가

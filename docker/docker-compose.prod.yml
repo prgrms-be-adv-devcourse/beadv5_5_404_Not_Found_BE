@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16
     container_name: bookcommerce-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: bookcommerce
       POSTGRES_USER: ${DB_USERNAME}
@@ -19,6 +20,7 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: bookcommerce-zookeeper
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -28,6 +30,7 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: bookcommerce-kafka
+    restart: unless-stopped
     depends_on:
       - zookeeper
     environment:
@@ -47,6 +50,7 @@ services:
   eureka-server:
     image: ${DOCKERHUB_USERNAME}/bookcommerce-eureka-server:latest
     container_name: bookcommerce-eureka
+    restart: unless-stopped
     ports:
       - "8761:8761"
     env_file:
@@ -60,6 +64,7 @@ services:
   gateway-service:
     image: ${DOCKERHUB_USERNAME}/bookcommerce-gateway-service:latest
     container_name: bookcommerce-gateway
+    restart: unless-stopped
     ports:
       - "80:8080"
     env_file:
@@ -74,6 +79,7 @@ services:
   member-service:
     image: ${DOCKERHUB_USERNAME}/bookcommerce-member-service:latest
     container_name: bookcommerce-member
+    restart: unless-stopped
     env_file:
       - ../.env
     environment:
@@ -90,6 +96,7 @@ services:
   product-service:
     image: ${DOCKERHUB_USERNAME}/bookcommerce-product-service:latest
     container_name: bookcommerce-product
+    restart: unless-stopped
     env_file:
       - ../.env
     environment:
@@ -106,6 +113,7 @@ services:
   order-service:
     image: ${DOCKERHUB_USERNAME}/bookcommerce-order-service:latest
     container_name: bookcommerce-order
+    restart: unless-stopped
     env_file:
       - ../.env
     environment:
@@ -125,6 +133,7 @@ services:
   payment-service:
     image: ${DOCKERHUB_USERNAME}/bookcommerce-payment-service:latest
     container_name: bookcommerce-payment
+    restart: unless-stopped
     env_file:
       - ../.env
     environment:
@@ -141,6 +150,7 @@ services:
   settlement-service:
     image: ${DOCKERHUB_USERNAME}/bookcommerce-settlement-service:latest
     container_name: bookcommerce-settlement
+    restart: unless-stopped
     env_file:
       - ../.env
     environment:
