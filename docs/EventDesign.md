@@ -113,7 +113,7 @@ Spring Event는 별도의 adapter 없이 ApplicationEventPublisher와 EventListe
   "timestamp": "2026-03-30T12:00:00",
   "payload": {
     "orderId": "550e8400-e29b-41d4-a716-446655440001",
-    "memberId": "550e8400-e29b-41d4-a716-446655440002",
+    "sellerId": "550e8400-e29b-41d4-a716-446655440002",
     "totalAmount": 52000,
     "confirmedAt": "2026-03-30T12:00:00"
   }
@@ -121,6 +121,8 @@ Spring Event는 별도의 adapter 없이 ApplicationEventPublisher와 EventListe
 ```
 
 > `confirmedAt`은 settlement-service가 정산 집계 월 결정에 사용하므로 필수 (ISO 8601).
+> `sellerId`는 settlement-service가 SettlementTarget 생성 시 사용.
+> settlement-service DTO에 `orderItems[]` 필드가 존재하나 현재 producer가 발행하지 않아 null로 수신됨 (미사용, 향후 확장용).
 
 ---
 

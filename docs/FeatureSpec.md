@@ -275,48 +275,6 @@
 
 ## 서비스 간 통신
 
-> MSA 5개 서비스 (Member / Product / Order / Payment / Settlement) 구조로 도메인별 서버가 분리되어 있으며, 동기 통신은 REST API, 비동기 통신은 Kafka 이벤트를 사용합니다.
-
-### 동기 통신 (REST API)
-
-즉시 응답이 필요한 조회/검증 호출에 사용합니다.
-
-| 방향 | 목적 |
-|---|---|
-| Order → Product | 재고 및 가격 검증 |
-| Order → Member | 배송지 조회, 회원 상태 확인 |
-| Order → Payment | 예치금 차감/환급 (주문 취소 시) |
-| Payment → Product | 재고 차감 (결제 실행 시) |
-| Payment → Order | 주문 조회, 주문 상태 변경 (PENDING → PAID) |
-| Payment → Member | 회원 활성 확인, 예치금 잔액 조회/차감/충전 |
-| Settlement → Member | 판매자 계좌 정보 조회 (정산 시) |
-| Product → Member | 판매자 권한 및 상태 확인 |
-
-### 비동기 통신 (Kafka Event)
-
-상태 변경 알림 및 결과적 일관성(Eventual Consistency) 보장에 사용합니다.
-
-| 이벤트 | Producer | Consumer | 목적 |
-|--------|----------|----------|------|
-| PurchaseConfirmedEvent | Order | Settlement | 구매확정 → 정산 대상 생성 |
-
-> **Kafka에서 제외된 이벤트:**
-> - `StockDeductedEvent`, `StockRestoredEvent`: payment-service/order-service → product-service REST 동기 호출로 대체
-> - `OrderDeliveredEvent`: Review → Order REST 구매 이력 확인으로 대체
-> - `ReviewCreatedEvent`, `ReviewUpdatedEvent`, `ReviewDeletedEvent`: Review → Product REST 동기 호출로 대체 (평점 업데이트)
-> - `MemberRegisteredEvent`: Member 서비스 내부 Spring Event로 대체 (인증 메일 발송)
-
-### Spring Event (도메인 내부 비동기 처리)
-
-각 서비스 내부에서 Spring ApplicationEventPublisher를 사용하여 도메인 이벤트를 처리합니다.
-
-| 이벤트 | 발행 서비스 | 목적 |
-|--------|------------|------|
-| PurchaseConfirmedEvent | Order | 구매확정 시 Spring Event 발행 → AFTER_COMMIT에서 Kafka 전송 |
-| DepositChargedEvent | Payment | 예치금 충전 완료, member-service 잔액 동기화 |
-| DepositDeductedEvent | Payment | 예치금 차감 완료, member-service 잔액 동기화 |
-| DepositRefundedEvent | Payment | 예치금 환급 완료, member-service 잔액 동기화 |
-| SettlementCompletedEvent | Settlement | 정산 완료 반영 |
-| SettlementFailedEvent | Settlement | 정산 실패 추적 |
-| MemberRegisteredEvent | Member | 회원가입 완료 후 처리 |
-| SellerApprovedEvent | Member | 판매자 승인 → role SELLER 변경 |
+> 서비스 간 REST 통신 구조 및 이벤트 설계 상세는 아래 문서 참조
+> - 동기(REST) / 아키텍처 구성: [Architecture.md](Architecture.md)
+> - 비동기(Kafka / Spring Event): [EventDesign.md](EventDesign.md)

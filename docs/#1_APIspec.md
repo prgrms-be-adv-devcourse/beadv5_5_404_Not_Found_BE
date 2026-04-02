@@ -113,7 +113,7 @@
 
 ## 📌 Settlement API (정산 — 별도 서비스)
 
-> 상세: [#1-6_APIspec_Payment.md](#1-6_APIspec_Payment.md)
+> 상세: [#1-7_APIspec_Settlement.md](#1-7_APIspec_Settlement.md)
 
 | 기능 | Method | Endpoint | 구현 | 필수 | 설명 |
 |------|--------|----------|:---:|:---:|------|
