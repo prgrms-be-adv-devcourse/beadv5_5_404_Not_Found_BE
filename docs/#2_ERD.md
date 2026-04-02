@@ -39,7 +39,6 @@ erDiagram
     ADDRESS {
         UUID id PK "배송지 고유 식별자"
         UUID member_id FK "소유 회원"
-        VARCHAR_50 label "배송지 라벨 (HOME | OFFICE | ETC)"
         VARCHAR_100 recipient "수령인 이름"
         VARCHAR_20 phone "수령인 연락처"
         VARCHAR_10 zipcode "우편번호"

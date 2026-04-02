@@ -175,9 +175,9 @@ API: POST /order/cart/item
 US-O02: 장바구니 조회 ★ 🟢
 As a 구매자
 I want 장바구니를 조회하고 싶다
-So that 담은 상품의 최신 가격/재고/품절 여부를 확인할 수 있다
+So that 담은 상품 목록을 확인할 수 있다
 API: GET /order/cart
-구현: product-service에서 최신 가격/재고 조회, 품절/가격변동 표시
+구현: cartItemId, productId, quantity만 반환 (상품 상세 정보는 미포함)
 
 US-O03: 장바구니 수량 변경/삭제 🟢
 As a 구매자
@@ -228,12 +228,14 @@ API: POST /order/{id}/confirm
 - 구매확정 후 환불 불가
 - 배송 완료 후 7일 경과 시 AutoConfirmScheduler가 자동 전환
 - PurchaseConfirmedEvent Kafka 발행 → settlement-service 정산 대상 생성
+- 🟡 현재 PAID 시 DELIVERED → PURCHASE_CONFIRMED 자동 전이 운영 중 (배송 모듈 미분리)
 
 US-O09: 송장 등록 / 배송 상태 수정 🟢
 As a 판매자/관리자
 I want 주문의 송장번호와 배송 상태를 관리하고 싶다
 So that 구매자가 배송 현황을 확인할 수 있다
 API: PATCH /order/{id}/shipment
+구현: 🟡 배송 모듈 미분리 — 현재 order-service 내 shipment 엔드포인트로 처리 중
 
 US-O10: 반품 신청 🟢
 As a 구매자

@@ -54,9 +54,9 @@ Status Code: `201 Created`
   "code": "MEMBER_REGISTER_SUCCESS",
   "message": "회원가입이 완료되었습니다.",
   "data": {
-    "memberId": 1,
-    "email": "user@example.com",
-    "name": "홍길동"
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiJ9..."
   }
 }
 ```
@@ -137,9 +137,9 @@ Status Code: `200 OK`
   "code": "LOGIN_SUCCESS",
   "message": "로그인에 성공했습니다.",
   "data": {
-    "memberId": 1,
-    "name": "홍길동",
-    "role": "USER"
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiJ9..."
   }
 }
 ```
@@ -214,7 +214,11 @@ Status Code: `200 OK`
   "status": 200,
   "code": "TOKEN_REFRESH_SUCCESS",
   "message": "토큰이 재발급되었습니다.",
-  "data": null
+  "data": {
+    "memberId": "550e8400-e29b-41d4-a716-446655440000",
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiJ9..."
+  }
 }
 ```
 

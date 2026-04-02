@@ -9,7 +9,7 @@
 - 가입 시 기본값
   - role: USER
   - status: ACTIVE
-  - email_verified: true (임시 — 이메일 인증 기능 미구현으로 가입 시 true 설정. TODO: 구현 시 false로 변경)
+  - email_verified: true (🟡 이메일 인증 미구현 — 현재 가입 시 true 자동 설정으로 임시 운영 중. 추후 이메일 인증 기능 구현 시 false로 변경 필요)
   - deposit_balance: 0
 - 가입 완료 후 MemberRegisteredEvent 발행 (Spring Event)
 
@@ -120,24 +120,25 @@
 
 ## 3. 리뷰 모듈
 
+> 🔴 **review-service 전체 미구현** — product-service에 `avgRating`, `reviewCount` 필드만 존재 (기본값 0, 읽기 전용)
 > 기존 상품 모듈에서 분리된 독립 모듈입니다.
 
-### 3-1. 리뷰(별점) 등록
+### 3-1. 리뷰(별점) 등록 🔴
 - 구매 확정된 회원만 리뷰 작성 가능
   - 주문 모듈을 통해 구매 이력 확인
 - 별점(1~5)만 지원
 - 동일 상품에 대해 주문 건당 1개의 리뷰만 작성 가능
 
-### 3-2. 리뷰 조회
+### 3-2. 리뷰 조회 🔴
 - 상품별 별점 목록 조회
 - 상품별 평균 평점 및 리뷰 수 집계
 - 리뷰 조회는 로그인한 회원만 가능 (비회원 접근 불가)
 
-### 3-3. 리뷰 수정/삭제
+### 3-3. 리뷰 수정/삭제 🔴
 - 본인 작성 리뷰만 수정/삭제 가능
 - 삭제 시 평균 평점 재계산
 
-### 3-4. 다른 모듈에 제공하는 인터페이스
+### 3-4. 다른 모듈에 제공하는 인터페이스 🔴
 
 | 소비 모듈 | 인터페이스 |
 |---|---|
@@ -148,6 +149,9 @@
 ## 4. 주문 모듈
 
 ### 4-1. 장바구니
+
+> 🟡 카트 모듈 미분리 — 현재 order-service 내 포함, 추후 독립 모듈로 분리 필요
+
 - 회원당 장바구니 1개
 - 상품 추가, 수량 변경, 상품 삭제
 - 재고 제한 없이 담기 가능 - 품절 상품도 장바구니에 담을 수 있음
@@ -176,8 +180,8 @@
 ### 4-3. 주문 상태 관리
 - 주문 상태 흐름: `PENDING → PAID → CONFIRMED → SHIPPING → DELIVERED → PURCHASE_CONFIRMED`
 - PENDING: 결제 대기 (주문 생성 직후, 결제 실행 전. 30분 경과 시 PendingOrderCleanupScheduler가 자동 취소)
-- PAID: 결제 완료 (payment-service 결제 완료 후)
-- CONFIRMED: 주문 확정 (판매자 확인)
+- PAID: 결제 완료 (payment-service 결제 완료 후). 🟡 **현재 PAID → DELIVERED → PURCHASE_CONFIRMED 자동 전이 설정** — 배송 모듈 미분리 상태이므로 결제 완료 시 배송 완료·구매확정까지 자동 처리됨
+- CONFIRMED: 주문 확정 (🟡 **미사용** — 판매자 주문 승인 플로우 미구현, 추후 판매자 기능 확장 시 재검토)
 - SHIPPING: 배송 중
 - DELIVERED: 배송 완료
 - PURCHASE_CONFIRMED: 구매 확정 (수동 확정 또는 배송 완료 후 7일 경과 시 자동 전환)
@@ -197,16 +201,22 @@
 
 ### 4-4. 주문 취소
 - 취소 가능 상태: PENDING, PAID, CONFIRMED
-- PENDING 취소: 예치금 환급 없음, 재고 복원 없음 (아직 차감 전이므로 단순 상태 변경)
-- PAID/CONFIRMED 취소: 예치금 환급 + 재고 복원(REST) 필요
+- PENDING 취소: 예치금 환급 없음, 재고 복원 없음 (아직 차감 전이므로 단순 상태 변경) 🟢
+- PAID/CONFIRMED 취소: 예치금 환급 🟢 + 재고 복원 🔴 (STUB — `POST /internal/products/stock/restore` 엔드포인트 미노출, log.warn만 출력)
 - 주문 상태: `CANCELLED`
 
 ### 4-5. 배송 관리
+
+> 🟡 **배송 모듈 미분리** — 현재 order-service 내 shipment 엔드포인트로 처리 중, 추후 독립 모듈 분리 필요. 현재는 결제 완료 시 PAID → DELIVERED → PURCHASE_CONFIRMED 자동 전이로 운영 중.
+
 - 택배사 및 송장번호 등록
 - 배송 상태: `PREPARING → SHIPPED → IN_TRANSIT → DELIVERED → RETURNED`
 - 배송 상태 변경에 따른 주문 상태 연동
 
 ### 4-6. 구매확정
+
+> 🟡 **현재 자동 전이 운영 중** — 배송 모듈 미분리 상태이므로 결제 완료(PAID) 시 내부적으로 DELIVERED → PURCHASE_CONFIRMED까지 자동 전이. 수동 구매확정 API(`POST /order/{id}/confirm`)와 자동 확정 스케줄러(`AutoConfirmScheduler`)는 구현 완료.
+
 - `DELIVERED` 상태에서만 전환 가능
 - 구매확정 이후 환불 불가 — 환불 가능 기간은 `DELIVERED` 상태 구간으로 제한
 - 구매확정 전환 조건

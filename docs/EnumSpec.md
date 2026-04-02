@@ -53,15 +53,9 @@
 | `is_default` | `true` / `false` | 기본 배송지 여부 |
 | `is_deleted` | `true` / `false` | 소프트 삭제 여부 |
 
-### AddressLabelType — 배송지 라벨 (미구현)
+### ~~AddressLabelType — 배송지 라벨 (제거됨)~~
 
-| 값 | 설명 |
-|----|------|
-| `HOME` | 집 |
-| `OFFICE` | 회사 |
-| `ETC` | 기타 |
-
-> 코드에 enum 미구현. 현재 label은 String(VARCHAR_50)으로 자유 입력.
+> ERD에서 `label` 컬럼이 제거되어 해당 enum은 사용하지 않습니다.
 
 ---
 
@@ -128,8 +122,8 @@
 | 값 | 설명 | 전이 조건 |
 |----|------|----------|
 | `PENDING` | 결제 대기 | 주문 생성 시 기본값 |
-| `PAID` | 결제 완료 | payment-service 결제 완료 후 |
-| `CONFIRMED` | 주문 확정 | 판매자/시스템 확인 시 |
+| `PAID` | 결제 완료 | payment-service 결제 완료 후. 🟡 현재 PAID → DELIVERED → PURCHASE_CONFIRMED 자동 전이 운영 중 (배송 모듈 미분리) |
+| `CONFIRMED` | 주문 확정 (🟡 미사용 — 판매자 주문 승인 플로우 미구현) | 판매자/시스템 확인 시 |
 | `SHIPPING` | 배송 중 | 배송 시작 시 |
 | `DELIVERED` | 배송 완료 | 배송 완료 시 |
 | `PURCHASE_CONFIRMED` | 구매확정 | 수동 확정 또는 배송 완료 후 7일 경과 시 자동 전환 |
@@ -284,7 +278,6 @@
 
 | 상수 | 값 | 설명 |
 |------|-----|------|
-| `ADDRESS_LABEL_MAX_LENGTH` | `50` | 배송지 라벨 최대 길이 |
 | `RECIPIENT_MAX_LENGTH` | `100` | 수령인 최대 길이 |
 | `ZIPCODE_LENGTH` | `10` | 우편번호 최대 길이 |
 | `ADDRESS1_MAX_LENGTH` | `255` | 기본 주소 최대 길이 |

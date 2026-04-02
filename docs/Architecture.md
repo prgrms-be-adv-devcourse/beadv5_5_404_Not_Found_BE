@@ -59,8 +59,8 @@ flowchart TB
 
     subgraph ext[External]
         toss[Toss Payments API]
-        mail[Email Service]
-        ship[Delivery API]
+        mail[Email Service\n🟡 이메일 인증 미구현]
+        ship[Delivery API\n🟡 배송 모듈 미분리\n외부 연동 미구현]
     end
 
     %% Gateway → 각 서비스 라우팅
