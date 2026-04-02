@@ -34,8 +34,10 @@ admin:
 internal:
   secret: ${INTERNAL_SECRET_KEY}
 
+gateway:
+  url: ${GATEWAY_URL:http://localhost:8080}
+
 springdoc:
-  override-server-url: ${GATEWAY_URL:http://localhost:8080}/api/member
   swagger-ui:
     path: /swagger-ui/index.html
     config-url: /member/v3/api-docs/swagger-config

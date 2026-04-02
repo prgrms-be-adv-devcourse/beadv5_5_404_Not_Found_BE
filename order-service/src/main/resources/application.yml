@@ -38,8 +38,10 @@ order:
 internal:
   secret-key: ${INTERNAL_SECRET_KEY}
 
+gateway:
+  url: ${GATEWAY_URL:http://localhost:8080}
+
 springdoc:
-  override-server-url: ${GATEWAY_URL:http://localhost:8080}/api/order
   swagger-ui:
     path: /swagger-ui/index.html
     config-url: /order/v3/api-docs/swagger-config
