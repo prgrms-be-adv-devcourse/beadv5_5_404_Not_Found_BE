@@ -23,7 +23,7 @@
 | 기능 | Method | Endpoint | 구현 | 필수 | 설명 |
 |------|--------|----------|:---:|:---:|------|
 | 예치금 차감 | POST | /internal/deposit/deduct | ✅ | | payment-service 내부에서 직접 처리 (외부 호출자 없음) |
-| 예치금 환급 | POST | /internal/deposit/refund | ❌ | | 환불 기능 미구현 |
+| 예치금 환급 | POST | /internal/deposit/refund | ✅ | | 내부 환급 처리 API (외부 공개 환불 API와 별개) |
 
 ### Payment → 외부 서비스 내부 호출
 
@@ -56,8 +56,8 @@
 ## `POST /payment/orders/{orderId}/pay` — 예치금 결제 실행
 
 예치금으로 주문을 결제합니다.
-내부적으로 예치금 차감 → 재고 차감 → 주문 상태 PAID 변경이 단일 트랜잭션으로 처리됩니다.
-재고 차감 실패 시 예치금은 자동 환급됩니다.
+내부적으로 예치금 차감 → 재고 차감 → 주문 상태 PAID 변경 순으로 처리되며,
+재고 차감 실패 시 보상 트랜잭션(예치금 환급)을 수행합니다.
 
 ### Request
 
@@ -615,9 +615,9 @@ Status Code: `403 Forbidden`
 
 ---
 
-### `POST /internal/deposit/refund` — 예치금 환급 ❌ 미구현
+### `POST /internal/deposit/refund` — 예치금 환급
 
-환불 기능 미구현. 재고 차감 실패 시 보상 트랜잭션은 payment-service 내부(`PayOrderService`)에서 직접 처리됩니다.
+내부 환급 처리 API입니다. 외부 공개 환불 API(`POST /payment/{paymentId}/refund`)와 별개로, payment-service 내부에서 보상 트랜잭션 시 사용됩니다.
 
 #### Request
 
