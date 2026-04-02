@@ -19,6 +19,8 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           command_timeout: 40m
           script: |
+            docker system prune -f
+            docker builder prune -f
             cd /home/ec2-user/app
             git pull origin main
             bash scripts/deploy.sh
