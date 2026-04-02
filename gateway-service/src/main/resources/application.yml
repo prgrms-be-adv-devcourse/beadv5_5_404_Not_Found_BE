@@ -64,6 +64,20 @@ spring:
               filters:
                 - StripPrefix=1
 
+springdoc:
+  swagger-ui:
+    urls:
+      - name: member
+        url: /member/v3/api-docs
+      - name: order
+        url: /order/v3/api-docs
+      - name: payment
+        url: /payment/v3/api-docs
+      - name: product
+        url: /product/v3/api-docs
+      - name: settlement
+        url: /settlement/v3/api-docs
+
 eureka:
   client:
     service-url:
