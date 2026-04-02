@@ -11,7 +11,7 @@
 - 상품 결제는 무조건 예치금으로만 가능하다 (예치금 부족 시 결제 불가)
 - 주문 생성(`POST /order`)과 결제 실행(`POST /payment/orders/{orderId}/pay`)은 분리된다
 - 재고 차감은 결제 실행 시점에 payment-service가 product-service에 REST 동기 호출로 처리한다
-- 재고 차감 실패 시 예치금 차감 없이 즉시 예외 반환 (롤백 불필요)
+- 재고 차감 실패 시 예치금 환급(보상 트랜잭션) 후 예외 반환
 - 장바구니는 order-service 소속, 재고 제한 없이 담기 가능, 조회 시 품절/가격변동 표시
 - 총 금액은 서버에서 계산한다 (클라이언트 금액 신뢰하지 않음)
 - PENDING 주문은 30분 경과 시 자동 취소 (PendingOrderCleanupScheduler)
@@ -81,18 +81,19 @@ sequenceDiagram
         Client->>Payment: POST /payment/orders/{orderId}/pay
         Payment->>Order: GET /internal/order/{orderId} (주문 조회)
         Order-->>Payment: orderId, status, totalAmount, items
-        Payment->>Product: POST /internal/products/stock/deduct (재고 차감)
-        alt 재고 부족
-            Product-->>Payment: 재고 부족
-            Payment-->>Client: 결제 실패 (재고 부족)
-        else 재고 충분
-            Product-->>Payment: 차감 완료
-            Payment->>Member: POST /internal/member/{id}/deposit/deduct (예치금 차감)
-            alt 예치금 부족
-                Member-->>Payment: 잔액 부족
-                Payment-->>Client: 결제 실패 (예치금 부족)
-            else 예치금 충분
-                Member-->>Payment: 차감 완료
+        Payment->>Member: POST /internal/member/{id}/deposit/deduct (예치금 차감)
+        alt 예치금 부족
+            Member-->>Payment: 잔액 부족
+            Payment-->>Client: 결제 실패 (예치금 부족)
+        else 예치금 충분
+            Member-->>Payment: 차감 완료
+            Payment->>Product: POST /internal/products/stock/deduct (재고 차감)
+            alt 재고 부족
+                Product-->>Payment: 재고 부족
+                Payment->>Member: POST /internal/member/{id}/deposit/charge (예치금 환급 — 보상 트랜잭션)
+                Payment-->>Client: 결제 실패 (재고 부족)
+            else 재고 충분
+                Product-->>Payment: 차감 완료
                 Payment->>Order: POST /internal/order/{orderId}/status (PAID)
                 Note over Order: PENDING→PAID→SHIPPING→DELIVERED→PURCHASE_CONFIRMED 자동 전이
                 Order->>Order: PurchaseConfirmedEvent 발행 (Spring Event → AFTER_COMMIT → Kafka)
@@ -132,17 +133,17 @@ flowchart TD
     CalcTotal --> CreateOrder[주문 생성 - PENDING<br/>응답: orderId]
     CreateOrder --> PayBtn[결제하기 버튼 클릭<br/>POST /payment/orders/{orderId}/pay]
 
-    PayBtn --> StockCheck{재고 차감 요청<br/>POST /internal/products/stock/deduct}
-
-    StockCheck -->|재고 부족| StockFail[결제 실패<br/>재고 부족 안내]
-    StockFail --> CheckoutPage
-
-    StockCheck -->|차감 성공| DepositCheck{예치금 차감<br/>POST /internal/member/{id}/deposit/deduct}
+    PayBtn --> DepositCheck{예치금 차감<br/>POST /internal/member/{id}/deposit/deduct}
 
     DepositCheck -->|잔액 부족| DepositFail[결제 실패<br/>예치금 부족 안내]
     DepositFail --> CheckoutPage
 
-    DepositCheck -->|잔액 충분| UpdateOrderStatus[주문 상태 PAID→PURCHASE_CONFIRMED 자동 전이<br/>POST /internal/order/{orderId}/status]
+    DepositCheck -->|잔액 충분| StockCheck{재고 차감 요청<br/>POST /internal/products/stock/deduct}
+
+    StockCheck -->|재고 부족| StockFail[결제 실패<br/>재고 부족 — 예치금 환급 보상 트랜잭션]
+    StockFail --> CheckoutPage
+
+    StockCheck -->|차감 성공| UpdateOrderStatus[주문 상태 PAID→PURCHASE_CONFIRMED 자동 전이<br/>POST /internal/order/{orderId}/status]
     UpdateOrderStatus --> KafkaPublish[PurchaseConfirmedEvent Kafka 발행<br/>→ settlement-service 정산 대상 생성]
     KafkaPublish --> Complete([결제 완료])
 ```
@@ -189,10 +190,10 @@ flowchart TD
 아래 순서로 처리한다:
 
 1. **주문 조회** → `GET /internal/order/{orderId}` (order-service)
-2. **재고 차감** → `POST /internal/products/stock/deduct` (product-service)
-   - 실패 시 즉시 예외 반환 (예치금 차감 이전이므로 롤백 불필요)
-3. **예치금 차감** → `POST /internal/member/{id}/deposit/deduct` (member-service)
-   - 실패 시 재고 롤백 필요 (payment-service에서 보상 처리)
+2. **예치금 차감** → `POST /internal/member/{id}/deposit/deduct` (member-service)
+   - 실패 시 즉시 예외 반환 (재고 차감 이전이므로 롤백 불필요)
+3. **재고 차감** → `POST /internal/products/stock/deduct` (product-service)
+   - 실패 시 예치금 환급 (payment-service 보상 트랜잭션)
 4. **주문 상태 PAID 변경** → `POST /internal/order/{orderId}/status` (order-service)
    - order-service 내부에서 PAID→SHIPPING→DELIVERED→PURCHASE_CONFIRMED 자동 전이
    - PURCHASE_CONFIRMED 전환 시 `PurchaseConfirmedEvent` Kafka 발행 (AFTER_COMMIT)
@@ -204,10 +205,10 @@ flowchart TD
 
 | 시점 | 실패 사유 | 처리 |
 |------|-----------|------|
-| 결제하기 버튼 | 재고 부족 | 품절 상품 안내, 결제 실패 (예치금 차감 없음) |
-| 결제하기 버튼 | 예치금 부족 | 잔액/부족 금액 안내, 결제 실패 |
+| 결제하기 버튼 | 예치금 부족 | 잔액/부족 금액 안내, 결제 실패 (재고 차감 없음) |
+| 결제하기 버튼 | 재고 부족 | 품절 상품 안내, 예치금 환급(보상 트랜잭션) 후 결제 실패 |
 
-재고 차감 → 예치금 차감 순서로 처리하므로, 재고 부족 시 예치금 롤백이 불필요하다.
+예치금 차감 → 재고 차감 순서로 처리하므로, 예치금 부족 시 재고 롤백이 불필요하다.
 
 ---
 
@@ -228,9 +229,8 @@ sequenceDiagram
         Order-->>Client: 취소 완료
     else PAID/CONFIRMED 상태
         Order->>Order: 상태 변경 → CANCELLED
-        Order->>Payment: POST /internal/deposit/refund (예치금 환급)
-        Payment->>Payment: 예치금 환급 + 거래 내역 기록 (type: REFUND)
-        Payment-->>Order: 환급 완료
+        Order->>Member: POST /internal/member/{id}/deposit/charge (예치금 환급)
+        Member-->>Order: 환급 완료
         Order->>Product: restoreStock (STUB — 미구현, log.warn만 출력)
         Order-->>Client: 취소 완료
     end
@@ -288,7 +288,7 @@ PATCH  /order/{orderId}/shipment           송장 등록 / 배송 상태 수정
 
 ### payment-service
 ```
-POST   /payment/orders/{orderId}/pay       결제 실행 (재고 차감 → 예치금 차감 → 주문 PAID)
+POST   /payment/orders/{orderId}/pay       결제 실행 (예치금 차감 → 재고 차감 → 주문 PAID)
 POST   /payment/deposit/charge/ready       예치금 충전 준비 (Toss PG)
 POST   /payment/deposit/charge/confirm     예치금 충전 확정
 GET    /payment/deposit/history            예치금 거래 내역 조회
@@ -301,8 +301,8 @@ POST   /internal/order/{orderId}/status    [order] 주문 상태 변경 → paym
 DELETE /internal/order/cart/{memberId}     [order] 장바구니 삭제 → payment
 POST   /internal/products/stock/deduct     [product] 재고 차감 → payment
 POST   /internal/products/stock/restore    [product] 재고 복원 → order (STUB 미구현)
-POST   /internal/deposit/deduct            [payment] 예치금 차감 → order
-POST   /internal/deposit/refund            [payment] 예치금 환급 → order
+POST   /internal/deposit/deduct            [payment] 예치금 차감 (payment 내부 처리, 외부 호출자 없음)
+POST   /internal/deposit/refund            [payment] 예치금 환급 (❌ 환불 미구현)
 POST   /internal/member/{id}/deposit/deduct  [member] 예치금 차감 → payment
 POST   /internal/member/{id}/deposit/charge  [member] 예치금 충전 → payment
 GET    /internal/member/{id}/address       [member] 배송지 조회 → order

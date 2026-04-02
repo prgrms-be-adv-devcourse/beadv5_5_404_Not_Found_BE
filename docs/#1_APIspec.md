@@ -107,7 +107,9 @@
 | 환불 요청 | POST | /payment/{paymentId}/refund | ❌ | | 미구현 |
 | PG 웹훅 수신 | POST | /payment/webhook/pg | ❌ | | 미구현 |
 
-> 설계 변경: 상품 결제는 예치금 전용. PG는 예치금 충전에만 사용. `POST /payment/ready`, `/payment/confirm` 등 PG 기반 주문 결제 API는 제거됨.
+> 상품 결제는 예치금 전용. PG(Toss)는 예치금 충전에만 사용.
+> 결제 실행 시 예치금 차감 → 재고 차감 → 주문 상태 PAID 순으로 처리되며, 재고 차감 실패 시 예치금 자동 환급(보상 트랜잭션).
+> `paymentKey`는 AES-256-GCM으로 암호화하여 DB 저장.
 
 ---
 

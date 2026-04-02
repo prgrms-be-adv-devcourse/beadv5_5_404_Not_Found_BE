@@ -257,9 +257,9 @@ I want 주문 금액을 예치금으로 결제하고 싶다
 So that 보유한 예치금으로 상품을 구매할 수 있다
 API: POST /payment/orders/{orderId}/pay
 구현:
-- payment-service가 재고 차감(product) → 예치금 차감(member) → 주문 PAID(order) 순서 처리
-- 재고 부족 시 예치금 차감 없이 즉시 실패
-- 예치금 부족 시 재고 롤백 후 실패
+- payment-service가 예치금 차감(member) → 재고 차감(product) → 주문 PAID(order) 순서 처리
+- 예치금 부족 시 재고 차감 없이 즉시 실패
+- 재고 부족 시 예치금 환급(보상 트랜잭션) 후 실패
 - 결제 성공 시 order-service 내부에서 PAID→PURCHASE_CONFIRMED 자동 전이
 ```
 
@@ -292,7 +292,7 @@ As a 구매자
 I want 취소된 주문에 대해 PG 환불을 받고 싶다
 So that 내가 결제한 금액을 돌려받을 수 있다
 API: POST /payment/{paymentId}/refund (미구현)
-현재: 예치금 환급은 order-service → payment-service POST /internal/deposit/refund로 처리 중
+현재: 예치금 환급은 order-service → member-service POST /internal/member/{id}/deposit/charge로 처리 중
 ```
 
 ---

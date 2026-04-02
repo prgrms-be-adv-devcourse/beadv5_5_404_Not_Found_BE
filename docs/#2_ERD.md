@@ -151,27 +151,17 @@ erDiagram
     }
     PAYMENT {
         UUID id PK "결제 고유 식별자"
-        UUID member_id FK "예치금 충전을 수행하는 회원"
-        UUID order_id FK "연관 주문 (UNIQUE)"
+        UUID member_id FK "결제 수행 회원"
+        UUID order_id "nullable - 미사용 (현재 DEPOSIT_CHARGE 목적만 존재, UNIQUE)"
         ENUM pg_provider "PG사 (TOSS)"
         INT amount "결제 금액"
         ENUM status "결제 상태 (PENDING | COMPLETED | FAILED | CANCELLED)"
-        VARCHAR_200 pg_transaction_id UK "PG 거래 식별자"
-        VARCHAR_500 payment_key "PG 결제키 (AES-256-GCM 암호화 저장)"
+        VARCHAR_200 pg_transaction_id UK "PG 거래 식별자 (nullable)"
+        VARCHAR_500 payment_key "PG 결제키 (AES-256-GCM 암호화 저장, nullable)"
         ENUM method "결제 방식 (PG | DEPOSIT)"
         ENUM purpose "결제 목적 (DEPOSIT_CHARGE)"
-        TIMESTAMP paid_at "결제 승인 시각"
+        TIMESTAMP paid_at "결제 승인 시각 (nullable)"
         VARCHAR_100 idempotency_key UK "중복 결제 방지 멱등키"
-    }
-    REFUND {
-        UUID id PK "환불 고유 식별자"
-        UUID payment_id FK "원 결제 건"
-        UUID order_item_id FK "환불 대상 주문 항목"
-        INT amount "환불 금액"
-        VARCHAR_255 reason "환불 사유"
-        ENUM status "환불 상태 (PENDING | COMPLETED | FAILED)"
-        VARCHAR_200 pg_refund_id "PG 환불 식별자"
-        TIMESTAMP refunded_at "환불 완료 시각"
     }
     SETTLEMENT_TARGET {
         UUID id PK "settlement_db (Settlement Service)"
@@ -225,13 +215,10 @@ erDiagram
     ORDER ||--|| SHIPMENT : ships_with
     ORDER ||--o{ DEPOSIT : "예치금 사용 이력"
 
-    PAYMENT ||--o{ REFUND : refunded_by
     PAYMENT ||--o{ DEPOSIT : "충전 결제 참조"
 
     ORDER ||--o{ SETTLEMENT_TARGET : "구매확정 시 생성"
     SETTLEMENT ||--o{ SETTLEMENT_TARGET : "월 정산 시 연결"
-
-    ORDER_ITEM ||--o{ REFUND : refunded_item
 ```
 
 ---
@@ -257,9 +244,7 @@ erDiagram
     SELLER ||--o{ ORDER_ITEM : fulfills
     ORDER ||--o{ SHIPMENT : ships
     ORDER ||--o{ DEPOSIT : uses
-    PAYMENT ||--o{ REFUND : has
     PAYMENT ||--o{ DEPOSIT : charges
-    ORDER_ITEM ||--o{ REFUND : for
     ORDER ||--o{ SETTLEMENT_TARGET : confirmed
     SETTLEMENT ||--o{ SETTLEMENT_TARGET : settles
     SELLER ||--o{ SETTLEMENT_TARGET : targets
