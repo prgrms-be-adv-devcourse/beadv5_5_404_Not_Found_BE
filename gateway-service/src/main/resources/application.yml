@@ -63,6 +63,10 @@ spring:
                 - Path=/settlement/swagger-ui/**, /settlement/v3/api-docs/**
               filters:
                 - StripPrefix=1
+            - id: swagger-ui
+              uri: lb://member-service
+              predicates:
+                - Path=/swagger-ui/**
             - id: webjars
               uri: lb://member-service
               predicates:
