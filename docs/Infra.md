@@ -118,20 +118,23 @@ Docker 네트워크 내부 URL:
 
 - 트리거: PR → `develop`, `main`
 - 동작: Gradle 빌드 + 테스트, 실패 시 merge 차단
+- 비고: 전체 서비스 테스트 포함 (issue #56, #58 해결로 임시 제외 옵션 제거)
 
 ### CD (`.github/workflows/cd.yml`)
 
-- 트리거: push → `main`
+- 트리거: push → `main`, `workflow_dispatch` (수동 실행 가능)
 - 동작:
-  1. EC2 SSH 접속
-  2. `scripts/deploy.sh` 실행 (git pull → docker-compose --build → image prune)
+  1. EC2 SSH 접속 (`command_timeout: 40m`)
+  2. `scripts/deploy.sh` 실행 (docker system prune → git pull → docker-compose --build → image prune)
 
 ### 배포 스크립트 (`scripts/deploy.sh`)
 
 ```bash
 git pull origin main
+docker system prune -f  # 빌드 전 디스크 공간 확보
 docker compose -f docker/docker-compose.prod.yml --env-file .env up --build -d --remove-orphans
 docker image prune -f
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
 
 ---
@@ -252,11 +255,16 @@ services:
 ### 문제 2: INTERNAL_SECRET_KEY 불일치
 - **증상**: `AssertionError` — 내부 API 인증 실패 (15개 테스트 실패)
 - **원인**: CI 환경변수 값이 테스트 코드 하드코딩 값과 다름
-  - CI 설정값: `test-internal-secret-key-for-ci`
+  - 잘못된 CI 설정값: `test-internal-secret-key-for-ci`
   - 테스트 코드: `test-internal-secret`
-- **해결**: CI 환경변수를 `test-internal-secret`으로 수정
+- **해결**: CI 환경변수를 `test-internal-secret`으로 수정 → **현재 ci.yml 반영 완료**
 
-### 문제 3: Docker Compose --env-file 누락
+### 문제 3: EC2 디스크 부족으로 빌드 실패
+- **증상**: `No space left on device` — Gradle wrapper unzip 중 실패
+- **원인**: 반복 배포로 Docker 이미지/캐시 누적
+- **해결**: `deploy.sh`에 빌드 전 `docker system prune -f` 추가
+
+### 문제 4: Docker Compose --env-file 누락
 - **증상**: `DB_USERNAME`, `DB_PASSWORD` 변수 미인식
 - **원인**: `-f docker/docker-compose.yml` 옵션 사용 시 루트 `.env` 자동 로딩 안 됨
 - **해결**: `--env-file .env` 명시적 지정 필요
