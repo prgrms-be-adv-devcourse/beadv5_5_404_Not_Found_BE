@@ -95,7 +95,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          command_timeout: 10m
+          command_timeout: 20m
           script: |
             cat > /home/ec2-user/app/.env << 'ENVEOF'
             DB_USERNAME=${{ secrets.DB_USERNAME }}
